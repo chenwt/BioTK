@@ -2,12 +2,13 @@ numpy
 scipy
 cython
 
-patsy
-statsmodels
-
-pandas
+pytz
 numexpr
 bottleneck
+pandas
+
+patsy
+statsmodels
 
 h5py
 
@@ -18,3 +19,5 @@ pyparsing
 networkx
 
 scikit-learn
+
+cement
