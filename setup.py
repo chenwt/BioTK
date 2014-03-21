@@ -171,7 +171,7 @@ setup(
     license="AGPLv3+",
 
     # Modules, data, extensions, and scripts to be installed
-    packages=find_packages(),
+    packages=find_packages(exclude=["ui"]),
     install_requires=requirements,
     include_dirs=[numpy.get_include()],
     tests_require=requirements + ["pytest"],
@@ -183,7 +183,7 @@ setup(
     ext_modules=extensions,
     entry_points={
         "console_scripts":
-        ["expression-db = BioTK.expression.meta_analysis:main"]
+        ["expression-db = BioTK.expression.db.cli:main"]
     },
 
     # setup.py entry points

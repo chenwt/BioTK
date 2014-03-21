@@ -13,3 +13,5 @@ __pycache__
 /dist
 
 /BioTK/version.py
+
+*.h5

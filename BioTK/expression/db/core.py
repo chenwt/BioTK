@@ -17,8 +17,8 @@ import pandas as pd
 import numpy as np
 
 import BioTK.util
-from BioTK.io import GEO, NCBI
-from .preprocess import quantile_normalize
+from BioTK.io import GEO, NCBI, generic_open
+from ..preprocess import quantile_normalize
 
 def _get_prefix(accession):
     return accession[:-3] + "nnn"
@@ -190,7 +190,7 @@ class ExpressionDB(object):
             handle = NCBI.download(url, decompress="gzip")
         else:
             path = accession_or_path
-            handle = gzip.open(path, "rt")
+            handle = generic_open(path)
 
         with handle:
             it = GEO.Family._parse_single(handle)
@@ -203,23 +203,3 @@ class ExpressionDB(object):
             platform = taxon._add_platform(geo_platform)
             platform._add_samples(geo_platform, it)
         return platform
-      
-def main(args):
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--db-path", "-d",
-            required=True)
-    parser.add_argument("soft_file", nargs="+")
-    args = parser.parse_args(args)
-
-    db = ExpressionDB(args.db_path)
-    for path in args.soft_file:
-        try:
-            db.add_family(path)
-        except:
-            pass
-
-if __name__ == "__main__":
-    import sys
-
-    main(sys.argv[1:])
