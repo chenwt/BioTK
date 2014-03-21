@@ -34,11 +34,15 @@ class Error(IOError):
     pass
 
 class Client(object):
+    # NOTE: Newer versions of ascp use asperaweb_id_dsa.openssh, 
+    #   whereas older ones use aspweraweb_id_dsa.putty
+    # The right way to handle this would be to figure out when it changed
+    # and detect ascp version.
     def __init__(self, 
             user="anonftp", 
             host="ftp-private.ncbi.nlm.nih.gov", 
             limit=200, # in MB
-            key_file="~/.aspera/connect/etc/asperaweb_id_dsa.putty"):
+            key_file="~/.aspera/connect/etc/asperaweb_id_dsa.openssh"):
         assert isinstance(limit, int)
 
         self._binary_path = _find_binary()
