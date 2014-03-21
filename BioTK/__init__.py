@@ -10,7 +10,7 @@ try:
 except ImportError:
     __version__ = "HEAD"
 
-def data(relpath):
+def data_path(relpath):
     """
     Get an absolute path to a data resource that comes packaged with BioTK.
     """
