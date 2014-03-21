@@ -6,9 +6,9 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-from BioTK.expression.meta_analysis import ExpressionDB
+from BioTK.expression import ExpressionDB
 
-def main(args):
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db-path", "-d",required=True)
     parser.add_argument("--entrez-gene-id", "-g", 
@@ -16,7 +16,7 @@ def main(args):
     parser.add_argument("--output-file", "-o")
     # also taxon ID (maybe), platform ID (optional), and/or
     # variable to be correlated, other gene accession types
-    args = parser.parse_args(args)
+    args = parser.parse_args()
     out = args.output_file or ("%s.png" % args.entrez_gene_id)
 
     db = ExpressionDB(args.db_path)
@@ -36,4 +36,4 @@ def main(args):
     plt.savefig(out)
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

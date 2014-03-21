@@ -8,7 +8,7 @@ import argparse
 
 from BioTK.io import MEDLINE
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("medline_xml_file", nargs="+")
     args = parser.parse_args()
@@ -22,3 +22,6 @@ if __name__ == "__main__":
                 if article.abstract:
                     text = " ".join([text, article.abstract])
                 print(article.id, text, sep="\t")
+
+if __name__ == "__main__":
+    main()

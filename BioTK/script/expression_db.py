@@ -1,6 +1,6 @@
 from cement.core import controller, foundation, handler
 
-from .core import ExpressionDB
+from BioTK.expression import ExpressionDB
 
 class BaseController(controller.CementBaseController):
     class Meta:

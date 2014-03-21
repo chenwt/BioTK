@@ -4,6 +4,9 @@ import shutil
 import subprocess
 import sys
 
+from os import walk
+from os.path import join, dirname, splitext
+
 from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test as TestCommand
 from pip.req import parse_requirements
@@ -83,8 +86,15 @@ cmdclass["clean"] = Clean
 # Find scripts and requirements
 ###############################
 
-scripts = [os.path.abspath("script/" + p) \
-           for p in os.listdir("script/") if os.path.isfile(p) and p != ".gitignore"]
+entry_points = {"console_scripts":[]}
+
+for root, dirs, files in os.walk(join(dirname(__file__), "BioTK", "script")):
+    for file in files:
+        if file.endswith(".py") and file != "__init__.py":
+            name = splitext(file)[0]
+            module = "BioTK.script.%s:main" % name
+            entry_points["console_scripts"].append("%s = %s" % 
+                    (name.replace("_", "-"), module))
 
 requirements = [str(item.req) for item in 
         parse_requirements("requirements.txt")]
@@ -179,12 +189,8 @@ setup(
         "doc": requirements,
         "mdb": ["mdbread"],
     },
-    scripts=scripts,
     ext_modules=extensions,
-    entry_points={
-        "console_scripts":
-        ["expression-db = BioTK.expression.db.cli:main"]
-    },
+    entry_points=entry_points,
 
     # setup.py entry points
     cmdclass=cmdclass
