@@ -8,6 +8,8 @@
 *.egg
 *.egg-info
 
+/.tox
+
 /build
 __pycache__
 /dist
