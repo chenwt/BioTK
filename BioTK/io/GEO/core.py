@@ -13,6 +13,7 @@ import itertools
 import io
 import os
 import re
+import sys
 import urllib.request
 
 import pandas as pd
@@ -118,7 +119,7 @@ class Family(object):
     @staticmethod
     def _parse_platform(handle):
         while True:
-            line = handle.__next__().strip()
+            line = handle.__next__()
             if line.startswith("!platform_table_begin"):
                 table = read_table(handle, "!platform_table_end")
                 break
@@ -141,28 +142,34 @@ class Family(object):
         platform = Family._parse_platform(handle)
         yield platform
 
-        for line in handle:
-            if line.startswith("^SAMPLE"):
-                attrs = collections.defaultdict(str)
-                accession = read_value(line)
+        while True:
+            try:
+                line = handle.__next__().strip()
+                if line.startswith("^SAMPLE"):
+                    attrs = collections.defaultdict(str)
+                    accession = read_value(line)
 
-            elif line.startswith("!Sample_"):
-                key = line.split(" = ")[0].lstrip("!Sample_")
-                value = read_value(line)
-                attrs[key] += value + "\n"
-            elif line.startswith("!sample_table_begin"):
-                expression = read_table(handle, "!sample_table_end")
-                expression = expression.set_index("ID_REF")["VALUE"]
-                if expression.dtype != float:
-                    expression = pd.Series(list(map(as_float, expression)), 
-                        index=expression.index)
+                elif line.startswith("!Sample_"):
+                    key = line.split(" = ")[0].lstrip("!Sample_")
+                    value = read_value(line)
+                    attrs[key] += value + "\n"
+                elif line.startswith("!sample_table_begin"):
+                    expression = read_table(handle, "!sample_table_end")
+                    expression = expression.set_index("ID_REF")["VALUE"]
+                    if expression.dtype != float:
+                        expression = pd.Series(list(map(as_float, expression)), 
+                            index=expression.index)
 
-                for k,v in attrs.items():
-                    attrs[k] = v.strip()
-                    if k in Family._TRANSFORMERS:
-                        attrs[k] = Family._TRANSFORMERS[k](v)
-                yield GSM(accession, expression, 
-                        attributes=dict(attrs.items()))
+                    for k,v in attrs.items():
+                        attrs[k] = v.strip()
+                        if k in Family._TRANSFORMERS:
+                            attrs[k] = Family._TRANSFORMERS[k](v)
+                    yield GSM(accession, expression, 
+                            attributes=dict(attrs.items()))
+            except StopIteration:
+                break
+            except Exception as e:
+                continue
 
     @staticmethod
     def parse(handle, limit=0, chunk_size=100):

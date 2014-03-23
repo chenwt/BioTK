@@ -61,11 +61,11 @@ class Platform(object):
     def attributes(self, summarize=True):
         P = self.samples
         if summarize:
-            pattern = "[Aa]ge:\s*(\d+)(-\d+)? weeks"
-            age = P["characteristics_ch1"].str.extract(pattern)\
-                    .iloc[:,0].astype(float)
+            pattern = "[Aa]ge:\s*(\d+)(-\d+)?"
+            c = P["characteristics_ch1"]
+            age = c.str.extract(pattern).iloc[:,0].astype(float)
             pattern = "[Tt]issue:\s*([A-Za-z ]+)"
-            tissue = P["characteristics_ch1"].str.extract(pattern)
+            tissue = c.str.extract(pattern)
             data = {"Age": age, "Tissue": tissue}
             return pd.DataFrame(data).dropna(axis=0, how="all")
         else:
