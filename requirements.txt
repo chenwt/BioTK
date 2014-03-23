@@ -1,6 +1,7 @@
 numpy
 scipy
 cython
+matplotlib
 
 pytz
 numexpr
