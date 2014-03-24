@@ -8,6 +8,7 @@ a BioTK.io.GEO.GPL object.
 """
 # TODO: Check for existence before returning Taxon, Platform, etc.
 
+import re
 import gzip
 import pickle
 from itertools import groupby
@@ -58,18 +59,27 @@ class Platform(object):
             X = quantile_normalize(X)
         return X
 
-    def attributes(self, summarize=True):
+    @property
+    def attributes(self):
+        """
+        Extract important per-sample attributes from the 
+        raw sample description text.
+        """
+        # TODO: figure out how to use pandas str.extract on this 
+
         P = self.samples
-        if summarize:
-            pattern = "[Aa]ge:\s*(\d+)(-\d+)?"
-            c = P["characteristics_ch1"]
-            age = c.str.extract(pattern).iloc[:,0].astype(float)
-            pattern = "[Tt]issue:\s*([A-Za-z ]+)"
-            tissue = c.str.extract(pattern)
-            data = {"Age": age, "Tissue": tissue}
-            return pd.DataFrame(data).dropna(axis=0, how="all")
-        else:
-            return P
+        c = P["characteristics_ch1"].fillna("")
+        records = []
+        age_re = re.compile(r"\b[Aa]ge(.+?)?:\s*(?P<age>\d+(\.\d+)?)")
+        tissue_re = re.compile(r"[Tt]issue:\s*([A-Za-z ]+)")
+        for s in c:
+            m = age_re.search(s)
+            age = float(m.group("age")) if m and m.group("age") else float("nan")
+            m = tissue_re.search(s)
+            tissue = m.group(1) if m else None
+            records.append((age, tissue))
+        return pd.DataFrame.from_records(records, index=P.index,
+                columns=["Age","Tissue"])
 
     def _sample_index(self):
         return dict(list(map(reversed, enumerate(self.samples.index))))
@@ -142,9 +152,9 @@ class Taxon(object):
         return self.platform(geo_platform.accession)
 
 class ExpressionDB(object):
-    def __init__(self, path):
+    def __init__(self, path, mode="a"):
         self._path = path
-        self._store = h5py.File(path, "a")
+        self._store = h5py.File(path, mode)
 
     def __del__(self):
         self.close()

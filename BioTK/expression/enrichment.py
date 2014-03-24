@@ -7,7 +7,7 @@ enrichment analysis, GSEA, rotation gene set analysis, etc.
 
 import pandas as pd
 import numpy as np
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_ind, fisher_exact
 
 import BioTK.expression
 
@@ -49,3 +49,33 @@ def roast_lite(X, C, p_grp, n_perm=100):
         "p Up" : p_up,
         "p Down" : p_down,
     }).ix[:,["n","t","p Up","p Down"]].sort("t")
+
+def simple(members, C, min_annotated=5):
+    """
+    Classic enrichment analysis based on Fisher's Exact Test.
+
+    members: :class:`pandas.Series`
+        A boolean Series, with 'interesting' transcripts marked as
+        True, and others False.
+    C : :class:`pandas.DataFrame`
+        Coefficient matrix - transcripts (rows) vs terms (columns)
+    """
+    # TODO: use chi2 if all cells > 5, otherwise FET?
+    C = C.ix[:,C.sum() >= min_annotated]
+    C, sel = C.astype(bool).align(members, join="inner", axis=0)
+
+    isect = C.apply(lambda c: (c & sel).sum())
+    sel_non_isect = sel.sum() - isect
+    non_sel_isect = C.apply(lambda c: (c & ~sel).sum())
+    total = C.shape[0]
+    non_sel_non_isect = total - (isect + sel_non_isect + non_sel_isect)
+    input = list(zip(zip(isect, sel_non_isect), 
+        zip(non_sel_isect, non_sel_non_isect)))
+
+    ea = pd.DataFrame.from_records([fisher_exact(x) for x in input], 
+            index=C.columns, 
+            columns=["Odds Ratio", "P-Value"])
+
+    ea["Hits"] = isect
+    ea["Annotated"] = C.sum()
+    return ea.ix[:,["Hits","Annotated","Odds Ratio","P-Value"]].sort("Odds Ratio", ascending=False)

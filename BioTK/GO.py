@@ -26,15 +26,6 @@ def _get_annotation(taxon_id):
     return df.ix[df["Taxon ID"] == taxon_id,:].ix[:,
         ["Term ID","Gene ID","Evidence"]].drop_duplicates()
 
-@BioTK.io.cache.RAMCache()
-def _get_ancestry_table(g):
-    rows = []
-    for n in g.nodes():
-        for ancestors in nx.dfs_successors(g, n).values():
-            for ancestor in ancestors:
-                rows.append((ancestor, n))
-    return pd.DataFrame(rows, columns=["Ancestor", "Descendant"])
-
 class GeneOntology(BioTK.io.OBO.Ontology):
     def __init__(self):
         path = BioTK.io.cache.download(GO)
@@ -61,10 +52,6 @@ class GeneOntology(BioTK.io.OBO.Ontology):
                 .fillna(0).astype(np.uint8)
 
     @property
-    def ancestry_table(self):
-        return _get_ancestry_table(self.to_graph())
-
-    @property
     def concepts(self):
         ts = self.terms
         ix = ts["Name"].str.match("^(?:positive|negative) regulation of",
@@ -77,14 +64,3 @@ class GeneOntology(BioTK.io.OBO.Ontology):
         ts["Directionality"] = coef
         return ts.reset_index().drop_duplicates().pivot(
                 "Term ID", "Concept", "Directionality").astype(np.float32)
-
-    def to_graph(self, taxon_id=None):
-        g = super(GeneOntology, self).to_graph()
-        if taxon_id:
-            for term in g.nodes():
-                g.node[term]["genes"] = set()
-
-            A = self.annotation(taxon_id)
-            for _, term, gene, evidence in A.to_records():
-                g.node[term]["genes"].add(gene)
-        return g

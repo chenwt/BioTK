@@ -17,8 +17,9 @@ def copy_handle(src, dest):
         dest.write(s)
     return n
         
-def download(relative_url, cache_directory="/tmp/BioTK/NCBI", 
-        compress=None, decompress=None,
+def download(relative_url, 
+        cache_directory="/tmp/BioTK/NCBI", 
+        compression=None,
         cache_size=100, return_path=False):
     """
     Download files from NCBI, with optional caching. The first argument is a
@@ -31,9 +32,6 @@ def download(relative_url, cache_directory="/tmp/BioTK/NCBI",
     if it is available, then falls back to FTP download. Currently
     cannot download directories or handle recursion.
     """
-    if compress is not None:
-        raise NotImplementedError("The 'compress' option is not implemented.")
-
     os.makedirs(cache_directory, exist_ok=True)
     try:
         client = Aspera.Client()
@@ -56,9 +54,9 @@ def download(relative_url, cache_directory="/tmp/BioTK/NCBI",
     if return_path:
         return path
     else:
-        if not decompress:
+        if not compression:
             return open(path, "rt")
-        elif decompress == "gzip":
+        elif compression == "gzip":
             return gzip.open(path, "rt")
         else:
             raise IOError("Invalid 'decompress' option.")

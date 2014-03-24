@@ -152,8 +152,11 @@ if os.path.exists(git_dir):
     VERSION = subprocess.check_output(["git", "describe", "--tags"]).strip()\
             .decode("utf-8")
     version_py = os.path.join(os.path.dirname(__file__), "BioTK", "version.py")
-    with open(version_py, "w") as handle:
-        handle.write("""version = '%s'""" % VERSION)
+    try:
+        with open(version_py, "w") as handle:
+            handle.write("""version = '%s'""" % VERSION)
+    except PermissionError:
+        pass
 else:
     VERSION = "HEAD"
 

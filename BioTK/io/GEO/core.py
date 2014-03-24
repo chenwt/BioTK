@@ -169,6 +169,7 @@ class Family(object):
             except StopIteration:
                 break
             except Exception as e:
+                print(e)
                 continue
 
     @staticmethod
