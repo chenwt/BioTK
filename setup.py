@@ -11,8 +11,6 @@ from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test as TestCommand
 from pip.req import parse_requirements
 
-import numpy
-
 args = sys.argv[2:]
 
 ################################
@@ -98,6 +96,17 @@ for root, dirs, files in os.walk(join(dirname(__file__), "BioTK", "script")):
 
 requirements = [str(item.req) for item in 
         parse_requirements("requirements.txt")]
+
+#########################
+# Set include directories
+#########################
+
+include_dirs = []
+try:
+    import numpy
+    include_dirs.append(numpy.get_include())
+except ImportError:
+    pass
 
 ###################
 # Extension modules
@@ -186,7 +195,7 @@ setup(
     # Modules, data, extensions, and scripts to be installed
     packages=find_packages(exclude=["ui"]),
     install_requires=requirements,
-    include_dirs=[numpy.get_include()],
+    include_dirs=include_dirs,
     tests_require=requirements + ["pytest"],
     extras_require={
         "doc": requirements,
