@@ -72,14 +72,16 @@ class Platform(object):
         records = []
         age_re = re.compile(r"\b[Aa]ge(.+?)?:\s*(?P<age>\d+(\.\d+)?)")
         tissue_re = re.compile(r"[Tt]issue:\s*([A-Za-z ]+)")
+        cancer_re = re.compile("tumor|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma", re.IGNORECASE)
         for s in c:
             m = age_re.search(s)
             age = float(m.group("age")) if m and m.group("age") else float("nan")
             m = tissue_re.search(s)
             tissue = m.group(1) if m else None
-            records.append((age, tissue))
+            cancer = cancer_re.search(s) is not None
+            records.append((age, tissue, cancer))
         return pd.DataFrame.from_records(records, index=P.index,
-                columns=["Age","Tissue"])
+                columns=["Age","Tissue","Cancer"])
 
     def _sample_index(self):
         return dict(list(map(reversed, enumerate(self.samples.index))))
