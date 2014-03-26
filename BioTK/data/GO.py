@@ -13,10 +13,11 @@ import BioTK.io
 import BioTK.io.cache
 import BioTK.io.OBO
 
+from BioTK.ontology import Ontology
+
 GO = "http://www.geneontology.org/ontology/obo_format_1_2/gene_ontology_ext.obo"
 GENE2GO = "ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2go.gz"
 
-@BioTK.io.cache.RAMCache()
 def _get_annotation(taxon_id):
     path = BioTK.io.cache.download(GENE2GO)
     with gzip.open(path, "r") as h:
@@ -26,12 +27,12 @@ def _get_annotation(taxon_id):
     return df.ix[df["Taxon ID"] == taxon_id,:].ix[:,
         ["Term ID","Gene ID","Evidence"]].drop_duplicates()
 
-class GeneOntology(BioTK.io.OBO.Ontology):
+class GeneOntology(Ontology):
     def __init__(self):
         path = BioTK.io.cache.download(GO)
         with open(path, "rt") as handle:
             o = BioTK.io.OBO.parse(handle)
-        super(GeneOntology, self).__init__(o.terms, o.synonyms, o.relations)
+        BioTK.io.OBO.Ontology.__init__(self, o.terms, o.synonyms, o.relations)
 
     def annotation(self, taxon_id, recursive=False):
         A = _get_annotation(taxon_id)
