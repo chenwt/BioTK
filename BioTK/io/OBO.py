@@ -137,10 +137,10 @@ class Ontology(object):
         g = self.to_graph()
         rows = []
         for n in g.nodes():
-            for ancestors in nx.dfs_successors(g, n).values():
-                for ancestor in ancestors:
-                    rows.append((ancestor, n))
-        return pd.DataFrame(rows, columns=["Ancestor", "Descendant"])
+            for ancestor in nx.descendants(g, n):
+                rows.append((ancestor, n))
+        return pd.DataFrame(rows, 
+                columns=["Ancestor", "Descendant"])
 
     def annotation_matrix(self, mapping, recursive=False):
         """
