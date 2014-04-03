@@ -61,8 +61,8 @@ def t_test(X, group):
     ix = group.as_matrix()
     t, p = ttest_ind(Xm[:,ix], Xm[:,~ix], axis=1)
     R["t"] = t
-    R["p"] = p
-    R["FDR"] = multipletests(R["p"], method="fdr_bh")[1]
+    R["P-Value"] = p
+    R["FDR"] = multipletests(R["P-Value"], method="fdr_bh")[1]
     return R
 
 def SAM(X, group, fdr_cutoff=0.1):
