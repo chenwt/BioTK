@@ -1,11 +1,14 @@
 """
-How to organize the data/class hierarchy?
-    taxon -> platform -> (experiment / platform subset?) -> sample
-
-Currently the setup is a little confusing because there
-is a Platform object which shouldn't be confused with
-a BioTK.io.GEO.GPL object.
+An API for storing and querying RNA expression data in a HDF5 'database'.
 """
+
+# How to organize the data/class hierarchy?
+#     taxon -> platform -> (experiment / platform subset?) -> sample
+
+# Currently the setup is a little confusing because there
+# is a Platform object which shouldn't be confused with
+# a BioTK.io.GEO.GPL object.
+
 # TODO: Check for existence before returning Taxon, Platform, etc.
 
 import re
@@ -19,7 +22,8 @@ import numpy as np
 
 import BioTK.util
 from BioTK.io import GEO, NCBI, generic_open
-from ..preprocess import quantile_normalize
+from .preprocess import normalize as _normalize, impute as _impute, \
+        collapse as _collapse
 
 def _get_prefix(accession):
     return accession[:-3] + "nnn"
@@ -38,8 +42,52 @@ class Platform(object):
     def __init__(self, group):
         self._group = group
 
-    def expression(self, samples, collapse=None, normalize=False):
-        F = self.features
+    def expression(self, 
+            samples=None, 
+            raw=False,
+            collapse=None, normalize=True, impute=False):
+        """
+        Return expression data for samples from this platform.
+
+        Parameters
+        ----------
+        samples : iterable of strings, optional
+            The GEO GSM accessions to return. If not provided,
+            *all* samples from this platform will be returned.
+            This can be memory-intensive for large platforms!
+        raw : bool, optional
+            Return the expression data exactly as it was in the 
+            original SOFT files. Overrides collapse, normalize, 
+            and impute.
+        collapse : str, optional
+            Collapse probes to another identifier (e.g., gene ID).
+            Acceptable options are provided by any column from the 
+            .feature_attributes() method of this class.
+        normalize : bool, optional
+            Quantile normalize the expression data. 
+        impute : bool, optional
+            Replace missing values with imputed values using
+            the default imputation method.
+
+        Returns
+        -------
+        A :class:`pandas.DataFrame` with columns as samples and
+            rows as probe IDs (or probe attributes, if the 
+            'collapse' argument was provided).
+
+        Notes
+        -----
+        For users familiar with Bioconductor's ExpressionSet class, 
+        this function returns the equivalent of the "exprs" for these
+        expression datasets.
+        """
+        # TODO: Raise error if a wrong GSM is provided?
+
+        F = self.feature_attributes(raw=True)
+
+        if samples is None:
+            samples = self.sample_attributes().index
+
         samples = list(samples)
 
         ix = self._sample_index()
@@ -49,25 +97,56 @@ class Platform(object):
         X.index.name = "Feature"
         X.columns.name = "Sample"
 
-        if collapse:
-            # FIXME: handle probes mappings with '//'
-            # FIXME: collapse by MAX mean
-            X = X.groupby(F[collapse]).mean()
-            if isinstance(X.index[0], str):
-                X = X.ix[[(" /// " not in x) for x in X.index],:]
-        if normalize:
-            X = quantile_normalize(X)
+        if not raw:
+            # Attempt to infer whether experiment was already 
+            # log2 transformed or not. Is this the best cutoff?
+            ix = X.max() > 100
+            X.ix[:,ix] = (1+X.ix[:,ix]-X.ix[:,ix].min().min()).apply(np.log2)
+
+            if collapse:
+                # FIXME: handle probes mappings with '//'
+                # TODO: factor out collapsing to preprocess
+                X = _collapse(X, F[collapse])
+                if isinstance(X.index[0], str):
+                    X = X.ix[[(" /// " not in x) for x in X.index],:]
+            if normalize:
+                X = _normalize(X)
+            if impute:
+                # Renormalizing here b/c imputation may have
+                # thrown off the distribution
+                X = _normalize(_impute(X, axis=0))
+
         return X
 
-    @property
-    def attributes(self):
-        """
-        Extract important per-sample attributes from the 
-        raw sample description text.
-        """
-        # TODO: figure out how to use pandas str.extract on this 
+    def _sample_index(self):
+        P = self.sample_attributes(raw=True).index
+        return dict(list(map(reversed, enumerate(P))))
 
-        P = self.samples
+    def sample_attributes(self, raw=False):
+        """
+        Obtain metadata for each sample, such as tissue type, age, etc.
+
+        Parameters
+        ----------
+        raw : bool, optional
+            If True, return the sample attributes exactly as they were
+            imported. For GEO SOFT files, this can be quite messy and large.
+
+        Returns
+        -------
+        A :class:`pandas.DataFrame` containing one row for each sample.
+
+        Notes
+        -----
+        For users familiar with Bioconductor's ExpressionSet class, 
+        this function returns the equivalent of the "pData" for these
+        expression datasets.
+        """
+        if raw:
+            return unpickle_object(self._group["sample"].value)
+
+        # TODO: figure out how to use pandas str.extract on this 
+        P = self.sample_attributes(raw=True)
         c = P["characteristics_ch1"].fillna("")
         records = []
         age_re = re.compile(r"\b[Aa]ge(.+?)?:\s*(?P<age>\d+(\.\d+)?)")
@@ -83,15 +162,29 @@ class Platform(object):
         return pd.DataFrame.from_records(records, index=P.index,
                 columns=["Age","Tissue","Cancer"])
 
-    def _sample_index(self):
-        return dict(list(map(reversed, enumerate(self.samples.index))))
+    def feature_attributes(self, raw=True):
+        """
+        Obtain metadata for each feature (typically, an array probeset), such
+        as mapped Gene IDs and symbols, array position, etc.
 
-    @property
-    def samples(self):
-        return unpickle_object(self._group["sample"].value)
+        Parameters
+        ----------
+        raw : bool, optional
+            If True, return the sample attributes exactly as they were
+            imported. For GEO SOFT files, this can be quite messy and large.
 
-    @property
-    def features(self):
+        Returns
+        -------
+        A :class:`pandas.DataFrame` containing one row for each feature.
+
+        Notes
+        -----
+        For users familiar with Bioconductor's ExpressionSet class, 
+        this function returns the equivalent of the "fData" for these
+        expression datasets.
+        """
+        if raw is not True:
+            raise NotImplementedError("Processing feature attributes is currently not implemented.")
         return unpickle_object(self._group["feature"].value)
 
     def _add_samples(self, geo_platform, it):
