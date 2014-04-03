@@ -46,11 +46,11 @@ def roast_lite(X, C, p_grp, n_perm=100):
     return pd.DataFrame({
         "n": (C != 0).sum(axis=0),
         "t": y_true,
-        "p Up" : p_up,
-        "p Down" : p_down,
-    }).ix[:,["n","t","p Up","p Down"]].sort("t")
+        "p_Up" : p_up,
+        "p_Down" : p_down,
+    }).ix[:,["n","t","p_Up","p_Down"]].sort("t")
 
-def simple(members, C, min_annotated=5):
+def enrichment_simple(members, C, min_annotated=5):
     """
     Classic enrichment analysis based on Fisher's Exact Test.
 
@@ -61,8 +61,8 @@ def simple(members, C, min_annotated=5):
         Coefficient matrix - transcripts (rows) vs terms (columns)
     """
     # TODO: use chi2 if all cells > 5, otherwise FET?
-    C = C.ix[:,C.sum() >= min_annotated]
     C, sel = C.astype(bool).align(members, join="inner", axis=0)
+    C = C.ix[:,C.sum() >= min_annotated]
 
     isect = C.apply(lambda c: (c & sel).sum())
     sel_non_isect = sel.sum() - isect
@@ -74,8 +74,10 @@ def simple(members, C, min_annotated=5):
 
     ea = pd.DataFrame.from_records([fisher_exact(x) for x in input], 
             index=C.columns, 
-            columns=["Odds Ratio", "P-Value"])
+            columns=["Log2_Odds_Ratio", "P-Value"])
+    ea["Log2_Odds_Ratio"] = np.log2(ea["Log2_Odds_Ratio"])
 
     ea["Hits"] = isect
     ea["Annotated"] = C.sum()
-    return ea.ix[:,["Hits","Annotated","Odds Ratio","P-Value"]].sort("Odds Ratio", ascending=False)
+    ea = ea.ix[:,["Hits","Annotated","Log2_Odds_Ratio","P-Value"]].sort("Log2_Odds_Ratio", ascending=False)
+    return ea.dropna()
