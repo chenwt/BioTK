@@ -66,8 +66,8 @@ def heatmap(data,
     column_method  = 'single',     # Can be: linkage, single, complete, average, weighted, centroid, median, ward
     row_metric     = 'braycurtis', # Can be: see scipy documentation
     column_metric  = 'braycurtis', # Can be: see scipy documentation
-    gradient_span  = 'only_max',   # Can be: min_to_max, min_to_max_centered, only_max, only_min
-    color_gradient = 'yellow_black_blue',   # Can be: see color_gradients dictionary
+    gradient_span  = 'min_to_max',   # Can be: min_to_max, min_to_max_centered, only_max, only_min
+    color_gradient = 'red_black_green',   # Can be: see color_gradients dictionary
     fig_weight = 12,
     fig_height = 8.5):
     """
