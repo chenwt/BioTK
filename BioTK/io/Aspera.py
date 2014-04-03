@@ -24,7 +24,11 @@ def _find_binary():
     Search PATH for ascp. Returns None if it could not be found.
     """
     search_folders = list(sys.path)
-    search_folders.append(os.path.expanduser("~/.aspera/connect/bin/"))
+    search_folders.extend([
+        os.path.expanduser("~/.aspera/connect/bin/"),
+        "/usr/bin/",
+        "/usr/local/bin/",
+        "/sbin/"])
     for folder in search_folders:
         path = os.path.join(folder, "ascp")
         if os.path.isfile(path) and os.access(path, os.X_OK):
