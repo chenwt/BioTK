@@ -15,6 +15,8 @@ import BioTK.io.OBO
 
 from BioTK.ontology import Ontology
 
+__all__ = ["GeneOntology"]
+
 GO = "http://www.geneontology.org/ontology/obo_format_1_2/gene_ontology_ext.obo"
 GENE2GO = "ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2go.gz"
 
