@@ -10,6 +10,55 @@ import numpy as np
 
 from sklearn import metrics, cross_validation
 
+def scatter_search(F, lower, upper):
+    """
+    An approximation of the scatter search algorithm.
+    """
+    lower = np.array(lower)
+    upper = np.array(upper)
+    xs = np.zeros((0,len(lower)))
+    js = np.zeros(0)
+
+    for i in range(50):
+        x = np.random.uniform(lower, upper)
+        if len(lower) == 1:
+            x = [x]
+        xs = np.append(xs, [x], axis=0)
+        js = np.append(js, F(xs[-1,:]))
+
+    n = 10
+    ix = js.argsort()[:n]
+    js, xs = js[ix], xs[ix,:]
+
+    k = 1.25
+    b = 3
+
+    print("** Starting local search ...")
+    for i in range(25):
+        ix = set()
+        while len(ix) < b:
+            ix.add(int(np.floor((1 - np.random.power(k)) * n)))
+        ix = np.array(list(ix))
+       
+        worst = js.argsort()[-1]
+        x = xs[ix,:].mean(axis=0)
+        j = F(x)
+        if j < js[worst]:
+            js[worst] = j
+            xs[worst] = x
+
+        ix = js.argsort()
+        js, xs = js[ix], xs[ix,:]
+
+    best = js.argsort()[0]
+    return js[best], xs[best]
+
+def test():
+    def F(x):
+        return np.prod(x)
+
+    scatter_search(F, [0, 1], [0, 10])
+
 class HyperparameterSearch(object):
     _bounds = {
             # SVM
@@ -61,51 +110,4 @@ class HyperparameterSearch(object):
         jmin, xmin = scatter_search(F, lower, upper)
         return jmin, 10 ** xmin
 
-def scatter_search(F, lower, upper):
-    """
-    An approximation of the scatter search algorithm.
-    """
-    lower = np.array(lower)
-    upper = np.array(upper)
-    xs = np.zeros((0,len(lower)))
-    js = np.zeros(0)
 
-    for i in range(50):
-        x = np.random.uniform(lower, upper)
-        if len(lower) == 1:
-            x = [x]
-        xs = np.append(xs, [x], axis=0)
-        js = np.append(js, F(xs[-1,:]))
-
-    n = 10
-    ix = js.argsort()[:n]
-    js, xs = js[ix], xs[ix,:]
-
-    k = 1.25
-    b = 3
-
-    print("** Starting local search ...")
-    for i in range(25):
-        ix = set()
-        while len(ix) < b:
-            ix.add(int(np.floor((1 - np.random.power(k)) * n)))
-        ix = np.array(list(ix))
-       
-        worst = js.argsort()[-1]
-        x = xs[ix,:].mean(axis=0)
-        j = F(x)
-        if j < js[worst]:
-            js[worst] = j
-            xs[worst] = x
-
-        ix = js.argsort()
-        js, xs = js[ix], xs[ix,:]
-
-    best = js.argsort()[0]
-    return js[best], xs[best]
-
-def test():
-    def F(x):
-        return np.prod(x)
-
-    scatter_search(F, [0, 1], [0, 10])
