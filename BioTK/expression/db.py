@@ -1,310 +1,251 @@
-"""
-An API for storing and querying RNA expression data in a HDF5 'database'.
-"""
-
-# How to organize the data/class hierarchy?
-#     taxon -> platform -> (experiment / platform subset?) -> sample
-
-# Currently the setup is a little confusing because there
-# is a Platform object which shouldn't be confused with
-# a BioTK.io.GEO.GPL object.
-
-# TODO: Check for existence before returning Taxon, Platform, etc.
-
-import re
 import gzip
-import pickle
-from itertools import groupby
+import os
+import tarfile
+from xml.etree import ElementTree
+import sqlite3
+import collections
+import sys
 
-import h5py
 import pandas as pd
 import numpy as np
 
-import BioTK.util
-from BioTK.io import GEO, NCBI, generic_open
-from .preprocess import normalize as _normalize, impute as _impute, \
-        collapse as _collapse
+import BioTK
 
-def _get_prefix(accession):
-    return accession[:-3] + "nnn"
+# TODO: split out MiniML parsing from DB?
 
-def unpickle_object(data):
-    return pickle.loads(bytes(data))
+NS = "{http://www.ncbi.nlm.nih.gov/geo/info/MINiML}"
 
-def pickle_object(obj):
-    return np.array(pickle.dumps(obj))
+def clean(s):
+    return s.replace("\n", " ").replace("\t", " ").strip()
 
 class Platform(object):
-    """
-    A container for all the expression samples performed on the
-    same platform.
-    """
-    def __init__(self, group):
-        self._group = group
+    def __init__(self, db, platform_id):
+        self._db = db
+        self._id = id
 
-    def expression(self, 
-            samples=None, 
-            raw=False,
-            collapse=None, normalize=True, impute=False):
-        """
-        Return expression data for samples from this platform.
+    def feature_attributes(self):
+        c = self._db.cursor()
+        c.execute("""SELECT name FROM feature_metadata
+            WHERE platform_id=?
+            ORDER BY column_index""", (self._id,))
+        columns = [r[0] for r in c]
 
-        Parameters
-        ----------
-        samples : iterable of strings, optional
-            The GEO GSM accessions to return. If not provided,
-            *all* samples from this platform will be returned.
-            This can be memory-intensive for large platforms!
-        raw : bool, optional
-            Return the expression data exactly as it was in the 
-            original SOFT files. Overrides collapse, normalize, 
-            and impute.
-        collapse : str, optional
-            Collapse probes to another identifier (e.g., gene ID).
-            Acceptable options are provided by any column from the 
-            .feature_attributes() method of this class.
-        normalize : bool, optional
-            Quantile normalize the expression data. 
-        impute : bool, optional
-            Replace missing values with imputed values using
-            the default imputation method.
+        c.execute("""
+            SELECT row_index, column_index, value
+            FROM feature
+            WHERE platform_id=?""", (platform_id,))
+        df = pd.DataFrame.from_records(c, columns=["Row","Column","Value"])\
+                .pivot(index="Row", columns="Column", values="Value")
+        df.columns = columns
+        return df.set_index(df.columns[0])
 
-        Returns
-        -------
-        A :class:`pandas.DataFrame` with columns as samples and
-            rows as probe IDs (or probe attributes, if the 
-            'collapse' argument was provided).
+    def sample_attributes(self):
+        c = self._db.cursor()
+        c.execute("""SELECT "GSM" || CAST(id AS text),
+                title,description,channel_count 
+            FROM sample
+            WHERE id IN (%s)""" % ",".join(list(map(str,samples))))
+        return pd.DataFrame.from_records(c,
+                columns=["Sample ID","Title","Description","Channel Count"])\
+                        .set_index("Sample ID")
 
-        Notes
-        -----
-        For users familiar with Bioconductor's ExpressionSet class, 
-        this function returns the equivalent of the "exprs" for these
-        expression datasets.
-        """
-        # TODO: Raise error if a wrong GSM is provided?
+    def sample_characteristics(self):
+        c = self._db.cursor()
+        pass
 
-        F = self.feature_attributes(raw=True)
-
-        if samples is None:
-            samples = self.sample_attributes().index
-
-        samples = list(samples)
-
-        ix = self._sample_index()
-        ix = sorted([ix[s] for s in samples])
-        X = pd.DataFrame(self._group["expression"][ix,:],
-                index=samples, columns=F.index).T
-        X.index.name = "Feature"
-        X.columns.name = "Sample"
-
-        if not raw:
-            # Attempt to infer whether experiment was already 
-            # log2 transformed or not. Is this the best cutoff?
-            ix = X.max() > 100
-            X.ix[:,ix] = (1+X.ix[:,ix]-X.ix[:,ix].min().min()).apply(np.log2)
-
-            if collapse:
-                # FIXME: handle probes mappings with '//'
-                # TODO: factor out collapsing to preprocess
-                X = _collapse(X, F[collapse])
-                if isinstance(X.index[0], str):
-                    X = X.ix[[(" /// " not in x) for x in X.index],:]
-            if normalize:
-                X = _normalize(X)
-            if impute:
-                # Renormalizing here b/c imputation may have
-                # thrown off the distribution
-                X = _normalize(_impute(X, axis=0))
-
+    def expression(self):
+        platform_id = list(self._samples.keys())[0]
+        samples = list(self._samples.values())[0]
+        c = self._db.cursor()
+        c.execute("""SELECT value FROM feature
+            WHERE column_index=0
+            AND platform_id=?
+            ORDER BY row_index""", (platform_id,))
+        row_index = [r[0] for r in c]
+        c.execute("""SELECT sample_id, data FROM sample_data 
+            WHERE sample_id IN (%s)
+            AND channel=1""" % ",".join(list(map(str, samples))))
+        columns = dict([("GSM"+str(id),np.fromstring(data)) 
+            for (id, data) in c])
+        X = pd.DataFrame.from_dict(columns)
+        X.index = row_index
         return X
 
-    def _sample_index(self):
-        P = self.sample_attributes(raw=True).index
-        return dict(list(map(reversed, enumerate(P))))
-
-    def sample_attributes(self, raw=False):
-        """
-        Obtain metadata for each sample, such as tissue type, age, etc.
-
-        Parameters
-        ----------
-        raw : bool, optional
-            If True, return the sample attributes exactly as they were
-            imported. For GEO SOFT files, this can be quite messy and large.
-
-        Returns
-        -------
-        A :class:`pandas.DataFrame` containing one row for each sample.
-
-        Notes
-        -----
-        For users familiar with Bioconductor's ExpressionSet class, 
-        this function returns the equivalent of the "pData" for these
-        expression datasets.
-        """
-        if raw:
-            return unpickle_object(self._group["sample"].value)
-
-        # TODO: figure out how to use pandas str.extract on this 
-        P = self.sample_attributes(raw=True)
-        c = P["characteristics_ch1"].fillna("")
-        records = []
-        age_re = re.compile(r"\b[Aa]ge(.+?)?:\s*(?P<age>\d+(\.\d+)?)")
-        tissue_re = re.compile(r"[Tt]issue:\s*([A-Za-z ]+)")
-        cancer_re = re.compile("tumor|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma", re.IGNORECASE)
-        for s in c:
-            m = age_re.search(s)
-            age = float(m.group("age")) if m and m.group("age") else float("nan")
-            m = tissue_re.search(s)
-            tissue = m.group(1) if m else None
-            cancer = cancer_re.search(s) is not None
-            records.append((age, tissue, cancer))
-        return pd.DataFrame.from_records(records, index=P.index,
-                columns=["Age","Tissue","Cancer"])
-
-    def feature_attributes(self, raw=True):
-        """
-        Obtain metadata for each feature (typically, an array probeset), such
-        as mapped Gene IDs and symbols, array position, etc.
-
-        Parameters
-        ----------
-        raw : bool, optional
-            If True, return the sample attributes exactly as they were
-            imported. For GEO SOFT files, this can be quite messy and large.
-
-        Returns
-        -------
-        A :class:`pandas.DataFrame` containing one row for each feature.
-
-        Notes
-        -----
-        For users familiar with Bioconductor's ExpressionSet class, 
-        this function returns the equivalent of the "fData" for these
-        expression datasets.
-        """
-        if raw is not True:
-            raise NotImplementedError("Processing feature attributes is currently not implemented.")
-        return unpickle_object(self._group["feature"].value)
-
-    def _add_samples(self, geo_platform, it):
-        """
-        Add samples to this platform from a GEO Family iterator.
-        """
-        probes = geo_platform.table.index
-
-        def expression(gsm):
-            return np.array([gsm.expression.get(ix, np.nan)
-                for ix in probes])
-
-        n = len(probes)
-        dataset = self._group.create_dataset("expression",
-                dtype='f8', chunks=(1, n), maxshape=(None, n),
-                compression="lzf",
-                shape=(1, n))
-        samples = []
-        accessions = []
-
-        chunk_size = 50
-        end = 0
-        for i,chunk in enumerate(BioTK.util.chunks(it, chunk_size)):
-            start = end
-            end = start + len(chunk)
-            dataset.resize((end+1,n))
-            data = np.zeros((len(chunk), n), dtype='f8')
-            for j,gsm in enumerate(chunk):
-                print("\t*", gsm.accession)
-                accessions.append(gsm.accession)
-                samples.append(pd.Series(gsm.attributes))
-                data[j,:] = expression(gsm)[np.newaxis,:]
-            dataset[start:end,:] = data
-
-        samples = pd.DataFrame.from_records(samples,
-                index=accessions)
-        self._group.create_dataset("sample",
-                data=pickle_object(samples))
-
-class Taxon(object):
-    """
-    A container for all the different platforms belonging to a single
-    taxon.
-    """
-    def __init__(self, group):
-        self._group = group
-        self.taxon_id = int(group.name.lstrip("/"))
-
-    def __getitem__(self, accession):
-        return self.platform(accession)
-
-    def platform(self, accession):
-        group = self._group[accession]
-        return Platform(group)
-
-    def _add_platform(self, geo_platform):
-        group = self._group.create_group(geo_platform.accession)
-        group.create_dataset("feature", 
-                data=pickle_object(geo_platform.table))
-        return self.platform(geo_platform.accession)
-
 class ExpressionDB(object):
-    def __init__(self, path, mode="a"):
-        self._path = path
-        self._store = h5py.File(path, mode)
+    LOCK_TIMEOUT = 300
+
+    def __init__(self, path):
+        create = not os.path.exists(path)
+        uri = "file:%s?mode=ro" % path
+        self._db = sqlite3.connect(uri, self.LOCK_TIMEOUT, uri=True)
+        if create:
+            schema_path = BioTK.data_path("schema.sql")
+            with open(schema_path) as h:
+                c = self._db.cursor()
+                c.executescript(h.read())
 
     def __del__(self):
         self.close()
 
     def close(self):
-        self._store.close()
+        self._db.close()
 
-    def add_taxon(self, taxon_id):
-        key = "/%s" % taxon_id
-        group = self._store.create_group(key)
-        return self.taxon(taxon_id)
+    def __getitem__(self, query):
+        assert query.startswith("GPL")
+        platform_id = int(query[3:])
+        return Platform(self._db, platform_id)
 
-    def taxon(self, taxon_id):
-        key = "/%s" % taxon_id
-        self._store.require_group(key)
-        group = self._store[key]
-        return Taxon(group)
+    def _load_miniml_xml(self, h):
+        c = self._db.cursor()
+        tree = ElementTree.iterparse(h)
 
-    def __getitem__(self, taxon_id):
-        return self.taxon(taxon_id)
+        for _, e in tree:
+            if e.tag == NS+"Platform":
+                gpl = e.attrib["iid"]
+                platform_id = int(gpl[3:])
+                title = e.find(NS+"Title").text
+                manufacturer = e.find(NS+"Manufacturer").text
+                taxon_id = int(e.find(NS+"Organism").attrib["taxid"])
 
-    def add_platform(self, accession):
-        # We're storing by taxon ID which inexplicably is not
-        #   in the GEO .annot files ...
-        # To implement this method would need a Species Name <-> Taxon ID
-        #   lookup.
+                c.execute("""INSERT OR REPLACE INTO platform 
+                    (id, title, manufacturer, taxon_id)
+                    VALUES
+                    (?, ?, ?, ?)""", 
+                    (platform_id, title, manufacturer, taxon_id))
 
-        #platform = GEO.GPL.fetch(accession)
-        #self._add_platform(platform)
-        raise NotImplementedError
+                tbl = e.find(NS+"Data-Table")
+                records = []
+                for col in tbl.findall(NS+"Column"):
+                    index = int(col.attrib["position"]) - 1
+                    name = clean(col.find(NS+"Name").text)
+                    desc_node = col.find(NS+"Description")
+                    description = clean(desc_node.text if desc_node else "")
+                    c.execute("""INSERT OR REPLACE INTO feature_metadata
+                        (platform_id, column_index, name, description)
+                        VALUES (?,?,?,?)""", 
+                        (platform_id, index, name, description))
 
-    #def platform(self, accession):
-    #    return self._store.get(uri)
+            elif e.tag == NS+"Sample":
+                try:
+                    sample_id = int(e.attrib["iid"][3:])
+                    title_node = e.find(NS+"Title")
+                    title = clean(title_node.text.strip() 
+                            if title_node else "")
+                    desc_node = col.find(NS+"Description")
+                    description = clean(desc_node.text.strip() 
+                            if desc_node else "")
+                    try:
+                        platform_id = \
+                                int(e.find(NS+"Platform-Ref")\
+                                .attrib["ref"][3:])
+                    except AttributeError:
+                        # This must be a platform-based MiniML, so fall back
+                        # to the platform ID from above
+                        pass
+                    channel_count = int(e.find(NS+"Channel-Count").text)
+                    c.execute("""INSERT OR REPLACE INTO sample
+                        (id, platform_id, title, description, channel_count)
+                        VALUES (?,?,?,?,?)""",
+                        (sample_id, platform_id, title, 
+                            description, channel_count))
 
-    def __contains__(self, taxon_id):
-        return str(taxon_id) in self._store
+                    for channel_node in e.findall(NS+"Channel"):
+                        channel = int(channel_node.attrib["position"])
+                        for ch in channel_node.findall(NS+"Characteristics"):
+                            if not "tag" in ch.attrib:
+                                continue
+                            c.execute("""INSERT OR REPLACE 
+                                INTO sample_characteristic
+                                (sample_id, channel, key, value)
+                                VALUES (?,?,?,?)""",
+                                (sample_id, channel, clean(ch.attrib["tag"]), 
+                                    clean(ch.text)))
+                except AttributeError:
+                    pass
 
-    def add_family(self, accession_or_path):
-        if accession_or_path.startswith("GPL"):
-            accession = accession_or_path
-            url = "/geo/platforms/GPL%snnn/%s/soft/%s_family.soft.gz" % \
-                    (accession[3:-3], accession, accession)
-            handle = NCBI.download(url, decompress="gzip")
-        else:
-            path = accession_or_path
-            handle = generic_open(path)
+            elif e.tag == NS+"Series":
+                series_id = int(e.attrib["iid"][3:])
+                title = e.find(NS+"Title").text.strip()
+                summary = e.find(NS+"Summary").text.strip()
+                overall_design = e.find(NS+"Overall-Design").text.strip()
+                c.execute("""INSERT OR REPLACE INTO series
+                    (id, title, summary, overall_design)
+                    VALUES (?,?,?,?)""", 
+                    (series_id, title, summary, overall_design))
 
-        with handle:
-            it = GEO.Family._parse_single(handle)
-            geo_platform = it.__next__()
-            taxon_id = geo_platform.taxon_id
-            if not geo_platform.taxon_id in self:
-                taxon = self.add_taxon(taxon_id)
-            else:
-                taxon = self.taxon(taxon_id)
-            platform = taxon._add_platform(geo_platform)
-            platform._add_samples(geo_platform, it)
-        return platform
+                for sr in e.findall(NS+"Sample-Ref"):
+                    sample_id = int(sr.attrib["ref"][3:])
+                    c.execute("""INSERT OR REPLACE INTO series_sample
+                        (series_id, sample_id)
+                        VALUES (?,?)""", (series_id, sample_id))
+
+        self._db.commit()
+
+    def load(self, path):
+        """
+        Load the contents of a MiniML-format .tar.gz file 
+        from GEO into the database.
+        """
+        c = self._db.cursor()
+        probes = {}
+        with tarfile.open(path, "r:xz", encoding="utf-8") as tgz:
+            for ti in tgz:
+                with tgz.extractfile(ti) as h:
+                    print(ti.name)
+                    if ti.name.endswith(".xml") and ti.isreg():
+                        # For broken XML in GPL570...
+                        import io, re
+                        h = io.StringIO(re.sub("\x19", "", 
+                            h.read().decode("utf-8")))
+                        self._load_miniml_xml(h)
+                    elif ti.name.startswith("GPL"):
+                        # FIXME: don't re-insert if already exists, 
+                        # but always pull down array of probe indexes
+                        platform_id = int(ti.name.split("-")[0][3:])
+                        df = pd.read_table(h, header=False)
+                        N, K = df.shape
+                        rows = zip(
+                                map(int, np.repeat(platform_id, N*K)),
+                                map(int, np.tile(np.arange(N), K)),
+                                map(int, np.arange(K).repeat(N)),
+                                df.values.ravel("F"))
+                        c.executemany("""INSERT INTO feature
+                            (platform_id, row_index, column_index, value)
+                            VALUES (?,?,?,?)""", rows)
+
+                        c.execute("""SELECT value FROM feature
+                            WHERE platform_id=? AND column_index=0
+                            ORDER by row_index""", (platform_id,))
+                        probes[platform_id] = np.array([r[0] for r in c])
+
+        with tarfile.open(path, "r:xz", encoding="utf-8") as tgz:
+            for ti in tgz:
+                if ti.name.startswith("GSM") and ti.name.endswith(".txt"):
+                    with tgz.extractfile(ti) as h:
+                        sample_id = int(ti.name.split("-")[0][3:])
+                        print("Inserting GSM:", sample_id, file=sys.stderr)
+
+                        channel = int(ti.name.split("-")[2].rstrip(".txt"))
+                        c.execute("""SELECT platform_id FROM sample 
+                            WHERE id=? LIMIT 1""", (sample_id,))
+                        platform_id = next(c)[0]
+                        data = pd.read_table(h, index_col=0, header=False)\
+                                .iloc[:,0]\
+                                .ix[probes[platform_id]]
+                        data = np.array(data)
+                        data = data.tostring()
+                        c.execute("""INSERT INTO sample_data
+                            (sample_id, channel, data)
+                            VALUES (?,?,?)""", (sample_id, channel, data))
+        self._db.commit()
+
+if __name__ == "__main__":
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("--database_path", "-d", required=True)
+    p.add_argument("archives", nargs="+")
+    args = p.parse_args()
+
+    db = ExpressionDB(args.database_path)
+    for archive in args.archives:
+        db.load(archive)

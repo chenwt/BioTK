@@ -45,6 +45,20 @@ class GSM(object):
     """
     Represents a single GEO sample.
     """
+    _columns = ["title", "supplementary_file", "table",
+            "hyb_protocol", "scan_protocol", "data_processing",
+            "description", "platform_id", "geo_accession",
+            "anchor", "type", "tag_count", "tag_length"]
+    _channel_columns = ["source_name", "organism", "characteristics",
+            "biomaterial_provider", "treatment_protocol",
+            "growth_protocol", "molecule",
+            "extract_protocol", "label",
+            "label_protocol"]
+
+    #for col in sample_channel_columns:
+    #    sample_columns.append(col + "_ch1")
+
+
     def __init__(self, accession, expression, attributes=None):
         self.accession = accession
         self.expression = expression
@@ -95,6 +109,14 @@ class GPL(object):
                 (accession[3:-3], accession, accession)
         with BioTK.io.NCBI.download(url, decompress="gzip") as handle:
             return GPL.parse(handle)
+
+"""
+class GSE(object):
+    @staticmethod
+    def fetch(accession):
+        assert accession.startswith("GSE")
+        url = "/geo/series/GSE%snnn/%s/matrix/
+"""
 
 class Family(object):
     """
@@ -202,42 +224,8 @@ class Family(object):
         with BioTK.io.NCBI.download(url, decompress="gzip") as handle:
             return Family.parse(handle, chunk_size=0).__next__()
 
-    def doit():
-        if "Entrez_Gene_ID" in platform.columns:
-            columns = list(platform.columns)
-            columns[columns.index("Entrez_Gene_ID")] = "ENTREZ_GENE_ID"
-            platform.columns = columns
-
-        if "GENE" in platform.columns:
-            columns = list(platform.columns)
-            columns[columns.index("GENE")] = "ENTREZ_GENE_ID"
-            platform.columns = columns
-
-        if not "ENTREZ_GENE_ID" in platform.columns: 
-            raise Exception("Cannot handle this platform as there is \
-            no mapping of probes to Entrez Gene IDs.")
-
-        self._probe_to_gene = {}
-        for probe, gene in zip(platform["ID"], platform["ENTREZ_GENE_ID"]):
-            # Take only probes that map to exactly one gene
-            # Those that don't will have '///' in the name
-            try:
-                self._probe_to_gene[probe] = int(gene)
-            except ValueError:
-                continue
-
-def parseSOFT(path):
-   parser = SOFTParser(path) 
-   return ExpressionSet(parser.phenotype_data,
-                        parser.feature_data, parser.expression)
-
-#def fetch(accession, family=False):
-#    if accession.startswith("GPL") and (not family):
-#        return fetch_platform(accession)
-
-def test():
-    family = Family.fetch("GPL5424")
-    print(family.expression.head().T.head())
-
-if __name__ == "__main__":
-    test()
+def fetch(accession):
+    if accession.startswith("GSE"):
+        return GSE.fetch(accession)
+    elif accession.startswith("GPL"):
+        return GPL.fetch(accession)
