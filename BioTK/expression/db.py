@@ -76,7 +76,8 @@ class ExpressionDB(object):
 
     def __init__(self, path):
         create = not os.path.exists(path)
-        uri = "file:%s?mode=ro" % path
+        #uri = "file:%s?mode=ro" % path
+        uri = "file:%s" % path
         self._db = sqlite3.connect(uri, self.LOCK_TIMEOUT, uri=True)
         if create:
             schema_path = BioTK.data_path("schema.sql")
