@@ -3,7 +3,9 @@ import numpy as np
 
 from .heatmap import heatmap
 
-def histogram(data, bins=20, title=None, x_label=None, y_label=None):
+def histogram(data, bins=20, 
+        title=None, x_label=None, y_label=None,
+        color="blue"):
     """
     Create a histogram from a collection of data points.
     """
@@ -16,4 +18,5 @@ def histogram(data, bins=20, title=None, x_label=None, y_label=None):
         plt.xlabel(x_label)
     if y_label:
         plt.ylabel(y_label)
-    return plt.bar(center, hist, align="center", width=width)
+    return plt.bar(center, hist, align="center", width=width,
+            color=color)
