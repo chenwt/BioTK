@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF 1>&2
+Pipe data while a condition holds; if it fails to hold, block until it holds again.
+
+USAGE: $0 [options] < data
+
+options:
+    -f <path> : file/folder to watch 
+    -s <size> : max size of watched file/folder (in MB)
+
+NOTES
+-----
+
+Currently, the only implemented condition is to check the disk usage of a file/folder.
+
+EOF
+    exit 1
+}
+
+# test the condition every $interval lines
+interval=10 
+sleep_duration=1
+
+file=.
+max_size=1000
+
+while getopts hs:f: opt; do
+    case $opt in
+        s) max_size="$OPTARG" ;;
+        f) file="$OPTARG" ;;
+        h) usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+get_size() {
+    du -s -BM "$file" 2> /dev/null | cut -f1 | tr -d 'M'
+}
+export -f get_size
+
+while true; do
+    until [[ $(get_size) -lt $max_size ]]; do
+        echo "$(basename $0): size limit exceeded ( $(get_size) vs $max_size ). blocking ..." 1>&2
+        sleep $sleep_duration
+    done
+    dd bs=10M count=1 2> /dev/null
+done

@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+import argparse
+import csv
+import errno
+import sys
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--delimiter", "-d",
+            default="\t")
+    p.add_argument("--fields", "-F",
+            help="A comma-delimited set of column names to select.",
+            required=True)
+    p.add_argument("--suppress-header", "-H",
+            action="store_true",
+            default=False,
+            help="Don't print the column names in the first row of output.")
+    p.add_argument("file", 
+            type=argparse.FileType("r"),
+            nargs="?", 
+            default=sys.stdin)
+    args = p.parse_args()
+
+    with args.file:
+        rdr = csv.DictReader(args.file, 
+                delimiter=args.delimiter)
+        fields = args.fields.split(",")
+        try:
+            if not args.suppress_header:
+                print(*fields, sep=args.delimiter)
+            for row in rdr:
+                print(*[row[f] for f in fields], sep=args.delimiter)
+        except BrokenPipeError:
+            sys.exit(errno.EPIPE)

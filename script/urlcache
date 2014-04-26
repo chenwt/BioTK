@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+CACHE="$HOME/.local/cache/urlcache"
+mkdir -p "$CACHE"
+
+[ $# != 1 ] && exit 1
+
+url="$1"
+md5=$(echo $url | md5sum | awk '{ print $1 }')
+path="$CACHE/$md5"
+
+if [ ! -e "$path" ]; then
+    curl -o "$path" "$url" 2> /dev/null || {
+        rm -f "$path"
+        exit 1
+    }
+fi
+
+cat "$path"

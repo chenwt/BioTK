@@ -1,0 +1,12 @@
+set output '/dev/stdout'
+set terminal svg
+
+set datafile separator "\t"
+
+unset key 
+
+set style fill solid border -1
+
+set xlabel font ",15"
+set ylabel font ",15"
+set title font ",18"

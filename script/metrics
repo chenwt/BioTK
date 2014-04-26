@@ -1,0 +1,9 @@
+#!/usr/bin/awk -f
+{
+    diff += sqrt(($2 - $1) ** 2)
+    sq_diff += ($2 - $1) ** 2
+} END {
+    printf "N\t%d\n", NR
+    printf "MAD\t%f\n", diff / NR
+    printf "MSE\t%f\n", sq_diff / NR
+}

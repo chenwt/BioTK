@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+# TODO: months vs years for age
+
+import argparse
+import os
+import re
+import sqlite3
+from subprocess import Popen, PIPE
+
+TISSUE_SED = os.path.join(os.path.dirname(__file__), "tissue.sed")
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--database-path", "-d",
+            default=os.path.join(os.environ["HOME"], "data", "GEOmetadb.sqlite"))
+    p.add_argument("--platform", "-p", nargs="+")
+    p.add_argument("--species", "-s")
+    args = p.parse_args()
+
+    db = sqlite3.connect(args.database_path)
+
+    age_re = re.compile(r"\b[Aa]ge(.+?)?:\s*(?P<age>\d+(\.\d+)?)")
+    tissue_re = re.compile(r"[Tt]issue:\s*([A-Za-z ]+)")
+    cancer_re = re.compile("tumor|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma", re.IGNORECASE)
+
+    print("Sample ID", "Age", "Tissue", "Cancer", sep="\t")
+
+    query = """
+    SELECT gsm,characteristics_ch1 
+    FROM gsm
+    """
+    clauses = []
+    for platform in args.platform:
+        clauses.append("gpl='%s'" % platform)
+    if args.species:
+        clauses.append("organism_ch1='%s'" % args.species)
+    if clauses:
+        query = query + "WHERE "
+    query = query + " OR ".join(clauses) + ";"
+
+    c = db.cursor()
+    c.execute(query)
+    for gsm,s in c:
+        if s is None:
+            continue
+        s = s.replace("\t", " ")
+        m = age_re.search(s)
+        age = float(m.group("age")) if m and m.group("age") else ""
+        m = tissue_re.search(s)
+        tissue = ""
+        if m:
+            p = Popen(["sed", "-f", TISSUE_SED], stdin=PIPE, stdout=PIPE)
+            tissue = p.communicate(input=m.group(1).encode("utf-8"))[0].decode("utf-8").strip()
+        cancer = "y" if cancer_re.search(s) is not None else "n"
+        print(gsm, age, tissue, cancer, sep="\t")

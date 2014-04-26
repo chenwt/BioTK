@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# genes are rows
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf $tmpdir' EXIT
+
+cat > $tmpdir/in.expr
+cluster3 -l -ng -na -ca a -f $tmpdir/in.expr -u $tmpdir/out
+cut -f1,4- $tmpdir/out.nrm | sed 2d

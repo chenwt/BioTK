@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# TODO: allow sorting by named indexes
+
+read $line
+echo "$line"
+
+sort "$@"
