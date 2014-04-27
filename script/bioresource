@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+ailun() {
+    urlcache "ftp://ailun.stanford.edu/ailun/annotation/geo/${1}.annot.gz" \
+        | gzip -dc
+}
+
+obo-names() {
+    ns=$(echo "$1" | tr '[A-Z]' '[a-z]')
+    url="http://purl.obolibrary.org/obo/${ns}.owl"
+    owltools $(urlcache -p "$url") \
+        --object-to-label-table \
+        | sed 's/\/\([A-Za-z_0-9]*\t\)/\t\1/' \
+        | cut -f2-3
+}
+
+GEOmetadb() {
+    urlcache -p -f 'gzip -dc' 'http://gbnci.abcc.ncifcrf.gov/geo/GEOmetadb.sqlite.gz'
+}
+
+cmd="$1"
+shift 1
+$cmd "$@"

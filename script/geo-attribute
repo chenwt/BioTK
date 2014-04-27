@@ -52,5 +52,5 @@ if __name__ == "__main__":
         if m:
             p = Popen(["sed", "-f", TISSUE_SED], stdin=PIPE, stdout=PIPE)
             tissue = p.communicate(input=m.group(1).encode("utf-8"))[0].decode("utf-8").strip()
-        cancer = "y" if cancer_re.search(s) is not None else "n"
+        cancer = "1" if cancer_re.search(s) is not None else "0"
         print(gsm, age, tissue, cancer, sep="\t")

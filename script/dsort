@@ -2,7 +2,7 @@
 
 # TODO: allow sorting by named indexes
 
-read $line
+read line
 echo "$line"
 
 sort "$@"

@@ -8,8 +8,10 @@ header=$(mktemp)
 trap 'rm -f $header' EXIT
 read line
 
-# Remove colons which will confuse vw
-echo "$line" | tr '\t' '\n' | sed 1d | sed s/:/_/g > $header
+# Remove colons and fix IDs starting with numbers which will confuse vw
+echo "$line" \
+    | tr '\t' '\n' \
+    | sed '1d;s/:/_/g;s/^\([0-9]\)/X\1/' > $header
 
 while read line; do
     key=$(echo "$line" | tr '\t' '\n' | head -1)

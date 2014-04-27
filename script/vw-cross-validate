@@ -2,8 +2,21 @@
 
 model=$(mktemp -p /dev/shm)
 dat=$(mktemp -p /dev/shm)
-trap 'rm -f $model $dat' EXIT
-lz4 > $dat
+splits=$(mktemp -d -p /dev/shm)
+trap 'rm -rf $model $dat $splits' EXIT
 
-lz4 -dq $dat | vw -f $model -c --passes 10 &> /dev/null
-lz4 -dq $dat | vw -i $model -p /dev/stdout 2> /dev/null
+cat > $dat
+split -n l/5 $dat $splits/x
+rm $dat
+
+for file in $splits/*; do
+    #ls $splits/* | grep -v $file 1>&2
+    cat $(ls $splits/* | grep -v $file) \
+        | vw --rank 2 --invariant -f $model &> /dev/null
+    vw -i $model -t -p /dev/stdout 2> /dev/null < $file
+    rm -f $model
+done | paste <(cat $splits/* | awk '{print $1}') -
+
+#paste \
+#    <(lz4 -dq $dat | awk '{print $1}') \
+#    <(lz4 -dq $dat | vw -i $model -p /dev/stdout 2> /dev/null)

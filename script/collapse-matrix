@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF 1>&2
+Collapse the rows of a matrix by a mapping.
+
+USAGE: $0 mapping-file < matrix
+EOF
+    exit 1
+}
+
+read header
+echo "$header"
+
+#sort -S 2G -k1b,1 \
+join -t$'\t' <(cut -f1-2 $1 | sort -k1b,1) - \
+    | cut -f2- \
+    | awk '{ n=0; for (i=2; i<NF; i++) n+=$i; printf "%f\t%s\n",n,$0 }' \
+    | sort -S 2G -k1rn \
+    | awk '!($2 in keys){keys[$2]; print}' \
+    | cut -f2-
