@@ -22,6 +22,7 @@ s/.*kidney.*/kidney/
 
 s/.*gingival.*/gingiva/
 
+s/wbc/leukocyte/
 s/.*white blood cell.*/leukocyte/
 s/.*leukocyte.*/leukocyte/
 s/.*red blood cell.*/erythrocyte/
@@ -52,6 +53,8 @@ s/.*epidermis.*/skin/
 s/.*lymph nodes.*/lymph node/
 
 s/.*prostate.*/prostate/
+
+s/.*pancrea.*/pancreas/
 
 # remove cancer-related terms (covered in cancer attribute column)
 s/tumor//

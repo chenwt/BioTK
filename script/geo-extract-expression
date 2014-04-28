@@ -96,7 +96,7 @@ done | dsort -S 2G -k1,1b | transpose \
     else
         cat
     fi \
-    | if [[ $normalize == "" ]]; then
+    | if [[ $normalize == "y" ]]; then
         normalize-expression
     else
         cat
