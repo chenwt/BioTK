@@ -27,13 +27,12 @@ while getopts ml: opt; do
 done
 
 wd=$(mktemp -d -p $tmpdir)
-trap 'rm -rf $wd' ERR
+trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
 
 process() {
-    mkfifo $FILE
     rs -T -c"	" -C"	" \
         | sed -e 's/\s*$//' \
-        | lz4 -q > $FILE &
+        | lz4 -q > $FILE
 }
 export -f process
 

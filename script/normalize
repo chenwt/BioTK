@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+
+import sys
+
+import pandas as pd
+
+import BioTK.expression
+
+if __name__ == "__main__":
+    standardize = True
+    X = pd.read_csv(sys.stdin, sep="\t", index_col=0)
+    X = BioTK.expression.quantile_normalize(X)
+    if standardize:
+        X = X.T.apply(lambda x: (x - x.mean()) / x.std()).T
+    X.to_csv(sys.stdout, sep="\t")
