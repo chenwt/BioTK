@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+for file in "$@"; do
+    if [[ file == "*.lz4" ]]; then
+        cmd="lz4 -dq"
+    elif [[ file == "*.gz" ]]; then
+        cmd=zcat
+    elif [[ file == "*.xz" ]]; then
+        cmd="xz dc"
+    else
+        cmd=cat
+    fi
+    $cmd "$file"
+done

@@ -66,6 +66,9 @@ export -f process
 
 echo "Working directory =" $tmpdir 1>&2
 accession=$(bsdtar qtf ${archive} '*_family.xml' | sed 's/_family.xml$//')
+if [[ $accession != "GPL*"]]; then
+    echo "ERROR: Malformed MiniML archive. Exiting..." 1>&2
+fi
 echo "Detected accession =" $accession 1>&2
 
 echo "* Unpacking probes ..." 1>&2
@@ -90,14 +93,4 @@ while true; do
         break
     fi
     sleep 1
-done | dsort -S 2G -k1,1b | transpose \
-    | if [[ $collapse == "y" ]]; then
-        collapse-matrix <(bioresource ailun $accession)
-    else
-        cat
-    fi \
-    | if [[ $normalize == "y" ]]; then
-        normalize-expression
-    else
-        cat
-    fi
+done

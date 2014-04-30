@@ -50,7 +50,7 @@ def roast_lite(X, C, p_grp, n_perm=100):
         "p_Down" : p_down,
     }).ix[:,["n","t","p_Up","p_Down"]].sort("t")
 
-def enrichment_simple(members, C, min_annotated=5):
+def simple(members, C, min_annotated=5):
     """
     Classic enrichment analysis based on Fisher's Exact Test.
 

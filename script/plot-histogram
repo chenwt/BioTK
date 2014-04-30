@@ -9,7 +9,7 @@ max=$(tail -1 $dat)
 bins=25
 color="green"
 
-while getopts t:x:y:l:u: opt; do
+while getopts t:x:y:l:u:c:n: opt; do
     case $opt in
         t) title="$OPTARG" ;;
         x) xlabel="$OPTARG" ;;

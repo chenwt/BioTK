@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+
+import sys
+
+import lz4
+import pandas
+import numpy as np
+
+def coerce_float(x):
+    try:
+        return float(x)
+    except ValueError:
+        return np.nan
+
+if __name__ == "__main__":
+    delimiter = "\t"
+    X = pandas.read_csv(sys.argv[1], sep=delimiter, 
+            index_col=0)
+    X.drop([c for c in X.columns 
+        if X[c].dtype==np.dtype('O') or c.startswith("Unnamed")], 
+        axis=1, inplace=True)
+
+    Y = pandas.read_csv(sys.argv[2], index_col=0, sep=delimiter,
+            low_memory=False)
+    for c in Y.columns:
+        if Y[c].dtype == np.dtype('O'):
+            Y[c] = Y[c].apply(coerce_float)
+        else:
+            Y[c] = Y[c].astype(np.float64)
+    Y = Y.dropna(axis=1, how="all")
+    X,Y = X.T.align(Y, axis=0, join="inner")
+
+    #print(X.head())
+    print(type(X), type(Y))
+    #print(X.T.corrwith(Y, axis=1))
+    raise SystemExit
+
+
+    #cors = np.zeros((X.shape[1],Y.shape[1]))
+    rows = []
+    for col in Y.columns:
+        rows.append(X.corrwith(Y[col], method="kendall"))
+
+    pandas.DataFrame(rows, index=Y.columns).T\
+            .to_csv(sys.stdout, sep=delimiter, float_format="%0.3f")

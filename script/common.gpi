@@ -1,5 +1,6 @@
 set output '/dev/stdout'
-set terminal svg
+set terminal post enhanced eps color font "CMSS9,16" 
+#fontfile "/usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmtex10.pfb"
 
 set datafile separator "\t"
 
