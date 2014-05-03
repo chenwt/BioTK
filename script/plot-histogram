@@ -1,40 +1,40 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python
 
-dat=$(mktemp)
-trap 'rm -f $dat' EXIT
-grep -v '^$' | sort -n > $dat
+import argparse
 
-min=$(head -1 $dat)
-max=$(tail -1 $dat)
-bins=25
-color="green"
+import numpy as np
+from matplotlib.pyplot import *
 
-while getopts t:x:y:l:u:c:n: opt; do
-    case $opt in
-        t) title="$OPTARG" ;;
-        x) xlabel="$OPTARG" ;;
-        y) ylabel="$OPTARG" ;;
-        c) color="$OPTARG" ;;
-        n) bins="$OPTARG" ;;
-        l) min="$OPTARG" ;;
-        u) max="$OPTARG" ;;
-    esac
-done
+from BioTK.plot import histogram
 
-gnuplot <(cat <<EOF
-load '$(dirname $0)/common.gpi'
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--title","-t")
+    p.add_argument("--x-label","-x")
+    p.add_argument("--y-label","-y")
+    p.add_argument("--color","-c", default="blue")
+    p.add_argument("--bins","-b", default=20, type=int)
+    p.add_argument("--min","-l", type=float)
+    p.add_argument("--max","-u", type=float)
+    p.add_argument("--format","-f",default="png")
+    p.add_argument("data_file", nargs="?", type=argparse.FileType("r"),
+            default=sys.stdin)
+    args = p.parse_args()
 
-Min = $min
-Max = $max
-bins = $bins
-width = (Max-Min)/bins
-bin(x)=width*(floor((x-Min)/width)+0.5) + Min
+    with args.data_file as h:
+        data = []
+        for line in h:
+            try:
+                data.append(float(line))
+            except:
+                continue
+        data = np.array(data)
+    if args.min:
+        data = data[data >= args.min]
+    if args.max:
+        data = data[data <= args.max]
 
-set xrange [Min:Max]
-set xlabel '$xlabel'
-set ylabel '$ylabel'
-set title '$title'
-
-plot '$dat' using (bin(\$1)):(1.0) smooth freq with boxes lc rgb "$color"
-EOF
-)
+    fig = histogram(data, bins=args.bins, x_label=args.x_label,
+            y_label=args.y_label, title=args.title,
+            color=args.color)
+    savefig("/dev/stdout", format="eps")
