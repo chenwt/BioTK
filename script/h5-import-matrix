@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+import argparse
+import sys
+
+import h5db
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--append", "-a", type=bool)
+    p.add_argument("--db-file", "-d", 
+            required=True,
+            help="Path to HDF5 file")
+    p.add_argument("--group-name", "-g", 
+            required=True,
+            help="Path to the HDF5 group within the HDF5 database where this matrix should be stored.")
+    p.add_argument("matrix",
+            nargs="?", 
+            type=argparse.FileType("r"), 
+            default=sys.stdin)
+    args = p.parse_args()
+
+    db = h5db.Database(args.db_file, "a")
+
+    if args.group_name in db and not args.append:
+        print("group existed; deleting:", args.group_name, file=sys.stderr)
+        del db[args.group_name]
+
+    if args.append:
+        X = db.require(args.group_name)
+    else:
+        X = db.new(args.group_name)
+
+    X.load_file(args.matrix)
+    db.close()

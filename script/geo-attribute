@@ -12,7 +12,7 @@ FROM gsm
 WHERE characteristics_ch1 != ''
 AND organism_ch1='$species';
 EOF
-sqlite3 $(bioresource GEOmetadb) \
+sqlite3 $(btk-resource GEOmetadb) \
     | gawk -vSED_SCRIPT="$SED_SCRIPT" -f <(cat <<"EOF"
 BEGIN {
     IGNORECASE = 1
@@ -22,24 +22,27 @@ BEGIN {
     age="";
     gender="";
     tissue="";
-} match($2, /[\t ]age(.+?):\s*([0-9]+\.*[0-9]*)/, m) { 
-    age = m[2]; 
+} match($2, /[\t ]age: ([0-9]+(\.*[0-9]*)?)/, m) { 
+    age = m[1]; 
     if ($0 ~ /day/) {
         age /= 7;
     }
-    #printf "%s\tAge\t%0.2f\n",$1,age;
-} match($2, /tissue\s*:\s*([A-Za-z ]+)/, m) {
+    #printf "%s\tAge\t%s\t%s\t%s\n",$1,age,m[0],$2;
+} 
+# Prefer 'tissue', but fall back to 'cell type'
+match($2, /cell type: ([A-Za-z0-9\+\- ]+)/, m) {
     print m[1] |& cmd
     cmd |& getline tissue
-    #if (tissue != "")
-    #    printf "%s\tTissue\t%s\n",$1,tissue;
+} match($2, /tissue: ([A-Za-z0-9\+\- ]+)/, m) {
+    print m[1] |& cmd
+    cmd |& getline tissue
 }
 match($2, /gender\s*:\s*m/) { gender=1; }
 match($2, /gender\s*:\s*f/) { gender=0; }
 {
     cancer=0;
     if (match($2, /tumor|cancer|sarcoma|glioma|leukem|mesothelioma\
-        |metastasis|carcinoma/, m)) { 
+        |metastasis|carcinoma|cll/, m)) { 
         cancer=1 
     }
 

@@ -3,7 +3,7 @@ $(shell mkdir -p bin)
 CC=gcc
 CXX=g++
 CFLAGS=$(shell pkg-config --cflags apophenia)
-CXXFLAGS=$(CFLAGS)
+CXXFLAGS=$(shell pkg-config --cflags apophenia)
 CFLAGS+=-std=c11
 CXXFLAGS+=-std=c++0x
 LDFLAGS=$(shell pkg-config --libs apophenia)

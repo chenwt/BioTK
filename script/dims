@@ -1,0 +1,11 @@
+#!/usr/bin/awk -f
+
+BEGIN {
+    FS=OFS="\t";
+} NR > 1 && nc != NF {
+    print "not square at line",NR,"\n\texpected:",nc,"observed:",NF > "/dev/stderr"
+} 1 {
+    nc = NF
+} END {
+    print NR,NF
+}

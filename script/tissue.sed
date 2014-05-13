@@ -27,6 +27,7 @@ s/.*white blood cell.*/leukocyte/
 s/.*leukocyte.*/leukocyte/
 s/.*red blood cell.*/erythrocyte/
 s/.*blood.*/blood/
+s/.*pbmc.*/blood/
 
 s/.*liver.*/liver/
 s/.*hepatic.*/liver/

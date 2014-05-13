@@ -7,8 +7,6 @@ Extract an expression matrix from a GEO MiniML archive.
 USAGE: $0 <options> archive-path
 
 options:
-  -n : normalize the expression matrix (using cluster3)
-  -c : collapse the expression matrix from probes to Entrez Gene IDs
   -v : verbose output
   -h : show this help
 EOF
@@ -22,13 +20,9 @@ mkdir -p $tmpdir/expression
 shopt -s nullglob
 
 verbose=
-collapse=
-normalize=
 
 while getopts ncvh opt; do
     case $opt in
-        n) normalize=y ;;
-        c) collapse=y ;;
         v) verbose=y ;;
         h) usage ;;
     esac
@@ -45,9 +39,10 @@ process() {
     gsm=$(basename ${file%%-*})
     if [[ $verbose == "y" ]]; then
         echo "** Processing $gsm ..." 1>&2
-        echo -ne "$gsm\t"
     fi
+    echo -ne "$gsm\t"
     cut -f1-2 $file \
+        | tawk '$2 !~ /[^0-9.\-Ee]/' \
         | sort -k1,1b \
         | join -o 1.2 -t '	' -a 2 - $tmpdir/probes \
         | awk 'NF == 0 { print "NaN" } NF == 1 { print $1 }' \
@@ -59,16 +54,20 @@ process() {
 export -f process
 
 {
-    catwhile -f "$tmpdir" -s 1000 < "${archive}" \
+    # This rate limiting is chosen to try and keep the expression directory relatively small
+    #rate=4m
+    #cat "${archive}" \
+    #| pv -qL $rate \
+    catwhile -p "$tmpdir" -s 1000 < "${archive}" \
         | bsdtar -C $tmpdir/expression -x -f - 'GSM*-1.txt'
-    touch $tmpdir/done
+    touch "$tmpdir"/done
 } &
 
 echo "Working directory =" $tmpdir 1>&2
 accession=$(bsdtar qtf ${archive} '*_family.xml' | sed 's/_family.xml$//')
-if [[ $accession != "GPL*"]]; then
-    echo "ERROR: Malformed MiniML archive. Exiting..." 1>&2
-fi
+#if [[ $accession != "GPL*"]]; then
+#    echo "ERROR: Malformed MiniML archive. Exiting..." 1>&2
+#fi
 echo "Detected accession =" $accession 1>&2
 
 echo "* Unpacking probes ..." 1>&2
@@ -77,12 +76,7 @@ bsdtar -q -xOf ${archive} 'GPL*.txt' \
 
 echo "* Exporting expression vectors ..." 1>&2
 
-if [[ $normalize == "y" ]]; then
-    echo -ne 'Gene ID\t'
-else
-    echo -ne 'Probe ID\t'
-fi
-
+echo -ne 'Probe ID\t'
 tr '\n' '\t' < $tmpdir/probes | sed 's/\t$//'
 echo
 

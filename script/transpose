@@ -30,12 +30,11 @@ wd=$(mktemp -d -p $tmpdir)
 trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
 
 process() {
-    rs -T -c"	" -C"	" \
-        | sed -e 's/\s*$//' \
-        | lz4 -q > $FILE
+    lz4 -dq $1 | rs -T -c$'\t' -C$'\t' | sed -e 's/\t$//' | lz4 -q | buffer -o $1
 }
 export -f process
 
-split -l $lines --filter=process - $wd/x
+split -l $lines --filter='lz4 > $FILE' - $wd/x
+parallel process ::: $wd/x*
 zpaste $wd/*
 rm -rf $wd

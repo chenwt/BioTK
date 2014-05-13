@@ -1,10 +1,8 @@
-#!/usr/bin/env bash
-
-usage() {
-    cat <<EOF 1>&2
+#!/usr/bin/env python
+"""
 Pipe data while a condition holds; if it fails to hold, block until it holds again.
 
-USAGE: $0 [options] < data
+USAGE: catwhile [options] < data
 
 options:
     -f <path> : file/folder to watch 
@@ -14,36 +12,49 @@ NOTES
 -----
 
 Currently, the only implemented condition is to check the disk usage of a file/folder.
+"""
 
-EOF
-    exit 1
-}
+import argparse
+import os
+import sys
+import time
 
-# test the condition every $interval lines
-interval=10 
-sleep_duration=1
+MB = 2 ** 20
+BUFFER_SIZE = 10 * MB
 
-file=.
-max_size=1000
+def path_size(path):
+    size = 0
+    for base, dirs, files in os.walk(path):
+        for f in files:
+            try:
+                size += os.path.getsize(os.path.join(base, f))
+            except FileNotFoundError:
+                continue
+    return size
 
-while getopts hs:f: opt; do
-    case $opt in
-        s) max_size="$OPTARG" ;;
-        f) file="$OPTARG" ;;
-        h) usage ;;
-    esac
-done
-shift $((OPTIND - 1))
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--watch-path", "-p")
+    p.add_argument("--max-size", "-s", type=float)
+    p.add_argument("--verbose", "-v", 
+            action="store_true")
+    args = p.parse_args()
 
-get_size() {
-    du -s -BM "$file" 2> /dev/null | cut -f1 | tr -d 'M'
-}
-export -f get_size
+    stdin, stdout = sys.stdin.detach(), sys.stdout.detach()
+    # This prevents the wrappers from failing to be GCed on program close,
+    # causing a message on stderr
+    sys.stdout = sys.stdin = None
 
-while true; do
-    until [[ $(get_size) -lt $max_size ]]; do
-        echo "$(basename $0): size limit exceeded ( $(get_size) vs $max_size ). blocking ..." 1>&2
-        sleep $sleep_duration
-    done
-    dd bs=10M count=1 2> /dev/null
-done
+    while True:
+        data = stdin.read(BUFFER_SIZE)
+        if len(data) == 0:
+            break
+        while True:
+            size = path_size(args.watch_path)
+            if size <= args.max_size * MB:
+                break
+            if args.verbose:
+                print("catwhile: size limit exceeded: (%d / %d MB)" % (size / MB, args.max_size), 
+                        file=sys.stderr)
+            time.sleep(5)
+        stdout.write(data)

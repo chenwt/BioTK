@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+
+import os
+import sys
+
+from collections import namedtuple
+from contextlib import closing
+
+from Bio import Entrez, Medline
+
+def get_email():
+    # attempt to read e-mail from user's gitconfig
+    gitconfig = os.path.expanduser("~/.gitconfig")
+    if os.path.exists(gitconfig):
+        with open(gitconfig) as h:
+            for line in h:
+                if line.strip().startswith("email"):
+                    return line.strip().split(" = ")[1]
+
+Entrez.email = get_email()
+
+Author = namedtuple("Author", "last,rest")
+
+class Article(object):
+    __slots__ = ["key", "authors", "title", "year", "journal", "volume", "issue"]
+    def __init__(self, key, authors=None, title=None, 
+            year=None, journal=None, volume=None, issue=None):
+        self.key = key
+        self.authors = authors
+        self.title = title
+        self.year = year
+        self.journal = journal
+        self.volume = volume
+        self.issue = issue
+
+    def to_bibtex(self):
+        delimiter = ",\n    "
+        rows = ["@article{" + self.key,
+                "year=" + str(self.year)]
+        if self.authors:
+            authors = " and ".join(["%s %s" % (au.last, au.rest) for au in self.authors])
+            rows.append("author={%s}" % authors)
+        if self.title:
+            rows.append("title={%s}" % self.title)
+        if self.journal:
+            rows.append("journal={%s}" % self.journal)
+        if self.volume:
+            rows.append("volume={%s}" % self.volume)
+        if self.issue:
+            rows.append("issue={%s}" % self.issue)
+        return delimiter.join(rows) + "\n}"
+
+
+def fetch(pmid):
+    with closing(Entrez.efetch(db="pubmed", id=[str(pmid)], rettype="medline", retmode="text")) as h:
+        try:
+            record = next(Medline.parse(h))
+        except Exception:
+            sys.exit(1)
+
+        authors = [Author(*au.split(" ", 1)) for au in record["AU"]] if "AU" in record else None
+        year = int(record["DP"].split()[0])
+        return Article("PMID" + pmid,
+                authors=authors,
+                title=record.get("TI", ""),
+                year=year,
+                journal=record.get("TA"),
+                volume=record.get("VI"),
+                issue=record.get("IP"))
+
+if __name__ == "__main__":
+    print(*[fetch(pmid).to_bibtex() for pmid in sys.argv[1:]], sep="\n\n")

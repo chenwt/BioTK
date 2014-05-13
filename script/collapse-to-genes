@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+# samples X probes on stdin -> samples X genes on stdout
+
+while getopts p:t: opt; do
+    case "$opt" in
+        p) platform="$OPTARG" ;;
+        t) taxon="$OPTARG" ;;
+    esac
+done
+
+[ -z "$platform" ] || [ -z "$taxon" ] && {
+    echo "bad"
+    exit 1
+}
+
+map=$(mktemp -p /dev/shm) 
+trap "rm -f $map" EXIT
+btk-resource ailun $platform \
+    | cut -f1-2 \
+    | sort -k1b,1 > $map
+
+genes=$(mktemp -p /dev/shm)
+trap "rm -f $genes" EXIT
+btk-resource entrez-gene-info \
+    | tawk -vtaxon="$taxon" '$1 == taxon { print $2 }' \
+    | sort -k1b,1 \
+    | uniq > $genes
+
+header=$(mktemp -p /dev/shm)
+trap "rm -f $header" EXIT
+head -1 > $header
+
+export map genes header
+
+echo -ne "Gene ID\t"
+tr '\n' '\t' < $genes | sed 's/\t$//'
+echo
+
+process() {
+    while read line; do
+        sample=$(echo "$line" | tr '\t' '\n' | head -1)
+        echo -ne "$sample\t"
+        paste <(tr '\t' '\n' < $header) <(echo "$line" | tr '\t' '\n') \
+            | sed '1d' \
+            | sed '$d' \
+            | sort -k1b,1 \
+            | join -t$'\t' $map - \
+            | cut -f2-3 \
+            | sort -k1b,1 \
+            | join -t$'\t' -a 1 $genes - \
+            | awk -f <(cat << "EOF"
+# Take the geometric mean of all probes mapping to the same gene
+BEGIN { FS=OFS="\t"; pi = 1 } 
+
+function pr() { 
+    if (n > 0) { 
+        print pi ^ (1 / n) 
+    } else { 
+        print "NaN" 
+    }; 
+    pi = 1; 
+    n = 0 
+} 
+
+(prev && $1 != prev) { pr() } 
+$2 != "" && $2 !~ /[^0-9.\-]/ {pi *= $2; n += 1;} 
+{ prev = $1 } 
+END { pr() }
+EOF
+) | tr '\n' '\t'
+        echo    
+    done
+}
+export -f process 
+
+block_size=10M
+parallel --block $block_size --pipe process

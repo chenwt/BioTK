@@ -5,13 +5,28 @@ ailun() {
         | gzip -dc
 }
 
-obo-names() {
+entrez-gene-info() {
+    urlcache 'ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz' | gzip -dc
+}
+
+_owl() {
     ns=$(echo "$1" | tr '[A-Z]' '[a-z]')
     url="http://purl.obolibrary.org/obo/${ns}.owl"
-    owltools $(urlcache -p "$url") \
+    urlcache -p "$url"
+}
+
+obo-names() {
+    echo -e "ID\tName"
+    owltools $(_owl "$1") \
         --object-to-label-table \
         | sed 's/\/\([A-Za-z_0-9]*\t\)/\t\1/' \
-        | cut -f2-3
+        | cut -f2-3 \
+        | awk 'BEGIN {OFS=FS="\t"} {gsub("_",":",$1); print;}'
+}
+
+obo-links() {
+    echo -e "Child\tParent"
+    owltools $(_owl "$1") --write-all-subclass-relationships
 }
 
 GEOmetadb() {
