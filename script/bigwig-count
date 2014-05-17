@@ -1,130 +1,83 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-source gilesc-common.sh
+import argparse
+import multiprocessing as mp
+import os
+import subprocess
+import sys
+import tempfile
 
-bwAssertValid() {
-    bigWigInfo "$1" &> /dev/null && return 0 || {
-        "ERROR: $1 is not a valid BigWig file."
-        return 1
-    }
-}
-export -f bwAssertValid
+import pandas as pd
 
-bwMeanScore() {
-    ( bigWigInfo "$1" 2> /dev/null | awk '$1=="mean:" {print $2}' ) \
-        || echo 0
-}
-export -f bwMeanScore
+def count_locus(bigwig_file, chrom, start, end):
+    cmd = ["bigWigSummary", bigwig_file, chrom, start, end]
+    try:
+        devnull = open(os.devnull, "w")
+        mu = float(subprocess.check_output(cmd, stderr=devnull).strip().decode("utf-8"))
+        cmd.append("-type=coverage") 
+        coverage = float(subprocess.check_output(cmd, stderr=devnull).strip().decode("utf-8"))
+        return mu * coverage
+    except:
+        return np.nan
 
-# Normalize a BigWig data stream such that the mean score 
-# (across the entire BigWig) is one.
-# FIXME: should be mean = 0 and stdev = 1 ?
-bwNormalize() {
-    mu=$(bwMeanScore $1)     
-    awk -v mu=$mu '{ print $1 / mu; }' | perl -pe 'chomp if eof'
-}
-export -f bwNormalize
+def count(args):
+    bed_file, bigwig_file = args
+    cmd = ["bigWigAverageOverBed", bigwig_file, bed_file, "stdout"]
+    data = {}
+    devnull = open(os.devnull, "w")
 
-bwCountSingleLocus() {
-    locus=$(echo "$1" | tr ':-' ' ')
-    bw=$2
-    count=$( ( bigWigSummary $bw $locus 1 2> /dev/null ) || echo 0 )
-    echo $count | bwNormalize $bw
-}
-export -f bwCountSingleLocus
+    file = os.path.basename(bigwig_file)
+    key = os.path.splitext(file)[0]
 
-## Main functions
+    try:
+        output = subprocess.check_output(cmd, stderr=devnull).strip().decode("utf-8")
+    except subprocess.CalledProcessError:
+        return key, None
 
-bwCountVector() {
-    # bigWigAverageOverBed will, for sufficiently large files, 
-    # re-order the output in chromosome order.
-    [ $# != 2 ] && { 
-        echo "USAGE: bigWigCountVector <BED file> <BigWig file>" 
-        exit 1
-    }
-    bed=$1; bigwig=$2
-    bwAssertValid $2
-    tmpbed=$(mktemp)
-    awk '{$4=NR; print;}' $bed \
-        | bigWigAverageOverBed $bigwig stdin stdout 2> /dev/null \
-        | sort -n -k1 | awk '{print $NF}' | bwNormalize $bigwig
-}
-export -f bwCountVector
+    for line in output.split("\n"):
+        if not line:
+            continue
+        fields = line.split("\t")
+        name = fields[0]
+        mu = float(fields[4])
+        data[name] = mu
+    return key, pd.Series(data)
 
+class BigWigFile(object):
+    pass
 
-bwCountLocus() {
-    locus="$1"
-    shift
-    for file in "$@"; do bwAssertValid $file; done
-    par --halt-on-error 1 bwCountSingleLocus $locus {} ::: "$@"
-}
+class BigWigCollection(object):
+    def __init__(self, paths):
+        self._files = [BigWigFile(path) for path in paths]
 
-bwCountMatrix() {
-    BED=$1
-    shift
-    for file in "$@"; do bwAssertValid $file; done
-    echo -n '-	'
-    cut -f4 $BED | perl -pe 'chomp if eof' | tr '\n' '\t' 
-    par 'echo -e "\n{/.}\t\c" && bwCountVector $BED {} | tr "\n" "\t"' \
-        ::: "$@"
-    printf "\n"
-}
+    def mean(self):
+        pass
 
-bwDeleteInvalid() {
-    for file in "$@"; do
-        bwAssertValid $file || {
-            rm $file
-        }
-    done
-}
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("bed_file", nargs=1)
+    p.add_argument("bigwig_file", nargs="+")
+    args = p.parse_args()
 
-usage() {
-    cat <<EOF
-Create an expression matrix or vector from transcript loci
-and BigWig file(s).
+    region_file = args.bed_file[0]
 
-USAGE: 
-    $0 [options] <BED File> <BigWig files> : returns a matrix
-    $0 [options] <BED File> <Single BigWig file> : returns a vector
-    $0 [options] -l <locus> <BigWig files> : returns a vector
-    $0 -x <BigWig files> : 
-        DELETES any argument that is not a valid BigWig file.
-            
-<locus> is in the form: "chr1:1-1000"
-EOF
-    exit 1
-}
+    # FIXME: assumes unique
+    columns = []
+    with open(region_file) as h:
+        for line in h:
+            fields = line.strip().split("\t")
+            columns.append(fields[3])
+    columns = pd.Series(columns)
 
-main() {
-    locus=
-    delete=
+    rows = []
+    index = []
+    pool = mp.Pool(mp.cpu_count())
+    args = ((region_file, bw_file) for bw_file in args.bigwig_file)
+    
+    for key, row in pool.imap(count, args):
+        if row is not None:
+            index.append(key)
+            rows.append(row)
 
-    while getopts "xl:" arg; do
-        case $arg in
-            h)  usage ;; 
-            l)  locus=${OPTARG} ;;
-            x)  delete=true ;;
-            *)  usage ;;
-        esac
-    done
-
-    shift $((OPTIND-1))
-
-    if [ -n "$delete" ]; then
-        bwDeleteInvalid "$@"
-        exit 0
-    fi
-
-    if [ -n "$locus" ]; then 
-        bwCountLocus $locus "$@"
-    elif [ $# -lt 2 ]; then
-        usage
-        exit 1
-    elif [ $# == 2 ]; then
-        bwCountVector "$@"
-    else
-        bwCountMatrix "$@"
-    fi
-}
-
-main "$@"
+    df = pd.DataFrame(rows, index=index, columns=columns)
+    df.to_csv(sys.stdout, sep="\t")
