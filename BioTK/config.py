@@ -45,8 +45,9 @@ CONFIG = CONFIG["BioTK"]
 
 LOG = logging.getLogger("BioTK")
 
-log_formatter = logging.Formatter(CONFIG["log.format"])
-LOG.setFormatter(log_formatter)
+#log_format = CONFIG["log.format"]
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+log_formatter = logging.Formatter(log_format)
 
 log_level = CONFIG["log.level"]
 try:
@@ -56,14 +57,18 @@ except AttributeError:
 See the Python 'logging' module documentation for valid values." % log_level) 
     sys.exit(1)
 
+def add_handler(handler):
+    handler.setFormatter(log_formatter)
+    LOG.addHandler(handler)
+
 if CONFIG.getboolean("log.console"):
     # defaults to sys.stderr
-    LOG.addHandler(logging.StreamHandler())
+    add_handler(logging.StreamHandler())
 if CONFIG.getboolean("log.syslog"):
-    LOG.addHandler(logging.handlers.SysLogHandler())
+    add_handler(logging.handlers.SysLogHandler())
 log_file = CONFIG.get("log.file", "").strip()
 if log_file:
-    LOG.addHandler(logging.FileHandler(log_file))
+    add_handler(logging.FileHandler(log_file))
 
 # Now that logging is set up, notify the user whether custom
 # configuration was loaded that might override the defaults
