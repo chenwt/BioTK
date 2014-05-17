@@ -3,7 +3,7 @@ Lazily read BED files into BioTK.genome.Region objects.
 """
 # TODO: currently fields past 6 are ignored
 
-from BioTK.genome import Region
+from BioTK.genome import Contig, GenomicRegion
 
 from .common import generic_open
 
@@ -23,14 +23,15 @@ class BEDFile(object):
                 continue
             fields = line.strip().split("\t")
             attrs = dict(zip(keys, fields))
-            attrs["start"] = int(attrs["start"])
-            attrs["end"] = int(attrs["end"])
+            contig = Contig(attrs["contig"])
+            start = int(attrs["start"])
+            end = int(attrs["end"])
             if "score" in attrs:
                 try:
                     attrs["score"] = float(attrs["score"])
                 except ValueError:
                     attrs["score"] = NaN
-            yield Region(**attrs)
+            yield GenomicRegion(contig, start, end, score=attrs.get("score", 0))
 
     def __exit__(self, *args):
         self._handle.close()

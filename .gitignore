@@ -17,4 +17,5 @@ __pycache__
 
 /BioTK/version.py
 
-*.h5
+# Site-specific configuration file
+/BioTK.cfg

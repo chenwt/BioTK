@@ -2,9 +2,6 @@ import os
 
 from .math import *
 
-import logging
-logging.basicConfig(level=logging.INFO)
-
 try:
     from .version import version as __version__
 except ImportError:
@@ -16,3 +13,5 @@ def data_path(relpath):
     """
     return os.path.abspath(os.path.join(os.path.dirname(__file__), 
         "data", relpath))
+
+from BioTK.config import *

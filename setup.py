@@ -32,8 +32,6 @@ except ImportError:
 
 try:
     from Cython.Distutils import build_ext
-    from Cython.Build import cythonize
-
     cmdclass["build_ext"] = build_ext
 except ImportError:
     pass
@@ -112,15 +110,24 @@ except ImportError:
 # Extension modules
 ###################
 
+pxd = ["BioTK/genome/types.pxd", "BioTK/genome/index.pxd", "BioTK/io/BBI.pxd"]
+
 extensions = [
-    Extension("BioTK.genome.region",
-        sources=["BioTK/genome/region.pxd", "BioTK/genome/region.pyx"]),
+    Extension("BioTK.genome.types",
+        sources=pxd + ["BioTK/genome/types.pyx"],
+        language="c++"),
     Extension("BioTK.genome.index",
-        sources=["BioTK/genome/index.pyx"]),
+        sources=pxd + ["BioTK/genome/index.pyx"],
+        language="c++"),
+    Extension("BioTK.io.BBI",
+        sources=pxd + ["BioTK/io/BBI.pyx"],
+        language="c++"),
     Extension("BioTK.text.types",
-        sources=["BioTK/text/types.pyx"]),
+        sources=["BioTK/text/types.pyx"],
+        language="c++"),
     Extension("BioTK.text.AhoCorasick",
-        sources=["BioTK/text/AhoCorasick.pyx"])
+        sources=["BioTK/text/AhoCorasick.pyx"],
+        language="c++")
 ]
 
 class LibraryNotFound(Exception):
@@ -169,6 +176,15 @@ if os.path.exists(git_dir):
 else:
     VERSION = "HEAD"
 
+#############################
+# Resolve resource file paths
+#############################
+
+data_files = []
+for root, dirs, files in os.walk("resources"):
+    data_files.append((root, 
+        [os.path.join(root, f) for f in files if f!=".gitignore"]))
+
 #####################
 # Package description
 #####################
@@ -192,10 +208,9 @@ setup(
     ],
     license="AGPLv3+",
 
-    # Modules, data, extensions, and scripts to be installed
-    packages=find_packages(exclude=["ui"]),
-    install_requires=requirements,
+    packages=find_packages(),
     include_dirs=include_dirs,
+    data_files=data_files,
     tests_require=requirements + ["pytest"],
     extras_require={
         "doc": requirements,

@@ -1,5 +1,5 @@
 """
-BigWig and BigBED readers in pure Python.
+BigWig and BigBED readers.
 
 The detailed (byte-level) BigWig and BigBED specifications 
 are described in the paper:
@@ -22,8 +22,6 @@ from functools import lru_cache
 from struct import Struct, unpack
 
 import numpy
-
-from BioTK.genome import RAMIndex
 
 __all__ = ["BigWigFile", "BigBEDFile"]
 
@@ -49,7 +47,7 @@ TotalSummary = defstruct("TotalSummary", "=Qdddd",
                          "basesCovered minVal \
                          maxVal sumData sumSquares")
 
-Contig = namedtuple("Contig", "name id size")
+#Contig = namedtuple("Contig", "name id size")
 
 # Common Node metadata for BPTree and RTree
 Node = defstruct("Node", "=??H", "isLeaf reserved count")
@@ -162,44 +160,73 @@ class ContigNotFound(Exception):
         msg = "Contig '%s' not found in '%s'" % (name, path)
         super(ContigNotFound, self).__init__(msg)
 
-class BBIFile(object):
+cdef class BBIFile:
     """
     Common superclass of BigWig and BigBed files.
     """
+    def __cinit__(self):
+        self._genome = Genome()
+
     def __init__(self, path):
         self._path = path
         self._handle = open(path, "r+b")
         self._map = mmap.mmap(self._handle.fileno(), 0)
         self.header = read_struct(self._map, BBIHeader)
+        assert(self.header.magic == self.MAGIC_NUMBER)
         self.summary = read_struct(self._map, TotalSummary,
                                    offset=self.header.totalSummaryOffset)
 
-        # Read contigs from B+ Tree
-        self._contig_by_id = {}
-        self._contig_by_name = {}
-        for leaf in BPTree(self._map, self.header.chromosomeTreeOffset):
-            contig = Contig(leaf.key.decode("ascii").rstrip('\x00'), 
-                            leaf.chromId, leaf.chromSize)
-            self._contig_by_id[contig.id] = contig
-            self._contig_by_name[contig.name] = contig
+        self.load_genome()
 
         # Read dataCount (# sections for BigWig, # elements in BigBED)
         self._map.seek(self.header.fullDataOffset)
         self.dataCount = int.from_bytes(self._map.read(4), byteorder="little")
         
+        self.load_index()
+
+    cdef void load_genome(self):
+        """
+        Load contig names, IDs, and sizes from the BBI file.
+        """
+        # Read contigs from B+ Tree
+        self._genome = Genome()
+        for leaf in BPTree(self._map, self.header.chromosomeTreeOffset):
+            # TODO: make sure this appropriately copies by value
+            id = leaf.chromId
+            size = leaf.chromSize
+            name = leaf.key.decode("ascii").rstrip('\x00')
+            contig = Contig(name,
+                    id=leaf.chromId,
+                    size=leaf.chromSize)
+            self._genome.add(contig)
+
+    cdef void load_index(self):
+        """
+        Load the index that maps genomic regions to BBI file offsets. 
+        """
+        # Read index sections from RTree and cache them in an Interval Tree
+        cdef long start, end
+        cdef Contig contig
+        cdef GenomicRegion region
+        self._index = GenomicRegionRAMIndex()
+
+        for leaf in RTree(self._map, self.header.fullIndexOffset):
+            for contig_id in range(leaf.startChromIx, leaf.endChromIx+1):
+                start = leaf.startBase \
+                        if (contig_id == leaf.startChromIx) else 0
+                end = leaf.endBase if (contig_id == leaf.endChromIx) \
+                      else self._genome[contig_id].size
+                contig = self._genome.by_id[contig_id]
+                region = GenomicRegion(contig, start, end, data=leaf)
+                self._index.add(region)
+
+        self._index.build()
+
     @property
-    def _leaves(self):
-        if not hasattr(self, "__leaves"):
-            # Read index sections from RTree and cache them in an Interval Tree
-            self.__leaves = GenomicRegionRAMIndex()
-            for leaf in RTree(self._map, self.header.fullIndexOffset):
-                for contig_id in range(leaf.startChromIx, leaf.endChromIx+1):
-                    start = leaf.startBase if (contig_id == leaf.startChromIx) else 0
-                    end = leaf.endBase if (contig_id == leaf.endChromIx) \
-                          else self._contig_by_id[contig_id].size
-                    self.__leaves.add(contig_id, start, end, leaf)
-            self.__leaves.build()
-        return self.__leaves
+    def index(self):
+        #if len(self._index) == 0:
+        #    self.load_index()
+        return self._index
 
     def __del__(self):
         try:
@@ -216,53 +243,47 @@ class BBIFile(object):
         self._map.seek(leaf.dataOffset)
         data = self._map.read(leaf.dataSize)
         if self.header.uncompressBufSize > 0:
-            data = zlib.decompress(data, 15, self.header.uncompressBufSize)
+            data = zlib.decompress(data, 15, 
+                    self.header.uncompressBufSize)
         return data
 
     def _read_section(self, leaf):
         """
-        Uncompress the data under this leaf, and read the data contained therein.
-        """
+        Uncompress the data under this leaf, and read the data contained
+        therein.  
+        """ 
         data = self._decompress_section(leaf)
-        return self._read_section_data(leaf, data)
+        self._read_section_data(leaf, data)
     
     def _read_section_data(self, leaf, data):
+        # This is supposed to be implemented by subclasses,
+        #   because it varies by BBI file type and parameters.
         raise NotImplementedError
     
-    ###################
-    # Utility functions
-    ###################
-
-    def _get_contig_id(self, name):
-        contig = self._contig_by_name.get(name)
-        if contig is None:
-            raise ContigNotFound(name, self._path)
-        return contig.id
-
     #######################
     # Searching for regions
     #######################
 
-    def _search_index(self, contig_id, start, end):
+    def _search(self, GenomicRegion query):
         """
-        Search the RTree for RLeafItems overlapping the given region.
+        Search the RTree for RLeafItems overlapping the given region,
+        load the data for each section, and return a generator
+        of the overlapping regions.
         """
-        yield from self._leaves.search(contig_id, start, end)
+        for block in self.index.search(query):
+            yield from self._search_block(block, query)
     
-    def _search(self, contig_id, start, end):
-        for leaf in self._search_index(contig_id, start, end):
-            yield from self._search_leaf(leaf, contig_id, start, end)
-    
-    def _search_leaf(self, leaf, contig_id, start, end):
+    def _search_block(self, GenomicRegion block, GenomicRegion query):
         # Note, every section in BigWig files contains all the same
         # contig ID, whereas BigBED can have mixed contig IDs.
-        # Thus, the _search_leaf method is implemented by subclasses
+        # Thus, the _search_block method is implemented by subclasses
         # so that BigWig files can be searched more efficiently.
         raise NotImplementedError
 
     ############
     # Public API
     ############
+
     def __iter__(self):
         """
         Iterate through the elements (BED or BEDGraph) in this BBI file.
@@ -270,25 +291,29 @@ class BBIFile(object):
         for leaf in self._leaves:
             yield from self._read_section(leaf)
     
-    def search(self, contig, start, end):
+    def search(self, contig_name, start, end):
         """
         Return the elements (BED or BEDGraph) in this BBI file
         that overlap the query region.
         """
-        id = self._get_contig_id(contig)
-        yield from self._search(id, start, end)
+        cdef GenomicRegion query 
+        try:
+            contig = self._genome.by_name[contig_name]
+            query = GenomicRegion(contig, start, end)
+            yield from self._search(query)
+        except KeyError:
+            pass
 
     @property
     def contigs(self):
         """
-        Return a list of the contigs in this BBI file.
+        Return the contigs in this BBI file.
         """
-        return list(self._contig_by_id.values())
+        return list(self._genome.by_name.values())
 
     def __repr__(self):
         return "<%s: %s>" % (str(type(self)), self._path)
  
-
 class BigWigFile(BBIFile):
     """
     A BigWig format file. In this format, genomic regions 
@@ -302,6 +327,8 @@ class BigWigFile(BBIFile):
     strand, exons, etc.). 
     """ 
 
+    MAGIC_NUMBER = 0x888FFC26
+
     # Data section formats 
     bedGraph = 1
     varStep = 2 
@@ -309,11 +336,10 @@ class BigWigFile(BBIFile):
 
     def __init__(self, path):
         super(BigWigFile, self).__init__(path)
-        assert(self.header.magic==0x888FFC26)
         cache = lru_cache(maxsize=16)
-        self._read_section_internal = cache(self._read_section_internal)
+        self._read_section = cache(self._read_section)
     
-    def _read_section_internal(self, leaf):
+    def _read_section(self, leaf):
         data = self._decompress_section(leaf)
         section_header_values = BigWigSectionHeader._struct.unpack_from(data)
         section_header = BigWigSectionHeader._make(section_header_values)
@@ -337,67 +363,67 @@ class BigWigFile(BBIFile):
         
         else:
             raise IOError("BigWig data section type '%s' not a recognized value (corrupted or invalid file?)." % section_header.type)
+  
+    def _search_block(self, GenomicRegion block, GenomicRegion q):
+        leaf = block.data
+        data = self._read_section(leaf)
+        ix = (data["start"] < q.end) & (q.start < data["end"])
+        data = data[ix]
 
-
-    def _search_leaf_internal(self, leaf, contig_id, start, end):
-        regions = self._read_section_internal(leaf)
-        ix = (regions["start"] < end) & (start < regions["end"])
-        return regions[ix]
-    
-    def _export_element(self, contig_id, element):
-        return BEDGraph(self._contig_by_id[contig_id].name, *element)
-
-    def _read_section(self, leaf):
-        contig_id = leaf.startChromIx
-        return (self._export_element(contig_id, e) \
-                for e in self._read_section_internal(leaf))
-    
-    def _search_leaf(self, leaf, contig_id, start, end):
-        return (self._export_element(contig_id, e) \
-                for e in self._search_leaf_internal(leaf, contig_id, start, end))
-   
-    ######################################
-    # Public API (BigWig specific methods)
-    ######################################
-
-    def _collapse_runs(self, elements):
+        result = []
+        for i in range(data.shape[0]):
+            start, end, value = data[i]
+            result.append(GenomicRegion(q.contig, start, end, score=value))
+        return result
+        
+    def _collapse_runs(self, it):
         # The Kent utilities collapse adjacent elements with the
         # same value, so we do too for comparability
-        prev = next(elements)
-        for e in elements:
+        prev = next(it)
+        for e in it:
             if (prev.chrom == e.chrom) and \
                (prev.end == e.start) and \
                (abs(prev.value - e.value) < 1e-3):
-                prev = BEDGraph(prev.chrom, prev.start, e.end, prev.value)
+
+                prev = GenomicRegion(prev.contig, prev.start, e.end, 
+                    score=prev.value)
             else:
                 yield prev
                 prev = e
         yield prev
-    
+
+    ######################################
+    # Public API (BigWig specific methods)
+    ######################################
+
     def __iter__(self):
         it = super(BigWigFile, self).__iter__()
         return self._collapse_runs(it)
         
-    def search(self, chrom, start, end):
-        it = super(BigWigFile, self).search(chrom, start, end)
+    def search(self, GenomicRegion q):
+        it = super(BigWigFile, self).search(q)
         return self._collapse_runs(it)
 
     def __len__(self):
         return sum(1 for _ in self)
 
-    def summarize_region(self, chrom, start, end):
+    def summarize_region(self, contig_name, start, end):
         length = end - start
         assert(length > 0)
 
         try:
-            contig_id = self._get_contig_id(chrom)
-        except ContigNotFound:
+            contig = self._genome.by_name[contig_name]
+        except KeyError:
             return RegionSummary(length, 0, 0, 0, 0)
+
+        q = GenomicRegion(contig, start, end)
 
         bases_covered = 0
         sum_values = 0
-        for leaf in self._search_index(contig_id, start, end):
-            regions = self._search_leaf_internal(leaf, contig_id, start, end)
+        for block in self.index.search(q):
+            regions = self._read_section(block.data)
+            ix = (regions["start"] < q.end) & (q.start < regions["end"])
+            regions = regions[ix].copy()
 
             if len(regions):
                 # Truncate edge regions so that only the overlapping

@@ -1,2 +1,2 @@
 from .index import *
-from .region import Region
+from .types import *
