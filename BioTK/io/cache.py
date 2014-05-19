@@ -13,7 +13,7 @@ import memcache
 
 import BioTK.config
 
-log = logging.getLogger(__name__)
+from BioTK import LOG
 
 MEMCACHED_SLAB_SIZE = 1024 * 512
 
@@ -50,10 +50,12 @@ RAMCache = memcached
 
 def download(url):
     dest = os.path.join(BioTK.config.CACHE_DIR.encode("utf-8"), 
-            base64.b64encode(url.encode("utf-8")))
+            base64.b64encode(url.encode("utf-8"))).decode("utf-8")
     
     if not os.path.exists(dest):
-        log.info("Cache miss for URL: %s" % url)
+        LOG.info("Download cache miss for URL: %s" % url)
         urllib.request.urlretrieve(url, dest)
+    else:
+        LOG.info("Download cache hit for URL: %s" % url)
 
     return dest

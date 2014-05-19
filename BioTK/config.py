@@ -9,14 +9,16 @@ defaults.
 This module also sets up logging.
 """
 
-__all__ = ["CONFIG", "LOG", "CACHE_DIR"]
+__all__ = ["CONFIG", "TAXA", "LOG", "CACHE_DIR"]
 
 import configparser
 import logging
 import os
 import sys
 
-default_cfg_path = os.path.join(os.path.dirname(__file__), "default.cfg")
+from BioTK import resource
+
+default_cfg_path = resource.path("cfg/default.cfg")
 CONFIG = configparser.ConfigParser()
 CONFIG.read(default_cfg_path)
 
@@ -73,7 +75,7 @@ if log_file:
 # Now that logging is set up, notify the user whether custom
 # configuration was loaded that might override the defaults
 if user_cfg_path is not None:
-    LOG.info("User configuration file was loaded from %s" % path)
+    LOG.info("User configuration file loaded from '%s'" % path)
 
 #################
 # Configure cache
@@ -87,9 +89,21 @@ if not os.path.exists(CACHE_DIR):
 # Configure datasets
 ####################
 
+def resolve_dir(root, path):
+    return path if os.path.isabs(path) else os.path.join(root, path)
+
 # Set data paths to be relative to the data root, if necessary
-data_root = os.path.abspath(CONFIG["data.root.dir"])
+data_root = CONFIG["data.root.dir"] = os.path.abspath(CONFIG["data.root.dir"])
+ncbi_root = CONFIG["ncbi.root.dir"] = \
+        resolve_dir(data_root, CONFIG["ncbi.root.dir"])
+ucsc_root = CONFIG["ucsc.root.dir"] = \
+        resolve_dir(data_root, CONFIG["ucsc.root.dir"])
+
 for key, path in CONFIG.items():
-    if key.startswith("data.") and key.endswith(".dir"):
-        if not os.path.isabs(path):
-            CONFIG[key] = os.path.join(data_root, path)
+    if key.endswith(".dir") and not "root" in key:
+        if key.startswith("ncbi."):
+            CONFIG[key] = resolve_dir(ncbi_root, path)
+
+# Read enabled taxa into global variable
+# (will this work in a multiprocessing or distributed environment?)
+TAXA = list(map(int, CONFIG["data.taxa"].split(",")))

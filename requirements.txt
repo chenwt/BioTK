@@ -1,26 +1,42 @@
+###################
+# Base dependencies
+###################
+
+# Basic numerics packages
 numpy
 scipy
 cython
 matplotlib
-
 pytz
 numexpr
 bottleneck
 pandas
 
+# Statistics
 patsy
 statsmodels
-
-h5py
-
-python3-memcached
-
-pyparsing
-
-networkx
-
 scikit-learn
 
-cement
+# Other analysis packages
+networkx
 
+# Data management
+h5py
+python3-memcached
+sqlalchemy
+psycopg2
+
+# Utilities
+cement
 sortedcontainers
+pyparsing
+
+#################
+# UI dependencies
+#################
+
+bottle
+
+#########################
+# Bioinformatics packages
+#########################

@@ -208,6 +208,7 @@ setup(
     ],
     license="AGPLv3+",
 
+    zip_safe=False,
     packages=find_packages(),
     include_dirs=include_dirs,
     data_files=data_files,
