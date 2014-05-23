@@ -14,8 +14,8 @@ pandas
 
 # Statistics
 patsy
-statsmodels
-scikit-learn
+git+https://github.com/statsmodels/statsmodels.git
+git+https://github.com/scikit-learn/scikit-learn.git
 
 # Other analysis packages
 networkx
@@ -23,7 +23,7 @@ networkx
 # Data management
 h5py
 python3-memcached
-sqlalchemy
+git+https://github.com/zzzeek/sqlalchemy.git
 psycopg2
 
 # Utilities

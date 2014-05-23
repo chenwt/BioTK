@@ -19,7 +19,6 @@ from sqlalchemy.dialects.postgresql import ARRAY
 
 import pandas as pd
 import numpy as np
-import lz4
 
 import BioTK.io
 import BioTK.util

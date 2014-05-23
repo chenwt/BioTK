@@ -12,7 +12,7 @@ outdir=$(pwd)
 key=~/.aspera/connect/etc/asperaweb_id_dsa.openssh
 host=anonftp@ftp.ncbi.nlm.nih.gov
 tmpdir=$(mktemp -d)
-speed=200M
+speed=15M
 
 trap "rm -rf $tmpdir" EXIT
 
