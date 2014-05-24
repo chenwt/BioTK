@@ -40,3 +40,9 @@ bottle
 #########################
 # Bioinformatics packages
 #########################
+
+###################
+# Personal packages
+###################
+
+centrum
