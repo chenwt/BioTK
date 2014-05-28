@@ -42,7 +42,7 @@ match($2, /gender\s*:\s*f/) { gender=0; }
 {
     cancer=0;
     if (match($2, /tumor|cancer|sarcoma|glioma|leukem|mesothelioma\
-        |metastasis|carcinoma|cll/, m)) { 
+        |metastasis|carcinoma|lymphoma|blastoma|cll|ptcl|infected/, m)) { 
         cancer=1 
     }
 
@@ -51,6 +51,6 @@ match($2, /gender\s*:\s*f/) { gender=0; }
     close(cmd)
 }
 EOF
-)
+) | sed '$d'
 
 # vim: set ft=awk :

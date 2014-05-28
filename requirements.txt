@@ -30,6 +30,7 @@ psycopg2
 cement
 sortedcontainers
 pyparsing
+click
 
 #################
 # UI dependencies

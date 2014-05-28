@@ -81,7 +81,7 @@ if user_cfg_path is not None:
 # Configure cache
 #################
 
-CACHE_DIR = CONFIG["cache.dir"]
+CACHE_DIR = os.path.expanduser(CONFIG["cache.dir"])
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR, exist_ok=True)
 
