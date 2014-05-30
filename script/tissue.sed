@@ -12,6 +12,10 @@ s/primary//
 # mappings
 s/.*bone marrow.*/bone marrow/
 
+s/.*adipose.*/adipose/
+
+s/.*skeletal muscle.*/skeletal muscle/
+
 s/.*mammary.*/breast/
 s/.*breast.*/breast/
 
@@ -38,8 +42,11 @@ s/.*pneumatic.*/lung/
 
 s/.*cardiac.*/heart/
 s/.*heart.*/heart/
+s/.*myocard.*/heart/
 
 s/.*brain.*/brain/
+
+s/.*neuron.*/neuron/
 
 s/.*spleen.*/spleen/
 s/.*splenocyte.*/spleen/
@@ -56,6 +63,10 @@ s/.*lymph nodes.*/lymph node/
 s/.*prostate.*/prostate/
 
 s/.*pancrea.*/pancreas/
+
+s/.*conjuntiva.*/conjunctiva/
+
+s/.*retina.*/retina/
 
 # remove cancer-related terms (covered in cancer attribute column)
 s/tumor//

@@ -7,4 +7,7 @@ try:
 except ImportError:
     __version__ = "HEAD"
 
+from centrum import ResourceLookup
+resource = ResourceLookup("BioTK")
+
 from BioTK.config import *

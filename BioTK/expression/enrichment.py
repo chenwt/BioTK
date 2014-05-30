@@ -81,3 +81,22 @@ def simple(members, C, min_annotated=5):
     ea["Annotated"] = C.sum()
     ea = ea.ix[:,["Hits","Annotated","Log2_Odds_Ratio","P-Value"]].sort("Log2_Odds_Ratio", ascending=False)
     return ea.dropna()
+
+def odds_ratio(K, A):
+    """
+    K - transcripts x conditions
+    A - transcripts x annotation
+    """
+    K, A = K.align(A, join="inner", axis=0)
+    transcripts = K.index
+    conditions = K.columns
+    annotations = A.columns
+    # Kt = transposed K
+    Kt, A = K.as_matrix().T, A.as_matrix()
+
+    obs = np.dot(Kt, A) 
+    p = np.outer(Kt.mean(axis=1), A.mean(axis=0)) 
+    exp = p * len(transcripts)
+
+    return pd.DataFrame(np.log2(np.divide(obs, exp)), 
+            index=conditions, columns=annotations)

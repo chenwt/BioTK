@@ -147,7 +147,7 @@ class GEOSample(Base):
     description = Column(String)
     source = Column(String)
     characteristics = Column(String)
-    data = Column(ARRAY(Float, dimensions=1, zero_indexes=True))
+    data = deferred(Column(ARRAY(Float, dimensions=1, zero_indexes=True)))
 
     age = Column(Float)
     gender = Column(Integer)
@@ -180,22 +180,18 @@ class GEOSample(Base):
                 source=source,
                 characteristics=characteristics)
 
-    def _attributes(self):
-        import re
-        if self.characteristics is None:
-            return {}
-        m = re.search(r"\bage:\s*(?P<age>[0-9]+(\.[0-9])?)", 
-                self.characteristics)
-        if m is not None and m.group("age"):
-            return {"age": float(m.group("age"))}
-        return {}
-
-    #@staticmethod
-    #def add_attributes():
-    #    session = get_session()
-    #    for sample in session.query(GEOSample):
-    #   pass
-
+    @staticmethod
+    def set_attributes():
+        session = get_session()
+        for sample in session.query(GEOSample):
+            if sample.characteristics is None:
+                continue
+            m = re.search(r"\bage:\s*(?P<age>[0-9]+(\.[0-9])?)", 
+                    sample.characteristics)
+            if m is not None and m.group("age"):
+                sample.age = float(m.group("age"))
+            session.add(sample)
+        session.commit()
 
 ######################
 # Configure connection
@@ -312,6 +308,8 @@ def load_expression():
 
 if __name__ == "__main__":
     if CONFIG.getboolean("db.auto_populate"):
-        session = get_session(create=True)
-        populate_all(session)
-        load_expression()
+        #session = get_session(create=True)
+        #populate_all(session)
+        #load_expression()
+        pass
+    GEOSample.set_attributes()
