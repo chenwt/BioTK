@@ -56,9 +56,9 @@ export -f process
 {
     # This rate limiting is chosen to try and keep the expression directory relatively small
     #rate=4m
-    #cat "${archive}" \
     #| pv -qL $rate \
-    catwhile -p "$tmpdir" -s 1000 < "${archive}" \
+    #catwhile -p "$tmpdir" -s 1000 < "${archive}" \
+    cat "${archive}" \
         | bsdtar -C $tmpdir/expression -x -f - 'GSM*-1.txt'
     touch "$tmpdir"/done
 } &

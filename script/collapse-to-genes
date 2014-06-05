@@ -43,7 +43,6 @@ process() {
         echo -ne "$sample\t"
         paste <(tr '\t' '\n' < $header) <(echo "$line" | tr '\t' '\n') \
             | sed '1d' \
-            | sed '$d' \
             | sort -k1b,1 \
             | join -t$'\t' $map - \
             | cut -f2-3 \
@@ -68,7 +67,7 @@ $2 != "" && $2 !~ /[^0-9.\-]/ {pi *= $2; n += 1;}
 { prev = $1 } 
 END { pr() }
 EOF
-) | tr '\n' '\t'
+) | tr '\n' '\t' | sed 's/\t$//'
         echo    
     done
 }

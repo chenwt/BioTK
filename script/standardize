@@ -24,7 +24,11 @@ if __name__ == "__main__":
     args = p.parse_args()
 
     if args.skip_header:
-        sys.stdout.write(next(args.file))
+        try:
+            header = next(args.file)
+            sys.stdout.write(header)
+        except StopIteration:
+            sys.exit(1)
 
     for line in args.file:
         fields = line.strip().split("\t")

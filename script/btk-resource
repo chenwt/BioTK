@@ -2,7 +2,10 @@
 
 ailun() {
     urlcache "ftp://ailun.stanford.edu/ailun/annotation/geo/${1}.annot.gz" \
-        | gzip -dc
+        | gzip -dc 2> /dev/null || {
+        echo "AILUN data does not exist for this platform."
+        exit 1
+    }
 }
 
 entrez-gene-info() {
