@@ -76,10 +76,8 @@ class Gene(Base):
 
     @staticmethod
     def objects(session):
-        #url = "ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz"
-        #cached_path = BioTK.io.download(url)
-        # FIXME: hardcoded path
-        path = "/data/gene_info.gz"
+        url = "ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz"
+        path = BioTK.io.download(url)
         ids = set()
         nullable = lambda x: None if x == "-" else x
         with io.TextIOWrapper(gzip.open(path, "r"), encoding="utf-8") as h:
