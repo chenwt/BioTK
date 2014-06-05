@@ -16,6 +16,7 @@ from sqlalchemy.orm import sessionmaker, deferred
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.orm import sessionmaker, deferred, relationship, backref
 
 import pandas as pd
 import numpy as np
@@ -47,6 +48,8 @@ class Taxon(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
+
+    genes = relationship("Gene", backref="taxon")
 
     @staticmethod
     def objects(session):
@@ -308,8 +311,8 @@ def load_expression():
 
 if __name__ == "__main__":
     if CONFIG.getboolean("db.auto_populate"):
-        #session = get_session(create=True)
-        #populate_all(session)
+        session = get_session(create=True)
+        populate_all(session)
         #load_expression()
         pass
     GEOSample.set_attributes()

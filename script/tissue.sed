@@ -21,17 +21,18 @@ s/.*breast.*/breast/
 
 s/.*colorectal.*/colon/
 
-s/.*renal.*/kidney/
-s/.*kidney.*/kidney/
-
 s/.*gingival.*/gingiva/
 
+# Blood cells
 s/wbc/leukocyte/
 s/.*white blood cell.*/leukocyte/
 s/.*leukocyte.*/leukocyte/
 s/.*red blood cell.*/erythrocyte/
 s/.*blood.*/blood/
 s/.*pbmc.*/blood/
+
+s/.*renal.*/kidney/
+s/.*kidney.*/kidney/
 
 s/.*liver.*/liver/
 s/.*hepatic.*/liver/
@@ -44,9 +45,17 @@ s/.*cardiac.*/heart/
 s/.*heart.*/heart/
 s/.*myocard.*/heart/
 
-s/.*brain.*/brain/
+#####
+# CNS
+#####
+s/.*hippocamp.*/hippocampus/
+s/.*temporal cortex.*/temporal cortex/
+s/.*frontal cortex.*/frontal cortex/
+s/.*cerebel.*/cerebellum/
+s/.*retina.*/retina/
 
 s/.*neuron.*/neuron/
+s/.*brain.*/brain/
 
 s/.*spleen.*/spleen/
 s/.*splenocyte.*/spleen/
@@ -65,8 +74,6 @@ s/.*prostate.*/prostate/
 s/.*pancrea.*/pancreas/
 
 s/.*conjuntiva.*/conjunctiva/
-
-s/.*retina.*/retina/
 
 # remove cancer-related terms (covered in cancer attribute column)
 s/tumor//

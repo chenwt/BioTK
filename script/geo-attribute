@@ -1,56 +1,120 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python
 
-species="$1"
-SED_SCRIPT=$(dirname $0)/tissue.sed
-echo -e "Sample ID\tAge\tCancer\tGender\tTissue"
+import os
+import sqlite3
+import re
 
-cat <<EOF |
-.separator "\t"
-SELECT gsm, REPLACE(REPLACE(characteristics_ch1,"	"," "), "
-", "; ")
-FROM gsm
-WHERE characteristics_ch1 != ''
-AND organism_ch1='$species';
-EOF
-sqlite3 $(btk-resource GEOmetadb) \
-    | gawk -vSED_SCRIPT="$SED_SCRIPT" -f <(cat <<"EOF"
-BEGIN {
-    IGNORECASE = 1
-    FS=OFS="\t";
-    cmd = "sed -u -f "SED_SCRIPT
-} {
-    age="";
-    gender="";
-    tissue="";
-} match($2, /[\t ]age: ([0-9]+(\.*[0-9]*)?)/, m) { 
-    age = m[1]; 
-    if ($0 ~ /day/) {
-        age /= 7;
+import argparse
+
+TISSUE_REMOVE = [
+       "whole", "peripheral", "primary"
+]
+
+TISSUE_MAPPING = [
+    ("colorecal", "colon"),
+    ("bone marrow", "bone marrow"),
+    ("adipose", "adipose"),
+    ("skeletal muscle", "skeletal muscle"),
+    ("mammary", "breast"),
+    ("breast", "breast"),
+    ("colorectal", "colon"),
+    ("gingival", "gingiva"),
+    ("wbc", "leukocyte"),
+    ("white blood cell", "leukocyte"),
+    ("leukocyte", "leukocyte"),
+    ("red blood cell", "erythrocyte"),
+    ("blood", "blood"),
+    ("pbmc", "blood"),
+    ("renal", "kidney"),
+    ("kidney", "kidney"),
+    ("liver", "liver"),
+    ("hepatic", "liver"),
+    ("hepatocyte", "liver"),
+    ("lung", "lung"),
+    ("pneumatic", "lung"),
+    ("cardiac", "heart"),
+    ("heart", "heart"),
+    ("myocard", "heart"),
+    ("ca1", "CA1"),
+    ("ca2", "CA2"),
+    ("ca3", "CA3"),
+    ("hippocampus", "hippocampus"),
+    ("temporal cortex", "temporal cortex"),
+    ("frontal cortex", "frontal cortex"),
+    ("occipital", "occipital cortex"),
+    ("cerebel", "cerebellum"),
+    ("retina", "retina"),
+    ("neuron", "neuron"),
+    ("brain", "brain"),
+    ("spleen", "spleen"),
+    ("splenocyte", "spleen"),
+    ("thymus", "thymus"),
+    ("ovarian", "ovary"),
+    ("skin", "skin"),
+    ("epidermis", "skin"),
+    ("lymph nodes", "lymph node"),
+    ("prostate", "prostate"),
+    ("pancrea", "pancreas"),
+    ("conjuntiva", "conjunctiva"),
+    ("thyroid", "thyroid"),
+    ("fibroblast", "fibroblast"),
+    ("smooth muscle", "smooth muscle"),
+    ("t cell", "T cell"),
+    ("t-cell", "T cell"),
+    ("b cell", "B cell"),
+    ("b-cell", "B cell"),
+    ("monocyte", "monocyte"),
+    ("endothel", "endothelium"), 
+    ("cervix", "cervix") # FIXME? aren't there multiple kinds of cervix? 
+]
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--database-path", "-d", 
+        default=os.path.expanduser("~/data/GEOmetadb.sqlite"))
+    p.add_argument("species_name")
+    args = p.parse_args()
+
+    db = sqlite3.connect(args.database_path)
+    c = db.cursor()
+    c.execute("""
+    SELECT gsm, title, description, characteristics_ch1
+    FROM gsm
+    WHERE organism_ch1=?
+    """, (args.species_name,))
+
+    patterns = {
+            "age": "[^\w]age:[\s]*(\d+)",
+            "tissue": "(cell type|tissue):[\s]*([A-Za-z0-9\+\- ]+)",
+            "cancer": "(tumor|tumour|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma|lymphoma|blastoma|nsclc|cll|ptcl|infected)"
     }
-    #printf "%s\tAge\t%s\t%s\t%s\n",$1,age,m[0],$2;
-} 
-# Prefer 'tissue', but fall back to 'cell type'
-match($2, /cell type: ([A-Za-z0-9\+\- ]+)/, m) {
-    print m[1] |& cmd
-    cmd |& getline tissue
-} match($2, /tissue: ([A-Za-z0-9\+\- ]+)/, m) {
-    print m[1] |& cmd
-    cmd |& getline tissue
-}
-match($2, /gender\s*:\s*m/) { gender=1; }
-match($2, /gender\s*:\s*f/) { gender=0; }
-{
-    cancer=0;
-    if (match($2, /tumor|cancer|sarcoma|glioma|leukem|mesothelioma\
-        |metastasis|carcinoma|lymphoma|blastoma|cll|ptcl|infected/, m)) { 
-        cancer=1 
-    }
 
-    print $1,age,cancer,gender,tissue;
-} END {
-    close(cmd)
-}
-EOF
-) | sed '$d'
+    patterns = dict((k, re.compile(v)) for k,v in patterns.items())
+    print("Sample ID", "Age", "Tissue", "Cancer", sep="\t")
+    for row in c:
+        id = int(row[0][3:])
+        text = "\n".join([v if v else "" for v in row[1:]]).lower()
+        age = tissue = ""
 
-# vim: set ft=awk :
+        m = re.search(patterns["age"], text)
+        if m is not None:
+            age = float(m.group(1))
+
+        m = re.search(patterns["tissue"], text)
+        if m is not None:
+            tissue = m.group(2)
+            for rm in TISSUE_REMOVE:
+                tissue = tissue.replace(rm, "")
+            for map_from, map_to in TISSUE_MAPPING:
+                if map_from in tissue:
+                    tissue = map_to
+                    break
+            tissue = tissue.strip()
+
+        cancer = 1 if re.search(patterns["cancer"], text) is not None else 0
+
+        if age and (cancer == 0):
+            print(id, age, tissue, cancer, sep="\t")
+
+if __name__ == "__main__":
+    main()
