@@ -148,7 +148,6 @@ class GEOSample(Base):
     description = Column(String)
     source = Column(String)
     characteristics = Column(String)
-    data = deferred(Column(ARRAY(Float, dimensions=1, zero_indexes=True)))
 
     age = Column(Float)
     gender = Column(Integer)
@@ -194,6 +193,46 @@ class GEOSample(Base):
             session.add(sample)
         session.commit()
 
+# Ontology models
+
+class Ontology(Base):
+    __tablename__ = "ontology"
+
+    id = Column(Integer, primary_key=True)
+    abbreviation = Column(String)
+    name = Column(String)
+    terms = relationship("Term", backref="ontology")
+
+class Term(Base):
+    __tablename__ = "term"
+
+    id = Column(Integer, primary_key=True)
+    original_id = Column(Integer)
+    ontology_id = Column(Integer, ForeignKey("ontology.id"))
+    name = Column(String)
+    synonyms = relationship("Synonym", backref="term")
+
+class RelationType(Base):
+    __tablename__ = "relation_type"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+
+class TermRelation(Base):
+    __tablename__ = "term_relation"
+
+    agent_id = Column(Integer, ForeignKey("term.id"), primary_key=True)
+    target_id = Column(Integer, ForeignKey("term.id"), primary_key=True)
+    type = Column(Integer, ForeignKey("relation.id"), primary_key=True)
+    probability = Column(Float)
+
+class Synonym(Base):
+    __tablename__ = "synonym"
+
+    id = Column(Integer, primary_key=True)
+    term_id = Column(Integer, ForeignKey("term.id"))
+    text = Column(String)
+
 ######################
 # Configure connection
 ######################
@@ -237,80 +276,8 @@ def populate_all(session):
         LOG.info("Successfully loaded %d records into table: '%s'" % 
             (session.query(cls).count(), cls.__tablename__))
 
-def load_expression_file(path):
-    session = get_session()
-    platform_id = int(os.path.basename(path).split(".")[0][3:])
-    LOG.info("Inserting expression data for GEO platform: %d" \
-            % platform_id)
-
-    genes = np.array([g.id for g in \
-            session.query(Gene)\
-                .join(Taxon)\
-                .join(GEOPlatform)\
-                .filter(GEOPlatform.id==platform_id)\
-                .order_by(Gene.id).all()])
-    url = "ftp://ailun.stanford.edu/ailun/annotation/geo/GPL%s.annot.gz" \
-            % platform_id
-    annotation_path = BioTK.io.download(url)
-    annotation = pd.read_table(annotation_path, 
-            compression="gzip",
-            usecols=[0,1],
-            names=["Probe ID", "Gene ID"])
-    probe_counts = annotation["Probe ID"].value_counts()
-    unique_probes = probe_counts.index[probe_counts == 1]
-    annotation.index = annotation["Probe ID"]
-    annotation = annotation.ix[unique_probes, "Gene ID"]
-
-    with tarfile.open(path, "r:xz") as archive:
-        for chunk in BioTK.util.chunks(archive, 1000):
-            for item in chunk:
-                if not (item.name.startswith("GSM") and \
-                        item.name.endswith("-tbl-1.txt")):
-                    continue
-                try:
-                    sample_id = int(item.name.split("-")[0].lstrip("GSM"))
-                    sample = session.query(GEOSample).get(sample_id)
-                    if sample is None:
-                        continue
-
-                    handle = archive.extractfile(item)
-                    # FIXME: read which column the value is in from the 
-                    # included XML file (they aren't always in the same order)
-                    expression = pd.read_table(handle, 
-                            header=None, 
-                            index_col=0,
-                            names=["Probe ID", "Value"],
-                            usecols=[0,1])
-                    ix = annotation[expression.index].dropna()
-                    mu = expression.groupby(ix).mean().iloc[:,0]
-                    mu = mu + 1e-5 - mu.min()
-                    if mu.max() > 100:
-                        mu = mu.apply(np.log2)
-                    mu = (mu - mu.mean()) / mu.std()
-                    data = np.array(mu[genes])#.astype(np.float32).tostring()
-                    sample.data = list(data) #lz4.dumps(data)
-                    #LOG.debug("Inserted expression data for GEO sample: %d" 
-                                #% sample_id)
-                except:
-                    pass
-                    #LOG.debug("FAILED to insert expression data for GEO sample: %d" 
-                            #% sample_id)
-                #    pass
-            session.commit()
-
-def load_expression():
-    miniml_dir = os.path.join(CONFIG["ncbi.geo.dir"], "miniml")
-    paths = glob.glob(miniml_dir + "/GPL*.tar.xz")
-    with mp.Pool(mp.cpu_count()) as pool:
-        pool.map(load_expression_file, paths)
-
-# FIXME: to properly load expression, need to increase max packet size:
-# SET GLOBAL max_allowed_packet=1073741824;
-
 if __name__ == "__main__":
     if CONFIG.getboolean("db.auto_populate"):
         session = get_session(create=True)
         populate_all(session)
-        #load_expression()
-        pass
     GEOSample.set_attributes()

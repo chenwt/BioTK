@@ -1,10 +1,56 @@
 #!/usr/bin/env python
+"""
+Using the GEOmetadb SQLite database, extract interesting attributes (age, tissue, gender, etc.)
+from GEO sample descriptions.
+"""
 
+# TODO:
+# - Associate a probability with each text-based and expression-inferred
+#   label extraction
+# - If a unit can't be found initially, instead of using a user-provided
+#   default, store the ID, compute the empirical distribution of age 
+#   (for this organism) then determine the maximum likelihood age for
+#   unlabeled samples (e.g., if a human has 'age: 543', which sadly
+#   happens, it's probably in months)
+# - Detect controls among disease samples
+
+import argparse
 import os
 import sqlite3
 import re
+import sys
 
-import argparse
+from sqlalchemy import create_engine, MetaData, Table, \
+        Column, Integer, String, \
+        LargeBinary, Float, Boolean
+from sqlalchemy.schema import ForeignKey
+from sqlalchemy.orm import sessionmaker, deferred
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.orm import sessionmaker, deferred, relationship, backref
+
+#######################
+# Constants and helpers
+#######################
+
+def group_if_match(pattern, group, text):
+    m = re.search(pattern, text)
+    if m:
+        return m.group(group)
+
+PATTERNS = {
+    "age": "[^\w]age( *\((?P<age_unit1>[a-z]*)\))?:\
+[ \t]*(?P<age>\d+[\.0-9]*)(( *\- *| (to|or) )\
+(?P<age_end>\d+[\.\d]*))?([ \t]*(?P<age_unit2>[a-z]+))?",
+    "age_unit": "(age\s*unit[s]*|unit[s]* of age): (?P<age_unit>[a-z])",
+    # Tissue (TODO: map to BTO)
+    "tissue": "(cell type|tissue|organ):[\s]*([A-Za-z0-9\+\- ]+)",
+    # Disease states (TODO: map to DO)
+    "cancer": "(tumor|tumour|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma|lymphoma|blastoma|nsclc|cll|ptcl)",
+    "infection": "infec"
+}
+PATTERNS = dict((k, re.compile(v)) for k,v in PATTERNS.items())
 
 TISSUE_REMOVE = [
        "whole", "peripheral", "primary"
@@ -38,7 +84,7 @@ TISSUE_MAPPING = [
     ("ca1", "CA1"),
     ("ca2", "CA2"),
     ("ca3", "CA3"),
-    ("hippocampus", "hippocampus"),
+    ("hippocamp", "hippocampus"),
     ("temporal cortex", "temporal cortex"),
     ("frontal cortex", "frontal cortex"),
     ("occipital", "occipital cortex"),
@@ -65,42 +111,99 @@ TISSUE_MAPPING = [
     ("b-cell", "B cell"),
     ("monocyte", "monocyte"),
     ("endothel", "endothelium"), 
+    ("adrenal", "adrenal gland"),
     ("cervix", "cervix") # FIXME? aren't there multiple kinds of cervix? 
 ]
 
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--database-path", "-d", 
-        default=os.path.expanduser("~/data/GEOmetadb.sqlite"))
-    p.add_argument("species_name")
-    args = p.parse_args()
+# A common additional unit is "dpc", which refers to embryos. 
+# Currently ignored.
+# Some samples are labeled with something like "11 and 14 weeks". 
+# I have no idea what this means, so it's ignored. 
+TIME_CONVERSION = {
+        "year": 12,
+        "y": 12,
+        "yr": 12,
+        "month": 1,
+        "moth": 1, # yes...
+        "mo": 1,
+        "m": 1,
+        "week": 1 / 4.5,
+        "wek": 1 / 4.5, # ...
+        "wk": 1 / 4.5,
+        "w": 1 / 4.5,
+        "day": 1 / 30,
+        "d": 1 / 30,
+        "hour": 1 / (24 * 30),
+        "hr": 1 / (24 * 30),
+        "h": 1 / (24 * 30)
+}
 
-    db = sqlite3.connect(args.database_path)
-    c = db.cursor()
-    c.execute("""
-    SELECT gsm, title, description, characteristics_ch1
-    FROM gsm
-    WHERE organism_ch1=?
-    """, (args.species_name,))
+#####################
+# Declare ORM classes  
+#####################
 
-    patterns = {
-            "age": "[^\w]age:[\s]*(\d+)",
-            "tissue": "(cell type|tissue):[\s]*([A-Za-z0-9\+\- ]+)",
-            "cancer": "(tumor|tumour|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma|lymphoma|blastoma|nsclc|cll|ptcl|infected)"
-    }
+path = "~/data/GEOmetadb.sqlite"
+path = os.path.abspath(os.path.expanduser(path))
 
-    patterns = dict((k, re.compile(v)) for k,v in patterns.items())
-    print("Sample ID", "Age", "Tissue", "Cancer", sep="\t")
-    for row in c:
-        id = int(row[0][3:])
-        text = "\n".join([v if v else "" for v in row[1:]]).lower()
-        age = tissue = ""
+Base = declarative_base()
 
-        m = re.search(patterns["age"], text)
-        if m is not None:
-            age = float(m.group(1))
+engine = create_engine("sqlite:///%s" % path)
+Session = sessionmaker(bind=engine)
+db = Session()
 
-        m = re.search(patterns["tissue"], text)
+class Sample(Base):
+    __tablename__ = "gsm"
+    __table_args__ = (
+        {
+            "autoload": True,
+            "autoload_with": engine
+        })
+
+    rowid = Column(Integer, primary_key=True)
+
+    @property
+    def id(self):
+        return int(self.gsm[3:])
+
+    @property
+    def text(self):
+        if not hasattr(self, "_text"):
+            fields = [self.title, self.description, 
+                    self.characteristics_ch1]
+            self._text = "\n".join([v if v else "" for v in fields])\
+                    .lower()\
+                    .replace(";", "\n")\
+                    .replace("pnd", "postnatal day")\
+                    .replace("postnatal ", "")
+        return self._text
+
+    def age(self, default_unit=None, use_age_range=True):
+        m = re.search(PATTERNS["age"], self.text)
+        if m is None:
+            return
+        age = float(m.group("age"))
+        age_end = m.group("age_end")
+        if age_end:
+            if not use_age_range:
+                return
+            age = (age + float(age_end)) / 2
+        
+        unit = group_if_match(PATTERNS["age_unit"], 
+                "age_unit", self.text) \
+                or m.group("age_unit2") \
+                or m.group("age_unit1") \
+                or default_unit
+        if not unit:
+            return
+        unit = unit.rstrip("s")
+        if not unit in TIME_CONVERSION:
+            return
+        conversion_factor = TIME_CONVERSION[unit]
+        return age * conversion_factor
+
+    @property
+    def tissue(self):
+        m = re.search(PATTERNS["tissue"], self.text)
         if m is not None:
             tissue = m.group(2)
             for rm in TISSUE_REMOVE:
@@ -109,12 +212,39 @@ def main():
                 if map_from in tissue:
                     tissue = map_to
                     break
-            tissue = tissue.strip()
+            return tissue.strip()
+        if "hippocamp" in self.text:
+            return "hippocampus"
 
-        cancer = 1 if re.search(patterns["cancer"], text) is not None else 0
+    @property
+    def disease(self):
+        if re.search(PATTERNS["cancer"], self.text):
+            return "cancer"
+        if re.search(PATTERNS["infection"], self.text):
+            return "infection"
 
-        if age and (cancer == 0):
-            print(id, age, tissue, cancer, sep="\t")
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--database-path", "-d", 
+        default=os.path.expanduser("~/data/GEOmetadb.sqlite"))
+    p.add_argument("--default-age-unit", "-u", 
+            choices=["year", "month", "hour" "day"])
+    p.add_argument("--no-age-range", "-r",
+            action="store_true",
+            help="By default, samples labeled with age 'X to Y <units>' are labeled with the mean of X and Y.\
+Specifying this argument throws out these samples.")
+    p.add_argument("species_name")
+    args = p.parse_args()
+    use_age_range = not args.no_age_range
+    species = args.species_name
+
+    print("Sample ID", "Age", "Tissue", "Disease", sep="\t")
+    for sample in db.query(Sample).filter_by(organism_ch1=species):
+        age = sample.age(default_unit=args.default_age_unit)
+        if age:
+            row = [x or "" for x in \
+                    [sample.id, age, sample.tissue, sample.disease]] 
+            print(*row, sep="\t")
 
 if __name__ == "__main__":
     main()

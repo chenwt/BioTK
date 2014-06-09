@@ -82,7 +82,7 @@ cmdclass["clean"] = Clean
 # Find scripts and requirements
 ###############################
 
-entry_points = {"console_scripts":[]}
+entry_points = {"console_scripts":["btk = BioTK.cli:btk"]}
 
 for root, dirs, files in os.walk(join(dirname(__file__), "BioTK", "script")):
     for file in files:
