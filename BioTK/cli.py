@@ -38,9 +38,10 @@ def geo_extract_expression(miniml_archive):
                 .join(GEOPlatform)\
                 .filter(GEOPlatform.id==platform_id)\
                 .order_by(Gene.id).all()])
-    url = "ftp://ailun.stanford.edu/ailun/annotation/geo/GPL%s.annot.gz" \
-            % platform_id
-    annotation_path = BioTK.io.download(url)
+    #url = "ftp://ailun.stanford.edu/ailun/annotation/geo/GPL%s.annot.gz" \
+    #        % platform_id
+    #annotation_path = BioTK.io.download(url)
+    annotation_path = "/data/geo/annotation/AILUN/GPL%s.annot.gz" % platform_id
     annotation = pd.read_table(annotation_path, 
             compression="gzip",
             usecols=[0,1],

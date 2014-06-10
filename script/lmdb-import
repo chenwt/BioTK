@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+
+import argparse
+import pickle
+import sys
+import itertools
+
+import numpy as np
+import pandas as pd
+import lmdb
+
+class MatrixStore(object):
+    def __init__(self, path):
+        self.path = path
+        self.env = lmdb.Environment(path, map_size=1e10, 
+                writemap=True, meminit=False, map_async=True, 
+                sync=False, max_dbs=1000)
+
+    def __getitem__(self, name):
+        return Matrix(self.env, name)
+
+    def __iter__(self):
+        with self.env.begin() as tx:
+            c = tx.cursor()
+            if not c.first():
+                return
+            yield pickle.loads(c.key())
+            while c.next():
+                yield pickle.loads(c.key())
+
+    def new(self, name, columns):
+        return Matrix(self.env, name, columns=columns)
+
+class Matrix(object):
+    def __init__(self, env, name, columns=None):
+        self.env = env
+        name = pickle.dumps(name)
+        self.db = env.open_db(name)
+
+        with self.env.begin(db=self.db, write=columns is not None) as tx:
+            key = pickle.dumps("columns")
+            if columns is not None:
+                assert(isinstance(columns, pd.Index))
+                tx.put(key, pickle.dumps(columns))
+                self.columns = columns
+            else:
+                self.columns = pickle.loads(tx.get(key))
+
+    def __iter__(self):
+        with self.env.begin(db=self.db) as tx:
+            c = tx.cursor()
+            if not c.first():
+                return
+            yield pickle.loads(c.key())
+            while c.next():
+                yield pickle.loads(c.key())
+
+    def __getitem__(self, sel):
+        with self.env.begin(db=self.db, buffers=True) as tx:
+            key = pickle.dumps(sel)
+            data = np.frombuffer(tx.get(sel))
+            return pd.Series(data, index=self.columns)
+
+    def append(self, df):
+        with self.env.begin(db=self.db, write=True) as tx:
+            c = tx.cursor()
+            items = []
+            for i in range(df.shape[0]):
+                key = pickle.dumps(df.index[i])
+                data = np.array(df.iloc[i,:], dtype=np.float64).tostring()
+                items.append((key,data))
+            c.putmulti(items)
+
+if __name__ == "__main2__":
+    store = MatrixStore("expression.db")
+    X = store[9606]
+    for key in X:
+        print(key)
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--taxon-id", "-t", type=int, required=True)
+    p.add_argument("--overwrite", "-o", action="store_true")
+    p.add_argument("db_path")
+    args = p.parse_args()
+
+    chunk_size = 100
+    store = MatrixStore(args.db_path)
+
+    total = 0
+    chunks = iter(pd.read_csv(sys.stdin, index_col=0, header=0, 
+            sep="\t", chunksize=chunk_size))
+    chunk = next(chunks)
+    if not args.taxon_id in store:
+        X = store.new(args.taxon_id, chunk.columns)
+    else:
+        X = store[args.taxon_id]
+
+    chunks = itertools.chain([chunk], chunks)
+    for chunk in chunks:
+        X.append(chunk)
+        total += chunk.shape[0]
+        print(total)
+
+
