@@ -126,7 +126,7 @@ class GEOPlatform(Base):
                 taxon_name_to_id[taxon.name] = taxon.id
 
         # FIXME: hardcoded path
-        c = sqlite3.connect("/data/GEOmetadb.sqlite").cursor()
+        c = sqlite3.connect("/data/ncbi/geo/GEOmetadb.sqlite").cursor()
         c.execute("SELECT gpl, organism, title FROM gpl")
         for gpl, taxon_name, title in c:
             taxon_id = taxon_name_to_id.get(taxon_name)
@@ -162,7 +162,7 @@ class GEOSample(Base):
         # human platforms)
 
         platforms = set([p.id for p in session.query(GEOPlatform).all()])
-        c = sqlite3.connect("/data/GEOmetadb.sqlite").cursor()
+        c = sqlite3.connect("/data/ncbi/geo/GEOmetadb.sqlite").cursor()
         c.execute("""
         SELECT gsm, gpl, title, description, 
             source_name_ch1, characteristics_ch1
@@ -195,6 +195,7 @@ class GEOSample(Base):
 
 # Ontology models
 
+"""
 class Ontology(Base):
     __tablename__ = "ontology"
 
@@ -232,6 +233,19 @@ class Synonym(Base):
     id = Column(Integer, primary_key=True)
     term_id = Column(Integer, ForeignKey("term.id"))
     text = Column(String)
+"""
+
+###################
+# Text mining stuff
+###################
+
+"""
+class Article(Base):
+    id = Column(Integer, primary_key=True)
+    title = Column(String)
+    abstract = Column(String)
+    full_text = Column(String)
+"""
 
 ######################
 # Configure connection

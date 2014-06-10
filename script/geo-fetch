@@ -12,7 +12,7 @@ outdir=$(pwd)
 key=~/.aspera/connect/etc/asperaweb_id_dsa.openssh
 host=anonftp@ftp.ncbi.nlm.nih.gov
 tmpdir=$(mktemp -d)
-speed=15M
+speed=200M
 
 trap "rm -rf $tmpdir" EXIT
 
@@ -35,7 +35,7 @@ for accession in "$@"; do
     wd=$tmpdir/$accession
 
     echo "* Downloading $accession ..." 1>&2
-    ascp -l $speed -d -i $key $host:$uri $tmpdir #&> /dev/null
+    ascp -l $speed -d -i $key $host:$uri $tmpdir || exit 1 #&> /dev/null
     mv $tmpdir/miniml $wd
     echo "* Decompressing $accession data ..." 1>&2
     for file in $wd/*.tgz; do
