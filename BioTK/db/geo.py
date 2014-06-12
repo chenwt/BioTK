@@ -1,23 +1,5 @@
-#!/usr/bin/env python
-"""
-Using the GEOmetadb SQLite database, extract interesting attributes (age, tissue, gender, etc.)
-from GEO sample descriptions.
-"""
-
-# TODO:
-# - Associate a probability with each text-based and expression-inferred
-#   label extraction
-# - If a unit can't be found initially, instead of using a user-provided
-#   default, store the ID, compute the empirical distribution of age 
-#   (for this organism) then determine the maximum likelihood age for
-#   unlabeled samples (e.g., if a human has 'age: 543', which sadly
-#   happens, it's probably in months)
-# - Detect controls among disease samples
-
-import argparse
-import os
-import sqlite3
 import re
+import os
 import sys
 
 from sqlalchemy import create_engine, MetaData, Table, \
@@ -29,6 +11,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import sessionmaker, deferred, relationship, backref
+
+from BioTK.text import Trie
 
 #######################
 # Constants and helpers
@@ -45,7 +29,7 @@ PATTERNS = {
 (?P<age_end>\d+[\.\d]*))?([ \t]*(?P<age_unit2>[a-z]+))?",
     "age_unit": "(age\s*unit[s]*|unit[s]* of age): (?P<age_unit>[a-z])",
     # Tissue (TODO: map to BTO)
-    "tissue": "(cell type|tissue|organ):[\s]*([A-Za-z0-9\+\- ]+)",
+    "tissue": "(cell type|tissue|organ) *: *(?P<tissue>[A-Za-z0-9\+\- ]+)",
     # Disease states (TODO: map to DO)
     "cancer": "(tumor|tumour|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma|lymphoma|blastoma|nsclc|cll|ptcl)",
     "infection": "infec"
@@ -58,6 +42,7 @@ TISSUE_REMOVE = [
 
 TISSUE_MAPPING = [
     ("colorecal", "colon"),
+    ("colon", "colon"),
     ("bone marrow", "bone marrow"),
     ("adipose", "adipose"),
     ("skeletal muscle", "skeletal muscle"),
@@ -111,9 +96,17 @@ TISSUE_MAPPING = [
     ("b-cell", "B cell"),
     ("monocyte", "monocyte"),
     ("endothel", "endothelium"), 
+    ("blood vessel", "endothelium"),
     ("adrenal", "adrenal gland"),
-    ("cervix", "cervix") # FIXME? aren't there multiple kinds of cervix? 
+    ("cervix", "cervix"), # FIXME? aren't there multiple kinds of cervix? 
+    ("cerebr", "cerebrum")
 ]
+
+trie = Trie(case_sensitive=False)
+for pattern, tissue in TISSUE_MAPPING:
+    trie.add(pattern, key=tissue)
+    trie.add(tissue, key=tissue)
+trie.build()
 
 # A common additional unit is "dpc", which refers to embryos. 
 # Currently ignored.
@@ -138,12 +131,7 @@ TIME_CONVERSION = {
         "h": 1 / (24 * 30)
 }
 
-#####################
-# Declare ORM classes  
-#####################
-
-path = "~/data/GEOmetadb.sqlite"
-path = os.path.abspath(os.path.expanduser(path))
+path = "/dev/shm/GEOmetadb.sqlite"
 
 Base = declarative_base()
 
@@ -168,7 +156,7 @@ class Sample(Base):
     @property
     def text(self):
         if not hasattr(self, "_text"):
-            fields = [self.title, self.description, 
+            fields = [self.title, self.description, self.source_name_ch1,
                     self.characteristics_ch1]
             self._text = "\n".join([v if v else "" for v in fields])\
                     .lower()\
@@ -203,9 +191,10 @@ class Sample(Base):
 
     @property
     def tissue(self):
+        """
         m = re.search(PATTERNS["tissue"], self.text)
         if m is not None:
-            tissue = m.group(2)
+            tissue = m.group("tissue")
             for rm in TISSUE_REMOVE:
                 tissue = tissue.replace(rm, "")
             for map_from, map_to in TISSUE_MAPPING:
@@ -213,38 +202,19 @@ class Sample(Base):
                     tissue = map_to
                     break
             return tissue.strip()
-        if "hippocamp" in self.text:
-            return "hippocampus"
+        else:
+        """
+        # FIXME: instead of sorting by length, sort by BTO specificity
+        matches = trie.search(self.text)
+        if matches:
+            matches.sort(key=lambda x: - (x.end - x.start))
+            return matches[0].key
 
     @property
     def disease(self):
+        if "control" in self.text:
+            return
         if re.search(PATTERNS["cancer"], self.text):
             return "cancer"
         if re.search(PATTERNS["infection"], self.text):
             return "infection"
-
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--database-path", "-d", 
-        default=os.path.expanduser("~/data/GEOmetadb.sqlite"))
-    p.add_argument("--default-age-unit", "-u", 
-            choices=["year", "month", "hour" "day"])
-    p.add_argument("--no-age-range", "-r",
-            action="store_true",
-            help="By default, samples labeled with age 'X to Y <units>' are labeled with the mean of X and Y.\
-Specifying this argument throws out these samples.")
-    p.add_argument("species_name")
-    args = p.parse_args()
-    use_age_range = not args.no_age_range
-    species = args.species_name
-
-    print("Sample ID", "Age", "Tissue", "Disease", sep="\t")
-    for sample in db.query(Sample).filter_by(organism_ch1=species):
-        age = sample.age(default_unit=args.default_age_unit)
-        if age:
-            row = [x or "" for x in \
-                    [sample.id, age, sample.tissue, sample.disease]] 
-            print(*row, sep="\t")
-
-if __name__ == "__main__":
-    main()

@@ -12,7 +12,7 @@ import lmdb
 class MatrixStore(object):
     def __init__(self, path):
         self.path = path
-        self.env = lmdb.Environment(path, map_size=1e10, 
+        self.env = lmdb.Environment(path, map_size=1e12, 
                 writemap=True, meminit=False, map_async=True, 
                 sync=False, max_dbs=1000)
 
