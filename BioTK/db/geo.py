@@ -99,7 +99,13 @@ TISSUE_MAPPING = [
     ("blood vessel", "endothelium"),
     ("adrenal", "adrenal gland"),
     ("cervix", "cervix"), # FIXME? aren't there multiple kinds of cervix? 
-    ("cerebr", "cerebrum")
+    ("cerebr", "cerebrum"),
+    ("testis", "testes"),
+    ("testes", "testes"),
+    ("ovaries", "ovary"),
+    ("ovarian", "ovary"),
+    ("ovary", "ovary"),
+    ("vagina", "vagina")
 ]
 
 trie = Trie(case_sensitive=False)
@@ -131,7 +137,7 @@ TIME_CONVERSION = {
         "h": 1 / (24 * 30)
 }
 
-path = "/dev/shm/GEOmetadb.sqlite"
+path = "/data/public/GEOmetadb.sqlite"
 
 Base = declarative_base()
 

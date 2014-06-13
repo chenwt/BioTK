@@ -223,6 +223,10 @@ class Term(Base):
     name = Column(String)
     synonyms = relationship("Synonym", backref="term")
 
+    @property
+    def accession(self):
+        return "%s:%07d" % (self.ontology.abbreviation, self.original_id)
+
     @staticmethod
     def objects(session):
         ontology_id = session.query(Ontology)\
@@ -261,7 +265,6 @@ class Synonym(Base):
             if term is not None:
                 yield Synonym(term_id=term.id, text=synonym)
 
-"""
 class RelationType(Base):
     __tablename__ = "relation_type"
 
@@ -288,7 +291,28 @@ class GeneAnnotation(Base):
     term_id = Column(Integer, ForeignKey("term.id"), primary_key=True)
     gene_id = Column(Integer, ForeignKey("gene.id"), primary_key=True)
     log_probability = Column(Float)
-"""
+
+    @staticmethod
+    def objects(session):
+        pairs = set()
+        go = GeneOntology()
+        for taxon in session.query(Taxon):
+            taxon_id = taxon.id
+            annotation = go.annotation(taxon_id)
+            for original_id, gene_id, _ in annotation.to_records(index=False):
+                original_id = int(original_id.split(":")[1])
+                gene_id = int(gene_id)
+                term = session\
+                        .query(Term)\
+                        .filter(Ontology.abbreviation=="GO",
+                                Term.original_id==original_id)\
+                                        .first()
+                if not (term.id, gene_id) in pairs:
+                    pairs.add((term.id, gene_id))
+                    yield GeneAnnotation(term_id=term.id, gene_id=gene_id,
+                            log_probability=0)
+
+
 # class SampleAnnotation
 
 ###################
@@ -332,7 +356,8 @@ def populate_all(session):
     # The tables need to be populated in order b/c
     # some tables reference others
     classes = [Taxon, Gene, GEOPlatform, GEOSample, 
-        Ontology, Term, Synonym]
+        Ontology, Term, Synonym,
+        GeneAnnotation]
 
     for cls in classes:
         if session.query(cls).count() > 0:
