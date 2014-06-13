@@ -3,6 +3,12 @@ import pandas as pd
 import numpy as np
 
 class Ontology(object):
+    """
+    Attribute specifications (DataFrame objects):
+        terms: Term ID, Name, Namespace
+        synonyms: Term ID, Synonym
+        relations: Agent, Target, Relation
+    """
     def __init__(self, terms, synonyms, relations):
         self._terms = terms
         self._synonyms = synonyms
