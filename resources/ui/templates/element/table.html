@@ -1,0 +1,44 @@
+<div class="row">
+
+{% if table.title != None %}
+    <h4>{{table.title}}</h4>
+{% endif %}
+
+<table 
+    class="table table-striped table-hover {{" ".join(table.classes)}}"
+
+    {% if table.link_format != None %} 
+        link_format="{{table.link_format}}"
+    {% endif %}
+
+    {% if table.server_side %}
+        uuid="{{table.uuid}}"
+    {% endif %}
+    >
+    <thead>
+    <tr>
+    {% for column in table.data.columns %}
+        <td>
+            {% if table.server_side %}
+                {{column}}
+            {% else %}
+                <b>{{column}}</b>
+            {% endif %}
+        </td>
+    {% endfor %}
+    </tr>
+    </thead>
+    <tbody>
+    {% if not table.server_side %}
+        {% for i in range(table.data.shape[0]) %}
+            <tr>
+                {% for item in table.data.irow(i) %}
+                    <td>{{item}}</td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    {% endif %}
+    </tbody>
+</table>
+
+</div>

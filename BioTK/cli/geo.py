@@ -57,7 +57,7 @@ def extract_expression(miniml_archive):
     #url = "ftp://ailun.stanford.edu/ailun/annotation/geo/GPL%s.annot.gz" \
     #        % platform_id
     #annotation_path = BioTK.io.download(url)
-    annotation_path = "/data/geo/annotation/AILUN/GPL%s.annot.gz" % platform_id
+    annotation_path = "/data/public/geo/annotation/AILUN/GPL%s.annot.gz" % platform_id
     annotation = pd.read_table(annotation_path, 
             compression="gzip",
             usecols=[0,1],
@@ -67,7 +67,7 @@ def extract_expression(miniml_archive):
     annotation.index = annotation["Probe ID"]
     annotation = annotation.ix[unique_probes, "Gene ID"]
 
-    mp.set_start_method("fork")
+    #mp.set_start_method("fork")
     p = mp.Pool()
 
     print("Sample ID", *genes, sep="\t")

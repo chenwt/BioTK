@@ -25,6 +25,7 @@ h5py
 python3-memcached
 git+https://github.com/zzzeek/sqlalchemy.git
 psycopg2
+celery
 
 # Utilities
 cement

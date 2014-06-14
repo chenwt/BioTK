@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+
+{% block body %}
+{% for table in tables %}
+    {% include "element/table.html" %}
+{% endfor %}
+{% endblock %}
