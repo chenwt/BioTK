@@ -9,12 +9,14 @@ from celery import Celery, group
 from celery.signals import worker_process_init
 
 from BioTK.db import *
+from BioTK.io.BBI import BigWigFile
 from centrum.dmat import MatrixStore
 
 # The minimum samples required for a meaningful analysis
 MIN_SAMPLES = 25
 MAX_SAMPLES = 100 if socket.gethostname() == "phoenix" else 400
-store = db = data = None
+store = data = region_db = None
+db = get_session()
 
 #broker = "amqp://wren.omrf.hsc.net.ou.edu/"
 broker = "amqp://"
@@ -107,9 +109,8 @@ class TaxonDataset(object):
 
 @worker_process_init.connect
 def initialize(sender, **kwargs):
-    global store, db, data
+    global store, data
     store = MatrixStore("/home/gilesc/expression.db")
-    db = get_session()
     data = dict((taxon_id, TaxonDataset(taxon_id))
             for taxon_id in [9606, 10116, 10090])
 
@@ -194,3 +195,7 @@ def taxon_statistics(taxon_id):
             .to_frame("Count")
     df["Tissue"] = df.index
     return df.ix[:,["Tissue", "Count"]]
+
+# Sub-modules
+
+from . import region

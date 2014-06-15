@@ -38,6 +38,8 @@ click
 #################
 
 bottle
+cherrypy
+jinja2
 
 #########################
 # Bioinformatics packages

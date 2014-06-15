@@ -32,3 +32,5 @@ def geo_extract_expression(miniml_archive):
 @option("--default-age-unit", "-u")
 def geo_attribute(*args, **kwargs):
     return BioTK.cli.geo.attribute(*args, **kwargs)
+
+from BioTK.cli import bigwig

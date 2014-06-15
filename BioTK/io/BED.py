@@ -31,7 +31,9 @@ class BEDFile(object):
                     attrs["score"] = float(attrs["score"])
                 except ValueError:
                     attrs["score"] = NaN
-            yield GenomicRegion(contig, start, end, score=attrs.get("score", 0))
+            yield GenomicRegion(contig, start, end, 
+                    name=attrs.get("name", ""),
+                    score=attrs.get("score", 0))
 
     def __exit__(self, *args):
         self._handle.close()

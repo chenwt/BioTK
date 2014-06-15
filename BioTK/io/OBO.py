@@ -86,7 +86,6 @@ def _parse_as_data_frame(handle):
     relations = pd.DataFrame.from_records(relations,
             columns=["Agent", "Target", "Relation"])
     return terms, synonyms, relations
-
         
 def parse(handle):
     return Ontology(*_parse_as_data_frame(handle))

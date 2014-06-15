@@ -11,10 +11,10 @@ from BioTK.db import *
 def extract(args):
     #genes, annotation, sample_id, data = args
     sample_id, data = args
-    data = data.decode("utf-8")
     try:
         # FIXME: read which column the value is in from the 
         # included XML file (they aren't always in the same order)
+        data = data.decode("utf-8")
         index, values = [], []
         lines = iter(data.strip().split("\n"))
         next(lines)
