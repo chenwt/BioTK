@@ -114,7 +114,7 @@ except ImportError:
 # Extension modules
 ###################
 
-pxd = ["BioTK/genome/types.pxd", "BioTK/genome/index.pxd", "BioTK/io/BBI.pxd"]
+pxd = ["BioTK/genome/types.pxd", "BioTK/genome/index.pxd", "BioTK/io/_BBI.pxd"]
 
 extensions = [
     Extension("BioTK.genome.types",
@@ -123,8 +123,8 @@ extensions = [
     Extension("BioTK.genome.index",
         sources=pxd + ["BioTK/genome/index.pyx"],
         language="c++"),
-    Extension("BioTK.io.BBI",
-        sources=pxd + ["BioTK/io/BBI.pyx"],
+    Extension("BioTK.io._BBI",
+        sources=pxd + ["BioTK/io/_BBI.pyx"],
         language="c++"),
     Extension("BioTK.text.types",
         sources=["BioTK/text/types.pyx"],

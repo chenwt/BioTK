@@ -10,7 +10,7 @@ from celery.signals import worker_process_init
 
 from BioTK.db import *
 from BioTK.io.BBI import BigWigFile
-from centrum.dmat import MatrixStore
+from centrum.mmat import MMAT
 
 # The minimum samples required for a meaningful analysis
 MIN_SAMPLES = 25
@@ -20,7 +20,7 @@ db = get_session()
 
 #broker = "amqp://wren.omrf.hsc.net.ou.edu/"
 broker = "amqp://"
-API = Celery("atlas", backend="amqp", broker=broker)
+API = Celery("BioTK", backend="amqp", broker=broker)
 API.conf.update(
         CELERY_ACCEPT_CONTENT=["pickle", "msgpack"]
 )
@@ -35,11 +35,12 @@ def gene_info():
 class TaxonDataset(object):
     def __init__(self, taxon_id):
         self.taxon_id = taxon_id
-        self.X = store[taxon_id]
+        #self.X = MMAT("/data/public/expression/%s.mmat" % taxon_id)
+        self.X = MMAT("/home/gilesc/mmat/%s.mmat" % taxon_id)
         self.A = pd.read_csv("/data/public/attributes/%s.attrs" % taxon_id,
                 index_col=0, sep="\t", header=0)\
                         .dropna(subset=["Age", "Tissue"])
-        self.A.index = list(map(str, self.A.index))
+        #self.A.index = list(map(str, self.A.index))
         # Drop all detected disease samples and samples w/o expression
         self.A = self.A.ix[self.A["Disease"].isnull(),:]\
                 .drop("Disease", axis=1)
@@ -56,12 +57,14 @@ class TaxonDataset(object):
         self.A = self.A.ix[ix,:]
 
     def expression(self, samples):
-        index, data = [], []
-        for s in samples:
-            if s in self.X:
-                index.append(s)
-                data.append(self.X[s])
-        return pd.DataFrame(data, index=index, columns=self.X.columns)
+        #index, data = [], []
+        #for s in samples:
+        #    if s in self.X:
+        #        index.append(s)
+        #        data.append(self.X[s])
+        #return pd.DataFrame(data, index=index, columns=self.X.columns)
+        index = list(set(samples) & set(self.X.index))
+        return self.X.iloc[index, :].to_frame()
 
     def tissue_age_correlation(self, tissue):
         A = self.A.loc[self.A["Tissue"] == tissue, :]
@@ -109,8 +112,7 @@ class TaxonDataset(object):
 
 @worker_process_init.connect
 def initialize(sender, **kwargs):
-    global store, data
-    store = MatrixStore("/home/gilesc/expression.db")
+    global data
     data = dict((taxon_id, TaxonDataset(taxon_id))
             for taxon_id in [9606, 10116, 10090])
 

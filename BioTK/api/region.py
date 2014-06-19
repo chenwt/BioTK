@@ -1,6 +1,7 @@
 import subprocess as sp
 import os
 import glob
+import sys
 
 import numpy as np
 import pandas as pd
@@ -13,9 +14,13 @@ from BioTK.api import API, gene_info
 
 @API.task
 def region_expression_single_locus(path, contig, start, end):
+    udc = "/dev/shm/udc"
+    os.makedirs(udc, exist_ok=True)
+
     id = os.path.splitext(os.path.basename(path))[0]
     try:
-        mu = sp.check_output(["/usr/local/bin/bigWigSummary", "-type=mean", path, contig, str(start), str(end), str(1)]).decode("utf-8")
+        mu = sp.check_output(["/usr/local/bin/bigWigSummary", "-type=mean", "-udcDir=%s" % udc,
+            path, contig, str(start), str(end), str(1)]).decode("utf-8")
         mu = float(mu)
     except Exception as e:
         mu = np.nan
@@ -30,6 +35,11 @@ def region_expression(taxon_id, genome_build, contig, start, end):
     s = dict(group(region_expression_single_locus.s(path, contig, start, end)
         for path in paths)().get())
     s = pd.Series(s)
+    #min_value = max(1e-10, np.min(s[s > 0]))
+    #values[values == 0] = min_value
+    #values = np.log2(values)
+    #values -= values.mean()
+  
     X = MMAT("/data/lab/seq/rna/9606/hg19/eg.mmat")
     s = s[X.columns]
     o = X.correlate(s).to_frame("Correlation")

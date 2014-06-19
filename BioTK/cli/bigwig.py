@@ -46,7 +46,7 @@ def query(bigwig_files, region_file=None, normalize=False):
             values.append(mu)
         values = np.array(values)
         if normalize:
-            min_value = np.min(values[values > 0])
+            min_value = max(1e-10, np.min(values[values > 0]))
             values[values == 0] = min_value
             values = np.log2(values)
             values -= values.mean()
