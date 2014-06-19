@@ -35,8 +35,8 @@ def gene_info():
 class TaxonDataset(object):
     def __init__(self, taxon_id):
         self.taxon_id = taxon_id
-        #self.X = MMAT("/data/public/expression/%s.mmat" % taxon_id)
-        self.X = MMAT("/home/gilesc/mmat/%s.mmat" % taxon_id)
+        self.X = MMAT("/data/public/expression/%s.mmat" % taxon_id)
+        #self.X = MMAT("/home/gilesc/mmat/%s.mmat" % taxon_id)
         self.A = pd.read_csv("/data/public/attributes/%s.attrs" % taxon_id,
                 index_col=0, sep="\t", header=0)\
                         .dropna(subset=["Age", "Tissue"])
