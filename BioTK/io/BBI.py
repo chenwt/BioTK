@@ -40,11 +40,8 @@ class BigWigFile(object):
                 print(rg.contig.name, rg.start, rg.end, i, sep="\t", file=h)
             h.flush()
             cmd = ["bigWigAverageOverBed", self.path, h.name, "stdout"]
-            try:
-                output = sp.check_output(cmd, stderr=devnull)
-                output = output.strip().decode("utf-8")
-            except sp.CalledProcessError as e:
-                return
+            output = sp.check_output(cmd, stderr=devnull)
+            output = output.strip().decode("utf-8")
 
         data = {}
         for line in output.split("\n"):

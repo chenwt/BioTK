@@ -2,6 +2,7 @@ import subprocess as sp
 import os
 import glob
 import sys
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,9 @@ import pandas as pd
 from celery import group
 from celery.signals import worker_process_init
 
+from centrum import MMAT
 from BioTK.io.BBI import BigWigFile
+from BioTK.io import BEDFile
 from BioTK.api import API, gene_info
 
 @API.task
@@ -18,15 +21,45 @@ def region_expression_single_locus(path, contig, start, end):
     os.makedirs(udc, exist_ok=True)
 
     id = os.path.splitext(os.path.basename(path))[0]
-    try:
-        mu = sp.check_output(["/usr/local/bin/bigWigSummary", "-type=mean", "-udcDir=%s" % udc,
-            path, contig, str(start), str(end), str(1)]).decode("utf-8")
-        mu = float(mu)
-    except Exception as e:
-        mu = np.nan
+    with tempfile.NamedTemporaryFile(mode="w") as h:
+        print(contig, start, end, "X", sep="\t", file=h)
+        h.flush()
+        try:
+            o = sp.check_output(["/usr/local/bin/bigWigAverageOverBed", 
+                path, h.name, "stdout"]).decode("utf-8")
+            print(o)
+            mu = float(o.split("\t")[4])
+        except Exception as e:
+            print(e)
+            mu = np.nan
     return id, mu
 
-from centrum import MMAT
+@API.task
+def gene_locus(taxon_id, genome_build, gene_id):
+    genome_base = "/data/public/genome/"
+    path = "%(genome_base)s%(taxon_id)s/%(genome_build)s/eg.bed" % locals()
+    with BEDFile(path) as h:
+        for region in h:
+            if str(region.name) == str(gene_id):
+                return region.contig.name, region.start, region.end
+
+def correlation_table(cors):
+    cors = cors.to_frame("Correlation")
+    cors.index.name = "Gene ID"
+    return gene_info()\
+            .join(cors, how="inner")\
+            .dropna()\
+            .sort("Correlation", ascending=False)
+
+def region_expression_for_gene(taxon_id, genome_build, gene_id):
+    X = MMAT("/data/lab/seq/rna/9606/hg19/eg.mmat")
+    if gene_id in X.index:
+        s = X.loc[gene_id,:]
+        return correlation_table(X.correlate(s))
+    else:
+        contig, start, end = api.region.gene_locus\
+                .delay(taxon_id, genome_build, gene_id).get()
+        return region_expression(taxon_id, genome_build, contig, start, end)
 
 def region_expression(taxon_id, genome_build, contig, start, end):
     dir = "/data/lab/seq/rna/9606/hg19/"
@@ -41,10 +74,11 @@ def region_expression(taxon_id, genome_build, contig, start, end):
     #values -= values.mean()
   
     X = MMAT("/data/lab/seq/rna/9606/hg19/eg.mmat")
-    s = s[X.columns]
-    o = X.correlate(s).to_frame("Correlation")
-    o.index.name = "Gene ID"
-    return gene_info()\
-            .join(o, how="inner")\
-            .dropna()\
-            .sort("Correlation", ascending=False)
+    s = s.loc[X.columns]
+    print(s)
+    print(X.loc[221150,:])
+    print(s - X.loc[221150,:])
+    #s = (s - X.mean(axis=1)) / X.std(axis=1)
+    #print(s)
+    return correlation_table(X.correlate(s))
+    

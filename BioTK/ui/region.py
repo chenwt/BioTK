@@ -13,15 +13,24 @@ def fn():
     params = dict(request.params.decode())
     taxon_id = 9606
     genome_build = "hg19"
-    contig = params["contig"]
-    start = int(params["start"])
-    end = int(params["end"])
-    table = api.region.region_expression(taxon_id, genome_build,
-            contig, start, end)
+    try:
+        gene_id = int(params["gene_id"])
+        table = api.region.region_expression_for_gene(
+                taxon_id, genome_build, gene_id)
+        title = "Correlated Genes - %s" % gene_id
+    except ValueError:
+        contig = params["contig"]
+        start = int(params["start"])
+        end = int(params["end"])
+        table = api.region.region_expression(taxon_id, 
+                genome_build, contig, start, end)
+        title="Correlated Genes - %s:%s-%s" % \
+                (contig, start, end)
+    except TypeError:
+        return "ERROR: locus could not be found gene ID: %s" % (gene_id,)
 
     # ret two tables: coexpressed genes & predicted functions
     return render_template("tables.html",
-            title="Correlated Genes - %s:%s-%s" % \
-                    (contig, start, end),
             tables=[Table(table, 
+                title=title,
                 server_side=True)])
