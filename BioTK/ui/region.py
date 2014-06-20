@@ -18,7 +18,7 @@ def fn():
         table = api.region.region_expression_for_gene(
                 taxon_id, genome_build, gene_id)
         title = "Correlated Genes - %s" % gene_id
-    except ValueError:
+    except (KeyError, ValueError):
         contig = params["contig"]
         start = int(params["start"])
         end = int(params["end"])

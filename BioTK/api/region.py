@@ -27,10 +27,8 @@ def region_expression_single_locus(path, contig, start, end):
         try:
             o = sp.check_output(["bigWigAverageOverBed", 
                 path, h.name, "stdout"]).decode("utf-8")
-            print(o)
             mu = float(o.split("\t")[4])
         except Exception as e:
-            print(e)
             mu = np.nan
     return id, mu
 
@@ -68,11 +66,6 @@ def region_expression(taxon_id, genome_build, contig, start, end):
     s = dict(group(region_expression_single_locus.s(path, contig, start, end)
         for path in paths)().get())
     s = pd.Series(s)
-    #min_value = max(1e-10, np.min(s[s > 0]))
-    #values[values == 0] = min_value
-    #values = np.log2(values)
-    #values -= values.mean()
-  
     X = MMAT("/data/lab/seq/rna/9606/hg19/eg.mmat")
     s = s.loc[X.columns]
     return correlation_table(X.correlate(s))

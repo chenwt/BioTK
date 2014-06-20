@@ -103,6 +103,10 @@ def fn():
 def dispatch(path):
     return static_file(path, root=STATIC_ROOT)
 
+@root.route("/tutorial")
+def fn():
+    return render_template("tutorial.html")
+
 # Sub-modules
 
 from . import age
