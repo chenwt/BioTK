@@ -25,7 +25,7 @@ def region_expression_single_locus(path, contig, start, end):
         print(contig, start, end, "X", sep="\t", file=h)
         h.flush()
         try:
-            o = sp.check_output(["/usr/local/bin/bigWigAverageOverBed", 
+            o = sp.check_output(["bigWigAverageOverBed", 
                 path, h.name, "stdout"]).decode("utf-8")
             print(o)
             mu = float(o.split("\t")[4])
@@ -75,10 +75,5 @@ def region_expression(taxon_id, genome_build, contig, start, end):
   
     X = MMAT("/data/lab/seq/rna/9606/hg19/eg.mmat")
     s = s.loc[X.columns]
-    print(s)
-    print(X.loc[221150,:])
-    print(s - X.loc[221150,:])
-    #s = (s - X.mean(axis=1)) / X.std(axis=1)
-    #print(s)
     return correlation_table(X.correlate(s))
     
