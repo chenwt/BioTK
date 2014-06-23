@@ -224,8 +224,8 @@ def plot_gene_set(taxon_id, genes, title=""):
         values = []
         for i in range(df.shape[0]):
             values.append({
-                "x": df["Age"].iloc[i], 
-                "y": df["Expression"].iloc[i], 
+                "x": float(df["Age"].iloc[i]), 
+                "y": float(df["Expression"].iloc[i]), 
                 "id": str(df.index[i]),
                 "size": 2})
         # Workaround for a bug in NVD3 scatter plot labeling
@@ -266,7 +266,7 @@ def fn(term_id):
 @root.get('/gene/<gene_id>')
 def plot_gene(gene_id):
     gene = db.query(Gene).get(int(gene_id))
-    return plot_gene_set(gene.taxon_id, [gene_id],
+    return plot_gene_set(gene.taxon_id, [gene.id],
             title="%s - %s (%s)" % (gene.symbol, gene.name, gene.taxon.name))
 
 @root.get("/sample/<sample_id>")

@@ -32,10 +32,11 @@ class TaxonDataset(object):
     def __init__(self, taxon_id):
         self.taxon_id = taxon_id
         self.X = MMAT("/data/public/expression/%s.mmat" % taxon_id)
-        self.A = pd.read_csv("/data/public/attributes/%s.attrs" % taxon_id,
+        attribute_path = "/data/public/attributes/%s.attrs" % \
+                taxon_id
+        self.A = pd.read_csv(attribute_path,
                 index_col=0, sep="\t", header=0)\
                         .dropna(subset=["Age", "Tissue"])
-        #self.A.index = list(map(str, self.A.index))
         # Drop all detected disease samples and samples w/o expression
         self.A = self.A.ix[self.A["Disease"].isnull(),:]\
                 .drop("Disease", axis=1)
@@ -112,7 +113,6 @@ def initialize(sender, **kwargs):
 @API.task
 def gene_set_age_analysis_single_tissue(taxon_id, genes, tissue):
     dset = data[taxon_id]
-    genes = map(str, genes)
     genes = list(set(genes) & set(dset.X.columns))
     if not genes:
         return
@@ -133,8 +133,9 @@ def gene_set_age_analysis_single_tissue(taxon_id, genes, tissue):
 @functools.lru_cache()
 def gene_set_age_analysis(taxon_id, genes):
     tissues = tissue_counts.delay(taxon_id).get().index[:10]
-    r = group(gene_set_age_analysis_single_tissue.s(taxon_id, genes, t)
-            for t in tissues)()
+    r = group(gene_set_age_analysis_single_tissue.s(taxon_id, 
+        genes, t)
+        for t in tissues)()
     try:
         tissues, summaries, expressions = \
                 zip(*(x for x in r.get() if x is not None))
