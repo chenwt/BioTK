@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block body %}
+
+{% for date,cs in commits %}
+    <h4>{{date}}</h4>
+    <ul>
+    {% for c in cs %}
+        <li>{{c.date.time().strftime("%I:%M %p")}} - {{c.message}}</li>
+    {% endfor %}
+    </ul>
+{% endfor %}
+
+{% endblock %}

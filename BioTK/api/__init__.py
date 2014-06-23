@@ -122,11 +122,13 @@ def gene_set_age_analysis_single_tissue(taxon_id, genes, tissue):
         return
     A["Expression"] = x
     A = A.dropna()
+    r, p = pearsonr(A["Expression"], A["Age"])
     summary = pd.Series([
-        pearsonr(A["Expression"], A["Age"])[0],
+        r, p,
         A.shape[0],
         A["Expression"].mean()],
-        index=["Age Correlation", "Count", "Mean Expression"])
+        index=["Age Correlation", "Age Correlation P-Value", 
+            "Count", "Mean Expression"])
     expression = A
     return tissue, summary, expression
 
