@@ -1,8 +1,9 @@
-import os
 import functools
-import json
-import random
 import io
+import itertools
+import json
+import os
+import random
 
 import numpy as np
 import pandas as pd
@@ -14,6 +15,7 @@ from bottle import request, response, redirect
 from BioTK.db import *
 from BioTK.ui import root, db, render_template, Table
 from BioTK.data import GeneOntology
+from BioTK.git import Repository
 
 import BioTK.api as api
 
@@ -22,8 +24,6 @@ import BioTK.api as api
 #   (well, b/t plot_gene and age_correlation)
 
 # FIXME:
-# - make downloaded files have appropriate filename 
-#   and be filtered (rather than downloading whole table)
 # - make a default require js main
 
 @root.route("/query")
@@ -289,28 +289,10 @@ def fn(sample_id):
     title = "GSM%s" % sample.id
     return render_template("tables.html", title=title, tables=tables)
 
-import datetime
-from collections import namedtuple
-import subprocess as sp
-
-Commit = namedtuple("Commit", "date,tags,message")
-def get_commits():
-    o = sp.check_output(["git", "log", 
-        "--format=format:%ad\t%s", "--date=iso"]).decode("utf-8")
-    commits = []
-    fmt = "%Y-%m-%d %H:%M:%S %z"
-    for line in o.strip().split("\n"):
-        date, msg = line.split("\t")
-        dt = datetime.datetime.strptime(date, fmt)
-        tokens = msg.split(" ")
-        tags = [t[1:] for t in tokens if t.startswith("!")]
-        msg = " ".join([t for t in tokens if not t.startswith("!")])
-        yield Commit(dt, tags, msg)
-
-import itertools
+repo = Repository()
 
 @root.get("/changelog")
 def fn():
-    commits = itertools.groupby((commit for commit in get_commits() 
-            if "ui" in commit.tags), lambda c: c.date.date())
+    commits = itertools.groupby((commit for commit in repo.commits
+        if "ui" in commit.tags), lambda c: c.date.date())
     return render_template("changelog.html", commits=commits)

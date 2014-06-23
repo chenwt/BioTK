@@ -27,7 +27,8 @@ def fn():
         title="Correlated Genes - %s:%s-%s" % \
                 (contig, start, end)
     except TypeError:
-        return "ERROR: locus could not be found gene ID: %s" % (gene_id,)
+        return "ERROR: locus could not be found gene ID: %s" % \
+                (gene_id,)
 
     # ret two tables: coexpressed genes & predicted functions
     return render_template("tables.html",
