@@ -38,13 +38,15 @@ def fn():
 @root.post("/api/table/<uuid>")
 def fn(uuid):
     params = dict(request.params.decode())
-    table = Table.cache[uuid]
+    table = Table.load(uuid)
     return table.ajax(params)
 
 @root.get("/api/table/<uuid>/csv")
 def fn(uuid):
     buffer = io.StringIO()
-    Table.cache[uuid].data.to_csv(buffer, float_format="%0.3f")
+    Table.load(uuid)\
+            .data\
+            .to_csv(buffer, float_format="%0.3f")
     response.content_type = "application/csv"
     response.set_header("Content-Disposition", 
             "attachment; filename=age_atlas.csv")

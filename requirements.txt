@@ -23,6 +23,8 @@ networkx
 # Data management
 h5py
 python3-memcached
+redis
+hiredis
 git+https://github.com/zzzeek/sqlalchemy.git
 psycopg2
 celery

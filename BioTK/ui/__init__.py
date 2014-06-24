@@ -1,4 +1,6 @@
 import uuid
+import redis
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -9,6 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 from BioTK.db import get_session
 
 root = Bottle()
+redis = redis.StrictRedis(host="localhost", db=1)
 debug(True)
 env = Environment(loader=FileSystemLoader("resources/ui/templates"))
 env.globals["db"] = db = get_session()
@@ -24,7 +27,6 @@ class Table(object):
     Tabular data to be rendered to HTML. This can either be a transient
     table, or a table that will be cached for later AJAX calls.
     """
-    cache = {}
 
     def __init__(self, data, 
             title=None, link_format=None, link_columns=None,
@@ -39,7 +41,11 @@ class Table(object):
         if self.server_side:
             self.classes.append("data-table")
             self.uuid = str(uuid.uuid4())
-            Table.cache[self.uuid] = self
+            redis.set(self.uuid, pickle.dumps(self))
+
+    @staticmethod
+    def load(uuid):
+        return pickle.loads(redis.get(uuid))
 
     def render(self):
         return render_template("elements/table.html", table=self)
