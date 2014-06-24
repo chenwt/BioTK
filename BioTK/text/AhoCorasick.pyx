@@ -108,6 +108,8 @@ cdef class Trie:
         self.boundary_characters = boundary_characters
 
     def add(self, str text, key=None):
+        if len(text) == 0:
+            raise Exception("Cannot add empty text to Trie.")
         if self.built:
             raise Exception("Cannot add a new search term to a built Trie.")
         if not self.case_sensitive:
