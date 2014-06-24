@@ -28,6 +28,8 @@ def quantile_normalize(X, mu=None):
         An existing gene expression distribution to normalize against.
         If not provided, will use the row-wise mean of X.
     """
+    if X.isnull().sum().sum() > 0:
+        raise Exception("Handling of missing values not implemented.")
     X_n = X.copy().as_matrix()
     if mu is None:
         mu = X_n.mean(axis=1)
