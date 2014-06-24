@@ -63,22 +63,6 @@ def fn():
                     tissue, sample_count),
             tables=[table])
 
-"""
-tissues.extend(["B cell", "T cell"])
-xtissues = ["neuron", 
-        "temporal cortex",
-        "frontal cortex",
-        "parietal cortex",
-        "occipital cortex", 
-        "hippocampus",
-        "CA1",
-        "CA2",
-        "CA2",
-        "cerebellum",
-        "cerebrospinal fluid",
-        "neocortex"]
-"""
-
 def set_default_taxon(taxon_id):
     response.set_cookie("default_taxon_id", str(taxon_id))
 

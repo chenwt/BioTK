@@ -3,12 +3,13 @@ import uuid
 import numpy as np
 import pandas as pd
 
-from bottle import Bottle, static_file
+from bottle import Bottle, static_file, debug
 from jinja2 import Environment, FileSystemLoader
 
 from BioTK.db import get_session
 
 root = Bottle()
+debug(True)
 env = Environment(loader=FileSystemLoader("resources/ui/templates"))
 env.globals["db"] = db = get_session()
 STATIC_ROOT = "resources/ui/static/"
