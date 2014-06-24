@@ -4,7 +4,7 @@ import socket
 
 import numpy as np
 import pandas as pd
-from scipy.stats import pearsonr
+from scipy.stats import pearsonr, t as t_dist
 from celery import Celery, group
 from celery.signals import worker_process_init
 
@@ -20,6 +20,10 @@ db = get_session()
 
 API = Celery("BioTK")
 API.config_from_object("celeryconfig")
+
+def correlate(x, y):
+    ix = ~(np.isnan(x) | np.isnan(y))
+    return pearsonr(x[ix], y[ix])
 
 @functools.lru_cache()
 def gene_info():
@@ -61,8 +65,15 @@ class TaxonDataset(object):
         X = self.expression(A.index)
         A, X = A.align(X, join="inner", axis=0)
         X = X.ix[:,(~X.isnull()).sum(axis=0) > 25]
+
         o = X.mean(axis=0).to_frame("Mean Expression")
-        o["Age Correlation"] = X.corrwith(A["Age"])
+        n = o["N"] = (~X.isnull()).sum(axis=0)
+        r, p = zip(*map(lambda i: correlate(X.iloc[:,i], A["Age"]), 
+                range(X.shape[1])))
+        p = np.maximum(1e-10, p)
+        p = - np.log10(p)
+        o["Age Correlation"] = r
+        o["-log10(p)"] = p
         o.index = list(map(int, o.index))
         o = gene_info()\
                 .join(o, how="inner")\

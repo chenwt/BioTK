@@ -44,7 +44,7 @@ def fn(uuid):
 @root.get("/api/table/<uuid>/csv")
 def fn(uuid):
     buffer = io.StringIO()
-    Table.cache[uuid].data.to_csv(buffer)
+    Table.cache[uuid].data.to_csv(buffer, float_format="%0.3f")
     response.content_type = "application/csv"
     response.set_header("Content-Disposition", 
             "attachment; filename=age_atlas.csv")
