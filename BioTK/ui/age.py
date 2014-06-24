@@ -26,14 +26,14 @@ import BioTK.api as api
 # FIXME:
 # - make a default require js main
 
-@root.route("/query")
+@root.route("/query/tissue")
 def fn():
     # FIXME
     tissues = list(api.tissue_counts.delay(9606)\
             .get().index)
-    return render_template("query.html", 
+    return render_template("tissue_query.html", 
             tissues=tissues,
-            title="Advanced Query")
+            title="Tissue query")
 
 @root.post("/api/table/<uuid>")
 def fn(uuid):
