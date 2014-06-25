@@ -17,8 +17,9 @@ from sqlalchemy.orm import sessionmaker, deferred
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import HSTORE
 from sqlalchemy.orm import sessionmaker, deferred, relationship, backref
+from sqlalchemy.ext.mutable import MutableDict
 
 import pandas as pd
 import numpy as np
@@ -39,6 +40,12 @@ def read_dmp(handle, columns):
     return pd.read_table(buffer, delimiter="\t\|\t", 
             names=columns,
             header=None)
+
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
 
 ########
 # Models
@@ -113,12 +120,66 @@ class Genome(Base):
         for taxon_id, key, provider in rows:
             yield Genome(taxon_id=taxon_id, key=key, provider=provider)
 
-class GEOPlatform(Base):
-    __tablename__ = "geo_platform"
+class Source(Base):
+    __tablename__ = "source"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+
+    @staticmethod
+    def objects(session):
+        yield Source(name="Gene Expression Omnibus")
+        yield Source(name="Sequence Read Archive")
+
+class Sample(Base):
+    __tablename__ = "sample"
 
     id = Column(Integer, primary_key=True)
     taxon_id = Column(Integer, ForeignKey("taxon.id"), nullable=False)
+    source_id = Column(Integer, ForeignKey("source.id"), nullable=False)
+    platform_id = Column(Integer, ForeignKey("platform.id"), nullable=False)
+    xref = Column(String)
+
+    attributes = Column(MutableDict.as_mutable(HSTORE))
+
+    age = Column(Float)
+    gender = Column(Integer)
+
+    @staticmethod
+    def objects(session):
+        source = session.query(Source)\
+                .filter_by(name="Gene Expression Omnibus").first()
+        platforms = session.query(Platform)
+        platforms = dict([(p.xref, p.id) for p in platforms])
+        taxa = dict([(t.name, t.id) for t in session.query(Taxon)])
+        db = sqlite3.connect("/data/ncbi/geo/GEOmetadb.sqlite")
+        db.row_factory = dict_factory
+        c = db.cursor()
+        c.execute("""
+        SELECT * FROM gsm
+        WHERE channel_count = 1 AND type="RNA";
+        """)
+        for row in c:
+            platform_id = platforms.get(row["gpl"])
+            taxon_id = taxa.get(row["organism_ch1"])
+            if (platform_id is None) or (taxon_id is None):
+                continue
+            s = Sample(
+                    taxon_id=taxon_id,
+                    source_id=source.id,
+                    platform_id=platform_id,
+                    attributes={},
+                    xref=row["gsm"])
+            for k, v in row.items():
+                s.attributes[k] = str(v)
+            yield s 
+
+class Platform(Base):
+    __tablename__ = "platform"
+
+    id = Column(Integer, primary_key=True)
     title = Column(String)
+    xref = Column(String)
 
     @staticmethod
     def objects(session):
@@ -134,67 +195,9 @@ class GEOPlatform(Base):
         for gpl, taxon_name, title in c:
             taxon_id = taxon_name_to_id.get(taxon_name)
             if taxon_id and (taxon_id in TAXA):
-                yield GEOPlatform(
-                        id=int(gpl.lstrip("GPL")),
-                        taxon_id=taxon_id,
+                yield Platform(
+                        xref=gpl,
                         title=title)
-
-class GEOSample(Base):
-    """
-    1-channel GEO samples
-    """
-    __tablename__ = "geo_sample"
-
-    id = Column(Integer, primary_key=True)
-    platform_id = Column(Integer, ForeignKey("geo_platform.id"))
-    title = Column(String)
-    description = Column(String)
-    source = Column(String)
-    characteristics = Column(String)
-
-    age = Column(Float)
-    gender = Column(Integer)
-    tissue = Column(String)
-    cancer = Column(Boolean)
-
-    @staticmethod
-    def objects(session):
-        # FIXME: cross-reference the organism to make sure there aren't
-        # samples that are on a platform for one organism but used
-        # data from another organism (e.g., some chimp samples on
-        # human platforms)
-
-        platforms = set([p.id for p in session.query(GEOPlatform).all()])
-        c = sqlite3.connect("/data/ncbi/geo/GEOmetadb.sqlite").cursor()
-        c.execute("""
-        SELECT gsm, gpl, title, description, 
-            source_name_ch1, characteristics_ch1
-        FROM gsm
-        WHERE channel_count = 1 AND type="RNA";
-        """)
-        for gsm, gpl, title, description, source, characteristics in c:
-            platform_id = int(gpl.lstrip("GPL"))
-            if not platform_id in platforms:
-                continue
-            yield GEOSample(platform_id=platform_id,
-                id = int(gsm.lstrip("GSM")),
-                title=title,
-                description=description,
-                source=source,
-                characteristics=characteristics)
-
-    @staticmethod
-    def set_attributes():
-        session = get_session()
-        for sample in session.query(GEOSample):
-            if sample.characteristics is None:
-                continue
-            m = re.search(r"\bage:\s*(?P<age>[0-9]+(\.[0-9])?)", 
-                    sample.characteristics)
-            if m is not None and m.group("age"):
-                sample.age = float(m.group("age"))
-            session.add(sample)
-        session.commit()
 
 # Ontology models
 
@@ -312,6 +315,16 @@ class GeneAnnotation(Base):
                     yield GeneAnnotation(term_id=term.id, gene_id=gene_id,
                             log_probability=0)
 
+class SampleAnnotation(Base):
+    __tablename__ = "term_sample"
+    __table_args__ = (
+            sa.schema.CheckConstraint('term_sample.log_probability <= 0'),
+    )
+
+    term_id = Column(Integer, ForeignKey("term.id"), primary_key=True)
+    sample_id = Column(Integer, ForeignKey("sample.id"), primary_key=True)
+    log_probability = Column(Float)
+
 
 # class SampleAnnotation
 
@@ -355,7 +368,7 @@ def fix_dtype(row):
 def populate_all(session):
     # The tables need to be populated in order b/c
     # some tables reference others
-    classes = [Taxon, Gene, GEOPlatform, GEOSample, 
+    classes = [Taxon, Gene, Source, Platform, Sample, 
         Ontology, Term, Synonym,
         GeneAnnotation]
 
@@ -376,4 +389,3 @@ if __name__ == "__main__":
     if CONFIG.getboolean("db.auto_populate"):
         session = get_session(create=True)
         populate_all(session)
-    #GEOSample.set_attributes()

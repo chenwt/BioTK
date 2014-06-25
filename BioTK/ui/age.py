@@ -257,8 +257,9 @@ def plot_gene(gene_id):
 
 @root.get("/sample/<sample_id>")
 def fn(sample_id):
-    sample_id = int(sample_id)
-    sample = db.query(GEOSample).get(sample_id)
+    sample = db.query(Sample)\
+            .filter_by(xref="GSM"+sample_id)\
+            .first()
     tables = [
             Table(pd.DataFrame.from_records([
                 ("Tissue", "not implemented", 0.99),
@@ -272,7 +273,7 @@ def fn(sample_id):
             ], columns=["Field", "Value"]),
             title="Investigator Description")
     ]
-    title = "GSM%s" % sample.id
+    title = sample.xref
     return render_template("tables.html", title=title, tables=tables)
 
 repo = Repository()
