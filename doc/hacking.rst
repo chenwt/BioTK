@@ -8,7 +8,7 @@ below. In summary:
 1. Write the code
 2. Write documentation
 3. Write tests (that pass)
-4. Submit a pull request on GitHub
+4. Submit a pull request
 
 Although we use PEP8 for variable names and Numpy docstring format (with a few
 exceptions), don't obsess over following every detail of these format guides,

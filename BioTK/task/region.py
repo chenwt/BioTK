@@ -13,9 +13,11 @@ from celery.signals import worker_process_init
 from centrum import MMAT
 from BioTK.io.BBI import BigWigFile
 from BioTK.io import BEDFile
-from BioTK.api import API, gene_info
 
-@API.task
+from .queue import QUEUE
+from .etc import gene_info
+
+@QUEUE.task
 def region_expression_single_locus(path, contig, start, end):
     udc = "/dev/shm/udc"
     os.makedirs(udc, exist_ok=True)
@@ -32,7 +34,7 @@ def region_expression_single_locus(path, contig, start, end):
             mu = np.nan
     return id, mu
 
-@API.task
+@QUEUE.task
 def gene_locus(taxon_id, genome_build, gene_id):
     genome_base = "/data/public/genome/"
     path = "%(genome_base)s%(taxon_id)s/%(genome_build)s/eg.bed" % locals()
@@ -69,4 +71,3 @@ def region_expression(taxon_id, genome_build, contig, start, end):
     X = MMAT("/data/lab/seq/rna/9606/hg19/eg.mmat")
     s = s.loc[X.columns]
     return correlation_table(X.correlate(s))
-    

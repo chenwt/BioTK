@@ -17,7 +17,7 @@ from BioTK.ui import root, db, render_template, Table
 from BioTK.data import GeneOntology
 from BioTK.git import Repository
 
-import BioTK.api as api
+import BioTK.task as task
 
 # FIXME FIXME FIXME:
 # - figure out why big difference b/t pearsonr and corrwith 
@@ -29,7 +29,7 @@ import BioTK.api as api
 @root.route("/query/tissue")
 def fn():
     # FIXME
-    tissues = list(api.tissue_counts.delay(9606)\
+    tissues = list(task.tissue_counts.delay(9606)\
             .get().index)
     return render_template("tissue_query.html", 
             tissues=tissues,
@@ -57,7 +57,7 @@ def fn():
     taxon_id = int(request.forms["taxon_id"])
     tissue = request.forms["tissue"]
     table, sample_count = \
-            api.tissue_age_correlation.delay(taxon_id, tissue).get()
+            task.tissue_age_correlation.delay(taxon_id, tissue).get()
     table = Table(table, server_side=True)
     return render_template("tables.html", 
             title="%s - %s (%s samples used)" % \
@@ -98,7 +98,7 @@ def search_genes(q):
                 return edit_distance(symbol.lower(), q.lower())
             df = df.reindex_axis(list(map(distance, df.index)),
                 axis=0).drop_duplicates(cols=["Gene ID"])
-        return df
+        return df.dropna()
 
 def search_terms(q):
     # A GO term?
@@ -155,7 +155,7 @@ def search():
 
 @root.get('/statistics')
 def statistics():
-    expression_counts = api.statistics.delay().get()
+    expression_counts = task.statistics.delay().get()
     tables = [Table(expression_counts, 
         title="Expression datasets",
         link_format="/statistics/{0}")]
@@ -166,7 +166,7 @@ def statistics():
 
 @root.get('/statistics/<taxon_id>')
 def taxon_statistics(taxon_id):
-    df = api.taxon_statistics.delay(taxon_id).get()
+    df = task.taxon_statistics.delay(taxon_id).get()
     tables = [Table(df, title="Common tissues")]
     return render_template("tables.html", tables=tables)
 
@@ -197,7 +197,7 @@ def plot_gene_set(taxon_id, genes, title=""):
     with age and subsetted by tissue.
     """
     genes = tuple(genes)
-    result = api.gene_set_age_analysis(taxon_id, genes)
+    result = task.gene_set_age_analysis(taxon_id, genes)
     if result is None:
         return render_template("base.html", 
                 content="Sorry, no data for gene set: %s" % str(genes))

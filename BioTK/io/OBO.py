@@ -9,7 +9,7 @@ import pandas as pd
 from BioTK.ontology import Ontology
 
 Term = collections.namedtuple("Term", [
-    "id", "name", "synonym", "is_a", "part_of", "namespace"
+    "id", "name", "synonym", "is_a", "part_of", "develops_from", "namespace"
 ])
 
 def _make_term(attrs):
@@ -32,6 +32,7 @@ def _parse(handle):
     - synonym
     - is_a
     - part_of
+    - develops_from
     - namespace
     """
     is_term = False
@@ -58,6 +59,8 @@ def _parse(handle):
                 attrs["is_a"].append(value.split("!")[0].strip())
             elif key == "part_of":
                 attrs["part_of"].append(value.split("!")[0].strip())
+            elif key == "develops_from":
+                attrs["develops_from"].append(value.split("!")[0].strip())
             elif key == "namespace":
                 attrs["namespace"] = value
             elif key == "synonym":
@@ -76,6 +79,11 @@ def _parse_as_data_frame(handle):
             synonyms.append((t.id, s))
         for target in t.is_a:
             relations.append((t.id, target, "is_a"))
+        for target in t.part_of:
+            relations.append((t.id, target, "part_of"))
+        for target in t.develops_from:
+            relations.append((t.id, target, "develops_from"))
+
 
     terms = pd.DataFrame.from_records(terms,
             columns=["Term ID", "Name", "Namespace"],

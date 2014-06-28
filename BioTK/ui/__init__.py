@@ -1,17 +1,21 @@
 import uuid
-import redis
 import pickle
 
+import redis
 import numpy as np
 import pandas as pd
 
 from bottle import Bottle, static_file, debug
 from jinja2 import Environment, FileSystemLoader
 
+from BioTK import CONFIG, LOG
 from BioTK.db import get_session
 
+cache = redis.StrictRedis(host=CONFIG["redis.host"], 
+        port=int(CONFIG["redis.port"]),
+        db=int(CONFIG["redis.ui_cache.index"]))
+
 root = Bottle()
-redis = redis.StrictRedis(host="localhost", db=1)
 debug(True)
 env = Environment(loader=FileSystemLoader("resources/ui/templates"))
 env.globals["db"] = db = get_session()
@@ -41,11 +45,11 @@ class Table(object):
         if self.server_side:
             self.classes.append("data-table")
             self.uuid = str(uuid.uuid4())
-            redis.set(self.uuid, pickle.dumps(self))
+            cache.set(self.uuid, pickle.dumps(self))
 
     @staticmethod
     def load(uuid):
-        return pickle.loads(redis.get(uuid))
+        return pickle.loads(cache.get(uuid))
 
     def render(self):
         return render_template("elements/table.html", table=self)
@@ -91,12 +95,13 @@ class Table(object):
         else:
             rows = []
 
-        return {
+        o = {
             "draw": int(params["draw"]),
             "recordsTotal": self.data.shape[0],
             "recordsFiltered": int(ix.sum()),
             "data": rows
         }
+        return o
 
 @root.route('/')
 def index():

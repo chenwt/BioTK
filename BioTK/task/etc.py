@@ -12,14 +12,13 @@ from BioTK.db import *
 from BioTK.io.BBI import BigWigFile
 from centrum.mmat import MMAT
 
+from .queue import QUEUE
+
 # The minimum samples required for a meaningful analysis
 MIN_SAMPLES = 25
 MAX_SAMPLES = 100 if socket.gethostname() == "phoenix" else 400
-store = data = region_db = None
+store = region_db = None
 db = get_session()
-
-API = Celery("BioTK")
-API.config_from_object("celeryconfig")
 
 def correlate(x, y):
     ix = ~(np.isnan(x) | np.isnan(y))
@@ -111,6 +110,8 @@ class TaxonDataset(object):
 # Global data
 #############
 
+data = None
+
 @worker_process_init.connect
 def initialize(sender, **kwargs):
     global data
@@ -121,7 +122,7 @@ def initialize(sender, **kwargs):
 # Tasks
 #######
 
-@API.task
+@QUEUE.task
 def gene_set_age_analysis_single_tissue(taxon_id, genes, tissue):
     dset = data[taxon_id]
     genes = list(set(genes) & set(dset.X.columns))
@@ -161,18 +162,18 @@ def gene_set_age_analysis(taxon_id, genes):
     return {"expression": expression,
             "tissue": summary}
 
-@API.task
+@QUEUE.task
 def tissue_counts(taxon_id):
     return data[taxon_id]\
             .A["Tissue"]\
             .value_counts()\
             .order(ascending=False)
 
-@API.task
+@QUEUE.task
 def tissue_age_correlation(taxon_id, tissue):
     return data[taxon_id].tissue_age_correlation(tissue)
 
-@API.task
+@QUEUE.task
 def statistics():
     expression_counts = []
     for taxon_id, dataset in data.items():
@@ -189,7 +190,7 @@ def statistics():
             "Expression + Age/Tissue Label"])\
                     .sort("Expression", ascending=False)
 
-@API.task
+@QUEUE.task
 def taxon_statistics(taxon_id):
     taxon_id = int(taxon_id)
     df = data[taxon_id]\
@@ -200,7 +201,3 @@ def taxon_statistics(taxon_id):
             .to_frame("Count")
     df["Tissue"] = df.index
     return df.ix[:,["Tissue", "Count"]]
-
-# Sub-modules
-
-from . import region

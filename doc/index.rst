@@ -15,6 +15,11 @@ bioinformatics tasks:
 - Efficient storage and querying of sets of genomic intervals 
   (similar to BEDTools, GenomicRanges, etc.)
 
+BioTK is also a framework for integration of heterogeneous biomedical data.
+For these components, it contains schemas, loaders, and queries for a backend
+Neo4j graph database, distributed tasks for loads and queries via Celery,
+caching and locking via Redis, and a web interface.
+
 Tutorial
 ========
 
@@ -23,6 +28,7 @@ Tutorial
 
     expression
     meta-analysis
+    framework
 
 Development information
 =======================

@@ -1,6 +1,5 @@
-###################
-# Base dependencies
-###################
+# Personal packages 
+centrum
 
 # Basic numerics packages
 numpy
@@ -21,13 +20,17 @@ git+https://github.com/scikit-learn/scikit-learn.git
 networkx
 
 # Data management
-h5py
-python3-memcached
 redis
 hiredis
+hot-redis
+py2neo
+celery
+
+# Data management (To be phased out)
 git+https://github.com/zzzeek/sqlalchemy.git
 psycopg2
-celery
+h5py
+python3-memcached
 
 # Utilities
 cement
@@ -35,20 +38,8 @@ sortedcontainers
 pyparsing
 click
 
-#################
-# UI dependencies
-#################
-
+# Web packages
 bottle
 cherrypy
 jinja2
 
-#########################
-# Bioinformatics packages
-#########################
-
-###################
-# Personal packages
-###################
-
-centrum

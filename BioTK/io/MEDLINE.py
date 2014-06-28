@@ -16,12 +16,16 @@ Example:
 import datetime
 import locale
 import re
+import os
+import gzip
+import pickle
 import xml.etree.ElementTree as ET
 
 from collections import namedtuple
 
 from BioTK.util import ClosingMixin
 from BioTK.io import generic_open
+from BioTK import CONFIG, LOG
 
 __all__ = ["parse", "Article", "Journal"]
 
@@ -81,5 +85,27 @@ class MedlineXMLFile(ClosingMixin):
                 self._current_element = element
                 yield self._parse_citation()
 
-def parse(path_or_handle):
-    return MedlineXMLFile(path_or_handle)
+def parse(path_or_handle, cache=True):
+    if not cache:
+        return MedlineXMLFile(path_or_handle)
+    else:
+        try:
+            path = path_or_handle if isinstance(path_or_handle, str) \
+                    else path_or_handle.name
+            pkl_basename = os.path.basename(path).split(".")[0] + ".pkl.gz"
+            pkl_path = os.path.join(CONFIG["ncbi.medline.dir"], pkl_basename)
+            if not os.path.exists(pkl_path):
+                LOG.info("[medline] Caching MEDLINE XML parse as %s" \
+                        % pkl_basename)
+                articles = list(MedlineXMLFile(path))
+                with gzip.open(pkl_path, "wb") as h:
+                    pickle.dump(articles, h)
+        except Exception as e:
+            with gzip.open(pkl_path, "wb") as h:
+                pickle.dump([], h)
+        try:
+            with gzip.open(pkl_path) as h:
+                articles = pickle.load(h)
+        except Exception as e:
+            articles = []
+        return iter(articles)

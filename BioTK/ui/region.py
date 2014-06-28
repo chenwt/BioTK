@@ -1,7 +1,7 @@
 from bottle import request
 
 from BioTK.ui import root, render_template, Table
-from BioTK import api
+from BioTK import task
 
 @root.get("/region")
 def fn():
@@ -15,14 +15,14 @@ def fn():
     genome_build = "hg19"
     try:
         gene_id = int(params["gene_id"])
-        table = api.region.region_expression_for_gene(
+        table = task.region.region_expression_for_gene(
                 taxon_id, genome_build, gene_id)
         title = "Correlated Genes - %s" % gene_id
     except (KeyError, ValueError):
         contig = params["contig"]
         start = int(params["start"])
         end = int(params["end"])
-        table = api.region.region_expression(taxon_id, 
+        table = task.region.region_expression(taxon_id, 
                 genome_build, contig, start, end)
         title="Correlated Genes - %s:%s-%s" % \
                 (contig, start, end)

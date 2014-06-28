@@ -9,7 +9,7 @@ defaults.
 This module also sets up logging.
 """
 
-__all__ = ["CONFIG", "TAXA", "LOG", "CACHE_DIR"]
+__all__ = ["CONFIG", "LOG", "CACHE_DIR"]
 
 import configparser
 import logging
@@ -77,9 +77,24 @@ if log_file:
 if user_cfg_path is not None:
     LOG.info("User configuration file loaded from '%s'" % path)
 
-#################
-# Configure cache
-#################
+#######
+# neo4j 
+#######
+
+from py2neo import neo4j
+neo4j.DEFAULT_URI = "%s://%s:%s/" % (
+        CONFIG["neo4j.protocol"],
+        CONFIG["neo4j.host"],
+        CONFIG["neo4j.port"])
+LOG.info("Set neo4j URI to: %s" % neo4j.DEFAULT_URI)
+
+#######
+# redis
+#######
+
+######################
+# Configure file cache
+######################
 
 CACHE_DIR = os.path.expanduser(CONFIG["cache.dir"])
 if not os.path.exists(CACHE_DIR):
@@ -103,7 +118,3 @@ for key, path in CONFIG.items():
     if key.endswith(".dir") and not "root" in key:
         if key.startswith("ncbi."):
             CONFIG[key] = resolve_dir(ncbi_root, path)
-
-# Read enabled taxa into global variable
-# (will this work in a multiprocessing or distributed environment?)
-TAXA = list(map(int, CONFIG["data.taxa"].split(",")))

@@ -17,7 +17,7 @@ from sqlalchemy.orm import sessionmaker, deferred
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.dialects.postgresql import HSTORE
+from sqlalchemy.dialects.postgresql import HSTORE, ARRAY, DOUBLE_PRECISION
 from sqlalchemy.orm import sessionmaker, deferred, relationship, backref
 from sqlalchemy.ext.mutable import MutableDict
 
@@ -27,7 +27,9 @@ import numpy as np
 import BioTK.io
 import BioTK.util
 from BioTK.data import GeneOntology
-from BioTK import LOG, CONFIG, TAXA
+from BioTK import LOG, CONFIG
+
+TAXA = set()
 
 def read_dmp(handle, columns):
     """
@@ -70,7 +72,6 @@ class Taxon(Base):
                     encoding="utf-8")
             columns = ["id", "name", "_", "type"]
             data = read_dmp(h, columns)
-            data = data.ix[data["id"].isin(TAXA),:]
             data = data.ix[data["type"] == "scientific name",["id","name"]]
             data = data.drop_duplicates("id").dropna()
             for id, name in data.to_records(index=False):
@@ -90,6 +91,7 @@ class Gene(Base):
         path = BioTK.io.download(url)
         ids = set()
         nullable = lambda x: None if x == "-" else x
+        taxa = set([t.id for t in session.query(Taxon)])
         with io.TextIOWrapper(gzip.open(path, "r"), encoding="utf-8") as h:
             next(h)
             for i,line in enumerate(h):
@@ -97,7 +99,7 @@ class Gene(Base):
                     LOG.debug("Processing gene_info.gz : line %s" % i)
                 fields = line.split("\t")
                 taxon_id = int(fields[0])
-                if not taxon_id in TAXA:
+                if not taxon_id in taxa:
                     continue
                 id = int(fields[1])
                 if id in ids:
@@ -145,6 +147,8 @@ class Sample(Base):
     age = Column(Float)
     gender = Column(Integer)
 
+    _data = deferred(Column("data", ARRAY(DOUBLE_PRECISION, dimensions=1)))
+
     @staticmethod
     def objects(session):
         source = session.query(Source)\
@@ -152,7 +156,7 @@ class Sample(Base):
         platforms = session.query(Platform)
         platforms = dict([(p.xref, p.id) for p in platforms])
         taxa = dict([(t.name, t.id) for t in session.query(Taxon)])
-        db = sqlite3.connect("/data/ncbi/geo/GEOmetadb.sqlite")
+        db = sqlite3.connect("/data/public/ncbi/geo/GEOmetadb.sqlite")
         db.row_factory = dict_factory
         c = db.cursor()
         c.execute("""
@@ -190,7 +194,7 @@ class Platform(Base):
                 taxon_name_to_id[taxon.name] = taxon.id
 
         # FIXME: hardcoded path
-        c = sqlite3.connect("/data/ncbi/geo/GEOmetadb.sqlite").cursor()
+        c = sqlite3.connect("/data/public/ncbi/geo/GEOmetadb.sqlite").cursor()
         c.execute("SELECT gpl, organism, title FROM gpl")
         for gpl, taxon_name, title in c:
             taxon_id = taxon_name_to_id.get(taxon_name)
