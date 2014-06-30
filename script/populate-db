@@ -1,0 +1,409 @@
+#!/usr/bin/env python
+
+import io
+import gzip
+import re
+
+import click
+import sqlite3
+import sys
+import tarfile
+
+import pandas as pd
+import psycopg2
+
+import BioTK.io
+from BioTK.io import OBO
+
+def ensure_inserted_and_get_index(cursor, table, key, items):
+    for item in items:
+        if item is not None:
+            cursor.execute("""
+                INSERT INTO {table}({key})
+                SELECT %s
+                WHERE 
+                    NOT EXISTS (
+                        SELECT {key} FROM {table} WHERE {key}=%s
+                    );""".format(**locals()), (item,item))
+    cursor.execute("SELECT {key},id FROM {table};".format(**locals()))
+    return dict(cursor)
+
+def read_dmp(handle, columns):
+    """
+    Read a NCBI .dmp file into a DataFrame.
+    """
+    buffer = io.StringIO()
+    for i,line in enumerate(handle):
+        buffer.write(line.rstrip("\t|\n") + "\n")
+    buffer.seek(0)
+    return pd.read_table(buffer, delimiter="\t\|\t", 
+            names=columns,
+            header=None)
+
+def geo_connect():
+    return sqlite3.connect("/data/GEOmetadb.sqlite")
+
+def common_taxa():
+    taxa = set()
+    geo_db = geo_connect()
+    c = geo_db.cursor()
+    q = """
+        select * from (
+            select organism, count(organism) as c 
+            from gpl 
+            group by organism
+        ) where c > 10;
+        """
+    for row in c.execute(q):
+        if ";" not in row:
+            taxa.add(row[0])
+    geo_db.close()
+    return taxa
+
+def load_taxon(c):
+    taxa = common_taxa()
+    url = "ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz"
+    cached_path = BioTK.io.download(url)
+    with tarfile.open(cached_path, mode="r:gz") as archive:
+        h = io.TextIOWrapper(archive.extractfile("names.dmp"),
+                encoding="utf-8")
+        columns = ["id", "name", "_", "type"]
+        data = read_dmp(h, columns)
+        data = data.ix[data["type"] == \
+                "scientific name",["id","name"]]
+        data = data.drop_duplicates("id").dropna()
+        data = data[data["name"].isin(taxa)]
+        c.executemany("""
+            INSERT INTO taxon (id, name) VALUES (%s,%s);
+            """, ((int(id), str(name))
+                for id, name in
+                data.to_records(index=False)))
+
+def load_gene(c):
+    c.execute("SELECT id FROM taxon;")
+    taxa = set([r[0] for r in c])
+
+    url = "ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz"
+    path = BioTK.io.download(url)
+    def generate():
+        nullable = lambda x: None if x == "-" else x
+        with io.TextIOWrapper(gzip.open(path, "r"), encoding="utf-8") as h:
+            next(h)
+            for line in h:
+                fields = line.split("\t")
+                taxon_id = int(fields[0])
+                if taxon_id not in taxa:
+                    continue
+                gene_id = int(fields[1])
+                symbol = nullable(fields[2])
+                name = nullable(fields[11])
+                yield (taxon_id, gene_id, symbol, name)
+    c.executemany("""
+        INSERT INTO gene (taxon_id, id, symbol, name)
+        VALUES (%s, %s, %s, %s)
+        """, generate())
+
+def load_ontology(c, prefix, name, path):
+    c.execute("INSERT INTO ontology (prefix,name) VALUES (%s,%s) RETURNING id",
+            (prefix, name))
+    ontology_id = next(c)[0]
+
+    with open(path) as h:
+        o = OBO.parse(h)
+
+    # Insert (if necessary) and cache namespaces
+    namespace_to_id = ensure_inserted_and_get_index(c, 
+            "namespace", "text", o.terms["Namespace"])
+    accession_to_id = {}
+
+    # Insert terms
+    for accession, name, namespace in o.terms.to_records(index=True):
+        if isinstance(namespace, list):
+            # FIXME
+            namespace_id = None
+        else:
+            namespace_id = namespace_to_id[namespace]
+        c.execute("""
+        INSERT INTO term (ontology_id,namespace_id,accession,name)
+        VALUES (%s,%s,%s,%s)
+        RETURNING id;
+        """, (ontology_id,namespace_id,accession,name))
+        accession_to_id[accession] = next(c)[0]
+                    
+    # Insert synonyms
+    synonyms = o.synonyms
+    synonym_to_id = ensure_inserted_and_get_index(c,
+            "synonym", "text", set(synonyms["Synonym"]))
+
+    # Insert term-synonym links
+    for accession, synonym in synonyms.to_records():
+        term_id = accession_to_id[accession]
+        synonym_id = synonym_to_id[synonym]
+        c.execute("INSERT INTO term_synonym VALUES (%s,%s)",
+                (term_id,synonym_id))
+       
+    # Insert relationships    
+    relationship_to_id = ensure_inserted_and_get_index(c,
+            "relationship", "name", set(o.relations["Relation"]))
+
+    # Insert term-term links
+    inserted_terms = set(o.terms.index)
+    for agent, target, r in o.relations.to_records(index=False):
+        agent_id = accession_to_id.get(agent)
+        target_id = accession_to_id.get(target)
+        if (agent_id is None) or (target_id is None):
+            continue
+        relationship_id = relationship_to_id[r]
+        c.execute("""
+        INSERT INTO term_term (agent_id,target_id,relationship_id)
+        VALUES (%s,%s,%s);
+        """, (agent_id, target_id, relationship_id))
+
+def load_ontologies(c):
+    OBO_PATH = "/data/ontology/obo/"
+    load_ontology(c, "GO", "Gene Ontology", 
+            OBO_PATH+"go.obo")
+    load_ontology(c, "BTO", "Brenda Tissue Ontology", 
+            OBO_PATH+"bto.obo")
+    load_ontology(c, "PATO", "Phenotypic Quality Ontology", 
+            OBO_PATH+"pato.obo")
+
+def load_geo(c):
+    geo_db = geo_connect()
+    gc = geo_db.cursor()
+    c.execute("SELECT name,id FROM taxon;")
+    taxon_to_id = dict(c)
+
+    gpl_to_id = {}
+    gse_to_id = {}
+    gsm_to_id = {}
+
+    # Insert GPL
+    print("Insert GPL")
+    gc.execute("SELECT gpl,title,manufacturer FROM gpl;")
+    for r in gc:
+        c.execute("""
+            INSERT INTO platform (accession,title,manufacturer) 
+            VALUES (%s,%s,%s)
+            RETURNING id;""", r)
+        gpl_to_id[r[0]] = next(c)[0]
+
+    # Insert GSE
+    print("Insert GSE")
+    gc.execute("""
+        SELECT gse,type,summary,overall_design,submission_date,title 
+        FROM gse;""")
+    for row in gc:
+        c.execute("""
+            INSERT INTO series (accession,type,summary,
+                design,submission_date,title)
+            VALUES (%s,%s,%s,%s,%s,%s)
+            RETURNING id;""", row)
+        gse_to_id[row[0]] = next(c)[0]
+
+    # Insert GSM
+    print("Insert GSM")
+    gc.execute("""
+        SELECT gsm,gpl,title,type,source_name_ch1,molecule_ch1,
+            channel_count,description,characteristics_ch1
+        FROM gsm;""")
+    for row in gc:
+        row = list(row)
+        row[1] = taxon_to_id.get(row[1])
+        if not row[1]:
+            continue
+        row[2] = gpl_to_id[row[2]]
+        row[7] = int(row[7])
+        c.execute("""
+            INSERT INTO sample (accession, taxon_id, platform_id, title, type,
+                source, molecule, channel_count, description,
+                characteristics)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id;""", row)
+        gsm_to_id[row[0]] = next(c)[0]    
+        
+    # Insert GSM-GSE links
+    print("Insert GSM-GSE")
+    gc.execute("""
+        SELECT gse_gsm.gsm,gse
+        FROM gse_gsm
+        INNER JOIN gsm
+        ON gsm.gsm=gse_gsm.gsm;""")
+    for gsm,gse in gc:
+        sample_id = gsm_to_id.get(gsm)
+        series_id = gse_to_id.get(gse)
+        if sample_id and series_id:
+            c.execute("""
+                INSERT INTO sample_series VALUES (%s,%s)
+                """, (gsm_to_id[gsm],gse_to_id[gse]))
+
+############################################
+# Manual or official gene/sample annotations
+############################################
+
+def load_gene_go(c):
+    c.execute("select accession,id FROM term")
+    accession_to_term_id = dict(c)
+    source = "Gene Ontology Consortium"
+    source_id = ensure_inserted_and_get_index(c,"source","name",
+            [source])[source]
+    c.execute("SELECT id FROM gene;")
+    genes = set(row[0] for row in c)
+
+    url = "ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2go.gz"
+    path = BioTK.io.download(url)
+    with gzip.open(path, "r") as h:
+        df = pd.read_table(h, skiprows=1, 
+                header=None, names=("Taxon ID", "Gene ID", "Term ID", 
+                    "Evidence", "Qualifier", "TermName", "PubMed", "Category"))
+        df = df[df["Gene ID"].isin(genes)]
+        evidence_to_id = ensure_inserted_and_get_index(c,"evidence","name",
+                set(df["Evidence"]))
+        c.executemany("""
+            INSERT INTO term_gene (term_id,gene_id,source_id,evidence_id)
+            VALUES (%s,%s,%s,%s);
+            """, ((accession_to_term_id[term_accession], int(gene_id),
+                evidence_to_id[evidence], source_id)
+                for gene_id,term_accession,evidence 
+                in df.iloc[:,1:4].dropna().itertuples(index=False)))
+
+def load_sample_term_bto_ursa(c):
+    url = "http://ursa.princeton.edu/supp/manual_annotations_ursa.csv"
+    path = BioTK.io.download(url)
+    evidence = "manual"
+    evidence_id = ensure_inserted_and_get_index(c,
+            "evidence","name",[evidence])[evidence]
+    source = "URSA"
+    source_id = ensure_inserted_and_get_index(c,
+            "source", "name", [source])[source]
+
+    c.execute("SELECT accession,id FROM sample;")
+    sample_accession_to_id = dict(c)
+    c.execute("SELECT name,id FROM term;")
+    term_name_to_id = dict(c)
+
+    def generate():
+        with open(path) as h:
+            next(h)
+            for line in h:
+                gsm, _, bto_name = line.strip().split("\t")
+                term_id = term_name_to_id.get(bto_name)
+                sample_id = sample_accession_to_id.get(gsm)
+                if (term_id is not None) and (sample_id is not None):
+                    yield term_id,sample_id,evidence_id,source_id
+
+    c.executemany("""
+        INSERT INTO term_sample (
+            term_id,sample_id,evidence_id,source_id)
+        VALUES (%s,%s,%s,%s);""", generate())
+
+######################################
+# Text-mining based sample annotations
+######################################
+
+def group_if_match(pattern, group, text):
+    m = re.search(pattern, text)
+    if m:
+        return m.group(group)
+
+PATTERNS = {
+    "age": "[^\w]age( *\((?P<age_unit1>[a-z]*)\))?:\
+[ \t]*(?P<age>\d+[\.0-9]*)(( *\- *| (to|or) )\
+(?P<age_end>\d+[\.\d]*))?([ \t]*(?P<age_unit2>[a-z]+))?",
+    "age_unit": "(age\s*unit[s]*|unit[s]* of age): (?P<age_unit>[a-z])",
+    # Tissue (TODO: map to BTO)
+    "tissue": "(cell type|tissue|organ) *: *(?P<tissue>[A-Za-z0-9\+\- ]+)",
+    # Disease states (TODO: map to DO)
+    "cancer": "(tumor|tumour|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma|lymphoma|blastoma|nsclc|cll|ptcl)",
+    "infection": "infec"
+}
+PATTERNS = dict((k, re.compile(v)) for k,v in PATTERNS.items())
+
+# A common additional unit is "dpc", which refers to embryos. 
+# Currently ignored.
+# Some samples are labeled with something like "11 and 14 weeks". 
+# I have no idea what this means, so it's ignored. 
+TIME_CONVERSION = {
+        "year": 12,
+        "y": 12,
+        "yr": 12,
+        "month": 1,
+        "moth": 1, # yes...
+        "mo": 1,
+        "m": 1,
+        "week": 1 / 4.5,
+        "wek": 1 / 4.5, # ...
+        "wk": 1 / 4.5,
+        "w": 1 / 4.5,
+        "day": 1 / 30,
+        "d": 1 / 30,
+        "hour": 1 / (24 * 30),
+        "hr": 1 / (24 * 30),
+        "h": 1 / (24 * 30)
+}
+
+def load_sample_age(c):
+    c.execute("SELECT id FROM term WHERE name='age';")
+    age_term_id = next(c)[0]
+    rows = []
+    evidence = "text mining"
+    evidence_id = ensure_inserted_and_get_index(c,
+            "evidence","name",[evidence])[evidence]
+    source = "Wren Lab"
+    source_id = ensure_inserted_and_get_index(c,
+            "source", "name", [source])[source]
+
+    c.execute("""
+        SELECT st.id,taxon.id,st.text FROM sample_text st
+        INNER JOIN sample
+        ON sample.id=st.id
+        INNER JOIN taxon
+        ON sample.taxon_id=taxon.id;
+        """)
+    for sample_id,taxon_id,text in c:
+        default_unit = "year" if taxon_id == 9606 else None
+        m = re.search(PATTERNS["age"], text)
+        if m is None:
+            continue
+        age = float(m.group("age"))
+        age_end = m.group("age_end")
+        if age_end:
+            #if not use_age_range:
+            #    continue
+            age = (age + float(age_end)) / 2
+        
+        unit = group_if_match(PATTERNS["age_unit"], 
+                "age_unit", self.text) \
+                or m.group("age_unit2") \
+                or m.group("age_unit1")
+                #or default_unit
+        if not unit:
+            continue
+        unit = unit.rstrip("s")
+        if not unit in TIME_CONVERSION:
+            continue
+        conversion_factor = TIME_CONVERSION[unit]
+        rows.append(age_term_id, sample_id, evidence_id, source_id,
+                age * conversion_factor)
+    c.executemany("""
+        INSERT INTO term_sample 
+            (term_id,sample_id,evidence_id,source_id,value) 
+        VALUES (%s,%s,%s,%s,%s)""", rows)
+
+if __name__ == "__main__":
+    db = psycopg2.connect("dbname=nova user=gilesc")
+    c = db.cursor()
+    #print("Loading taxon")
+    #load_taxon(c)
+    #db.commit()
+    #print("Loading gene")
+    #load_gene(c)
+    #db.commit()
+    load_geo(c)
+    db.commit()
+    #load_ontologies(c)
+    #load_gene_go(c)
+    load_sample_term_bto_ursa(c)
+    db.commit()
+    load_sample_age(c)
+    db.commit()

@@ -16,6 +16,7 @@ def _make_term(attrs):
     if ("id" in attrs) and ("name" in attrs):
         for key in Term._fields:
             attrs.setdefault(key, [])
+        attrs["namespace"] = attrs["namespace"] or None
         return Term(**attrs)
 
 def _parse(handle):

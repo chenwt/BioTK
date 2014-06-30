@@ -18,24 +18,6 @@ from BioTK.text import Trie
 # Constants and helpers
 #######################
 
-def group_if_match(pattern, group, text):
-    m = re.search(pattern, text)
-    if m:
-        return m.group(group)
-
-PATTERNS = {
-    "age": "[^\w]age( *\((?P<age_unit1>[a-z]*)\))?:\
-[ \t]*(?P<age>\d+[\.0-9]*)(( *\- *| (to|or) )\
-(?P<age_end>\d+[\.\d]*))?([ \t]*(?P<age_unit2>[a-z]+))?",
-    "age_unit": "(age\s*unit[s]*|unit[s]* of age): (?P<age_unit>[a-z])",
-    # Tissue (TODO: map to BTO)
-    "tissue": "(cell type|tissue|organ) *: *(?P<tissue>[A-Za-z0-9\+\- ]+)",
-    # Disease states (TODO: map to DO)
-    "cancer": "(tumor|tumour|cancer|sarcoma|glioma|leukem|mesothelioma|metastasis|carcinoma|lymphoma|blastoma|nsclc|cll|ptcl)",
-    "infection": "infec"
-}
-PATTERNS = dict((k, re.compile(v)) for k,v in PATTERNS.items())
-
 TISSUE_REMOVE = [
        "whole", "peripheral", "primary"
 ]

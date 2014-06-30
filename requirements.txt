@@ -22,7 +22,6 @@ networkx
 # Data management
 redis
 hiredis
-hot-redis
 py2neo
 celery
 
