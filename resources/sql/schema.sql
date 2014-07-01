@@ -14,48 +14,71 @@ CREATE TABLE IF NOT EXISTS gene (
     FOREIGN KEY (taxon_id) REFERENCES taxon (id)
 );
 
+CREATE TABLE IF NOT EXISTS evidence (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS source (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR UNIQUE
+);
+
 -- Datasets
 
 CREATE TABLE IF NOT EXISTS platform (
     id SERIAL PRIMARY KEY,
-    accession VARCHAR,
+    source_id INTEGER NOT NULL,
+
+    accession VARCHAR UNIQUE,
     title VARCHAR,
-    manufacturer VARCHAR
+    manufacturer VARCHAR,
+
+    FOREIGN KEY (source_id) REFERENCES source(id)
 );
 
 CREATE TABLE IF NOT EXISTS series (
     id SERIAL PRIMARY KEY,
-    accession VARCHAR,
+    source_id INTEGER NOT NULL,
+
+    accession VARCHAR UNIQUE,
+
     "type" VARCHAR,
     summary VARCHAR,
     design VARCHAR,
     submission_date DATE,
-    title VARCHAR
+    title VARCHAR,
+
+    FOREIGN KEY (source_id) REFERENCES source(id)
 );
 
 CREATE TABLE IF NOT EXISTS sample (
     id SERIAL PRIMARY KEY,
-    accession VARCHAR,
-    platform_id INTEGER,
-    taxon_id INTEGER,
+    platform_id INTEGER NOT NULL,
+    taxon_id INTEGER NOT NULL,
+    source_id INTEGER NOT NULL,
+
+    accession VARCHAR UNIQUE,
 
     title VARCHAR,
     "type" VARCHAR,
-    source VARCHAR,
+    source_name VARCHAR,
     molecule VARCHAR,
     channel_count INTEGER,
     description VARCHAR,
     characteristics VARCHAR,
 
-    data double precision[],
+    probe_data double precision[],
+    gene_data double precision[],
 
+    FOREIGN KEY(source_id) REFERENCES source(id),
     FOREIGN KEY(taxon_id) REFERENCES taxon(id),
     FOREIGN KEY(platform_id) REFERENCES platform(id)
 );
 
 CREATE OR REPLACE VIEW sample_text AS 
 SELECT * FROM (
-    SELECT id, (title || ' ' || source || ' ' 
+    SELECT id, (title || ' ' || source_name || ' ' 
         || description || ' ' || characteristics) AS text
     FROM sample) AS q
 WHERE text IS NOT NULL;
@@ -66,6 +89,44 @@ CREATE TABLE IF NOT EXISTS sample_series (
 
     FOREIGN KEY (sample_id) REFERENCES sample(id),
     FOREIGN KEY (series_id) REFERENCES series(id)
+);
+
+-- Probe mappings
+
+CREATE TABLE IF NOT EXISTS probe (
+    id SERIAL PRIMARY KEY,
+    platform_id INTEGER NOT NULL,
+    accession VARCHAR NOT NULL,
+
+    FOREIGN KEY (platform_id) REFERENCES platform(id)
+    -- UNIQUE platform/accession
+);
+
+-- CREATE INDEX ON probe (platform_id);
+
+CREATE TABLE IF NOT EXISTS probe_gene (
+    gene_id INTEGER NOT NULL,
+    probe_id INTEGER NOT NULL,
+
+    PRIMARY KEY (probe_id, gene_id),
+
+    FOREIGN KEY (probe_id) REFERENCES probe (id),
+    FOREIGN KEY (gene_id) REFERENCES gene (id)
+);
+
+-- MiniML data
+
+CREATE TABLE IF NOT EXISTS sample_probe (
+    sample_id INTEGER,
+    probe_id INTEGER,
+    channel INTEGER,
+    value DOUBLE PRECISION,
+    standard_deviation DOUBLE PRECISION,
+
+    PRIMARY KEY (sample_id,probe_id,channel),
+
+    FOREIGN KEY (sample_id) REFERENCES sample(id),
+    FOREIGN KEY (probe_id) REFERENCES probe(id)
 );
 
 -- Publications
@@ -128,16 +189,6 @@ CREATE TABLE IF NOT EXISTS term_term (
 
 -- Gene and sample annotation
 
-CREATE TABLE IF NOT EXISTS evidence (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS source (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR UNIQUE
-);
-
 CREATE TABLE IF NOT EXISTS term_gene (
     term_id INTEGER NOT NULL,
     gene_id INTEGER NOT NULL,
@@ -146,7 +197,9 @@ CREATE TABLE IF NOT EXISTS term_gene (
     value DOUBLE PRECISION,
 
     FOREIGN KEY (term_id) REFERENCES term(id),
-    FOREIGN KEY (gene_id) REFERENCES gene(id)
+    FOREIGN KEY (gene_id) REFERENCES gene(id),
+    FOREIGN KEY (source_id) REFERENCES source(id),
+    FOREIGN KEY (evidence_id) REFERENCES evidence(id)
 );
 
 CREATE TABLE IF NOT EXISTS term_sample (
@@ -157,7 +210,9 @@ CREATE TABLE IF NOT EXISTS term_sample (
     value DOUBLE PRECISION,
 
     FOREIGN KEY (term_id) REFERENCES term(id),
-    FOREIGN KEY (sample_id) REFERENCES sample(id)
+    FOREIGN KEY (sample_id) REFERENCES sample(id),
+    FOREIGN KEY (source_id) REFERENCES source(id),
+    FOREIGN KEY (evidence_id) REFERENCES evidence(id)
 );
 
 -- Synonyms

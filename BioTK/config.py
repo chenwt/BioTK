@@ -77,20 +77,9 @@ if log_file:
 if user_cfg_path is not None:
     LOG.info("User configuration file loaded from '%s'" % path)
 
-#######
-# neo4j 
-#######
-
-from py2neo import neo4j
-neo4j.DEFAULT_URI = "%s://%s:%s/" % (
-        CONFIG["neo4j.protocol"],
-        CONFIG["neo4j.host"],
-        CONFIG["neo4j.port"])
-LOG.info("Set neo4j URI to: %s" % neo4j.DEFAULT_URI)
-
-#######
-# redis
-#######
+##########
+# Database
+##########
 
 ######################
 # Configure file cache

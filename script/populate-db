@@ -3,6 +3,10 @@
 import io
 import gzip
 import re
+import os
+import functools
+import tempfile
+import subprocess as sp
 
 import click
 import sqlite3
@@ -12,21 +16,82 @@ import tarfile
 import pandas as pd
 import psycopg2
 
-import BioTK.io
+from BioTK import LOG, CONFIG
 from BioTK.io import OBO
+from BioTK.db import connect
+import BioTK.io
+
+def bulk_load(path, table, *columns):
+    with open(path) as h:
+        LOG.info("Bulk loading %s from %s" % (table, path))
+        sp.check_output(["psql", 
+            "-d", CONFIG["db.name"], 
+            "-h", CONFIG["db.host"],
+            CONFIG["db.user"], 
+            "-c", "COPY %s (%s) FROM STDIN" % (table, ", ".join(columns))],
+            stdin=h)
+
+# FIXME add FIFO and concurrently load with psql
+def bulk_load_generator(generator, table, *columns):
+    with tempfile.NamedTemporaryFile("wt") as h:
+        for row in generator:
+            row = list(map(str, row))
+            h.write("\t".join(row)+"\n")
+        h.flush()
+        bulk_load(h.name, table, *columns)
 
 def ensure_inserted_and_get_index(cursor, table, key, items):
     for item in items:
         if item is not None:
-            cursor.execute("""
-                INSERT INTO {table}({key})
-                SELECT %s
-                WHERE 
-                    NOT EXISTS (
-                        SELECT {key} FROM {table} WHERE {key}=%s
-                    );""".format(**locals()), (item,item))
+            cursor.execute("SELECT * FROM {table} WHERE {key}=%s;"\
+                    .format(table=table,key=key), (item,))
+            try:
+                next(cursor)
+            except StopIteration:
+                cursor.execute("INSERT INTO {table} ({key}) VALUES (%s);"\
+                        .format(table=table,key=key), (item,))
+    connection.commit()
     cursor.execute("SELECT {key},id FROM {table};".format(**locals()))
     return dict(cursor)
+
+def is_empty(c, table):
+    c.execute("SELECT * FROM {table} LIMIT 1".format(table=table))
+    try:
+        next(c)
+        return False
+    except StopIteration:
+        return True
+
+def mapq(q):
+    cursor.execute(q)
+    return dict(cursor)
+
+def populates(*tables, check_query=None):
+    # check_query is a SQL query which returns >1 rows if
+    # the function does not need to be run, or 0 rows if
+    # the function needs to be run.
+    def decorator(fn): 
+        @functools.wraps(fn)
+        def wrap(c, *args, **kwargs):
+            if check_query is not None:
+                cursor.execute(check_query)
+                try:
+                    next(cursor)
+                    needed = False
+                except StopIteration:
+                    needed = True
+            elif tables:
+                needed = all(is_empty(c, tbl) for tbl in tables)
+            else:
+                assert False
+
+            if needed:
+                LOG.info("Executing %s" % fn.__name__)
+                return fn(c, *args, **kwargs)
+            else:
+                LOG.info("Skipping %s" % fn.__name__)
+        return wrap
+    return decorator
 
 def read_dmp(handle, columns):
     """
@@ -41,7 +106,7 @@ def read_dmp(handle, columns):
             header=None)
 
 def geo_connect():
-    return sqlite3.connect("/data/GEOmetadb.sqlite")
+    return sqlite3.connect("/data/public/geo/GEOmetadb.sqlite")
 
 def common_taxa():
     taxa = set()
@@ -60,6 +125,11 @@ def common_taxa():
     geo_db.close()
     return taxa
 
+#########
+# Loaders
+#########
+
+@populates("taxon")
 def load_taxon(c):
     taxa = common_taxa()
     url = "ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz"
@@ -79,13 +149,14 @@ def load_taxon(c):
                 for id, name in
                 data.to_records(index=False)))
 
+@populates("gene")
 def load_gene(c):
     c.execute("SELECT id FROM taxon;")
     taxa = set([r[0] for r in c])
 
     url = "ftp://ftp.ncbi.nih.gov/gene/DATA/gene_info.gz"
     path = BioTK.io.download(url)
-    def generate():
+    with tempfile.NamedTemporaryFile("wt") as o:
         nullable = lambda x: None if x == "-" else x
         with io.TextIOWrapper(gzip.open(path, "r"), encoding="utf-8") as h:
             next(h)
@@ -97,11 +168,10 @@ def load_gene(c):
                 gene_id = int(fields[1])
                 symbol = nullable(fields[2])
                 name = nullable(fields[11])
-                yield (taxon_id, gene_id, symbol, name)
-    c.executemany("""
-        INSERT INTO gene (taxon_id, id, symbol, name)
-        VALUES (%s, %s, %s, %s)
-        """, generate())
+                row = list(map(str, (taxon_id, gene_id, symbol, name)))
+                o.write("\t".join(row) + "\n")
+        o.flush()
+        bulk_load(o.name, "gene", "taxon_id", "id", "symbol", "name")
 
 def load_ontology(c, prefix, name, path):
     c.execute("INSERT INTO ontology (prefix,name) VALUES (%s,%s) RETURNING id",
@@ -118,7 +188,7 @@ def load_ontology(c, prefix, name, path):
 
     # Insert terms
     for accession, name, namespace in o.terms.to_records(index=True):
-        if isinstance(namespace, list):
+        if isinstance(namespace, list) or namespace is None:
             # FIXME
             namespace_id = None
         else:
@@ -159,20 +229,29 @@ def load_ontology(c, prefix, name, path):
         VALUES (%s,%s,%s);
         """, (agent_id, target_id, relationship_id))
 
-def load_ontologies(c):
-    OBO_PATH = "/data/ontology/obo/"
-    load_ontology(c, "GO", "Gene Ontology", 
-            OBO_PATH+"go.obo")
-    load_ontology(c, "BTO", "Brenda Tissue Ontology", 
-            OBO_PATH+"bto.obo")
-    load_ontology(c, "PATO", "Phenotypic Quality Ontology", 
-            OBO_PATH+"pato.obo")
+OBO_PATH = "/data/public/ontology/obo/"
+ONTOLOGIES = [
+        ("GO", "Gene Ontology"),
+        ("BTO", "Brenda Tissue Ontology"),
+        ("PATO", "Phenotypic Quality Ontology")
+]
 
+@populates("ontology", "term")
+def load_ontologies(c):
+    for prefix, name in ONTOLOGIES:
+        LOG.debug("Loading data for %s (%s)" % (prefix, name))
+        load_ontology(c, prefix, name, OBO_PATH+prefix+".obo")
+
+@populates("platform", "series", "sample")
 def load_geo(c):
     geo_db = geo_connect()
     gc = geo_db.cursor()
     c.execute("SELECT name,id FROM taxon;")
     taxon_to_id = dict(c)
+
+    source = "Gene Expression Omnibus"
+    source_id = ensure_inserted_and_get_index(c,
+            "source", "name", [source])[source]
 
     gpl_to_id = {}
     gse_to_id = {}
@@ -180,45 +259,45 @@ def load_geo(c):
 
     # Insert GPL
     print("Insert GPL")
-    gc.execute("SELECT gpl,title,manufacturer FROM gpl;")
+    gc.execute("SELECT %s,gpl,title,manufacturer FROM gpl;" % source_id)
     for r in gc:
         c.execute("""
-            INSERT INTO platform (accession,title,manufacturer) 
-            VALUES (%s,%s,%s)
+            INSERT INTO platform (source_id,accession,title,manufacturer) 
+            VALUES (%s,%s,%s,%s)
             RETURNING id;""", r)
-        gpl_to_id[r[0]] = next(c)[0]
+        gpl_to_id[r[1]] = next(c)[0]
 
     # Insert GSE
     print("Insert GSE")
     gc.execute("""
-        SELECT gse,type,summary,overall_design,submission_date,title 
-        FROM gse;""")
+        SELECT %s,gse,type,summary,overall_design,submission_date,title 
+        FROM gse;""" % source_id)
     for row in gc:
         c.execute("""
-            INSERT INTO series (accession,type,summary,
+            INSERT INTO series (source_id,accession,type,summary,
                 design,submission_date,title)
-            VALUES (%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s)
             RETURNING id;""", row)
-        gse_to_id[row[0]] = next(c)[0]
+        gse_to_id[row[1]] = next(c)[0]
 
     # Insert GSM
     print("Insert GSM")
     gc.execute("""
-        SELECT gsm,gpl,title,type,source_name_ch1,molecule_ch1,
+        SELECT gsm,organism_ch1,gpl,%s,title,type,source_name_ch1,molecule_ch1,
             channel_count,description,characteristics_ch1
-        FROM gsm;""")
+        FROM gsm;""" % source_id)
     for row in gc:
         row = list(row)
         row[1] = taxon_to_id.get(row[1])
         if not row[1]:
             continue
         row[2] = gpl_to_id[row[2]]
-        row[7] = int(row[7])
+        row[8] = int(row[8])
         c.execute("""
-            INSERT INTO sample (accession, taxon_id, platform_id, title, type,
-                source, molecule, channel_count, description,
-                characteristics)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            INSERT INTO sample (accession, taxon_id, platform_id, source_id,
+                title, type, source_name, molecule, channel_count, 
+                description, characteristics)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id;""", row)
         gsm_to_id[row[0]] = next(c)[0]    
         
@@ -241,8 +320,16 @@ def load_geo(c):
 # Manual or official gene/sample annotations
 ############################################
 
+check_gene_go = """
+    SELECT * FROM term_gene
+    INNER JOIN source
+    ON source.id=term_gene.source_id
+    WHERE source.name='Gene Ontology Consortium'
+    LIMIT 1;"""
+
+@populates(check_query=check_gene_go)
 def load_gene_go(c):
-    c.execute("select accession,id FROM term")
+    cursor.execute("select accession,id FROM term")
     accession_to_term_id = dict(c)
     source = "Gene Ontology Consortium"
     source_id = ensure_inserted_and_get_index(c,"source","name",
@@ -259,15 +346,23 @@ def load_gene_go(c):
         df = df[df["Gene ID"].isin(genes)]
         evidence_to_id = ensure_inserted_and_get_index(c,"evidence","name",
                 set(df["Evidence"]))
-        c.executemany("""
-            INSERT INTO term_gene (term_id,gene_id,source_id,evidence_id)
-            VALUES (%s,%s,%s,%s);
-            """, ((accession_to_term_id[term_accession], int(gene_id),
+        records = ((accession_to_term_id[term_accession], int(gene_id),
                 evidence_to_id[evidence], source_id)
                 for gene_id,term_accession,evidence 
-                in df.iloc[:,1:4].dropna().itertuples(index=False)))
+                in df.iloc[:,1:4].dropna().itertuples(index=False))
+        bulk_load_generator(records, "term_gene",
+                "term_id","gene_id","evidence_id","source_id")
 
-def load_sample_term_bto_ursa(c):
+check_ursa = """
+    SELECT * FROM term_sample
+    INNER JOIN source
+    ON term_sample.source_id=source.id
+    WHERE source.name='URSA'
+    LIMIT 1;
+    """
+
+@populates(check_query=check_ursa)
+def load_ursa(c):
     url = "http://ursa.princeton.edu/supp/manual_annotations_ursa.csv"
     path = BioTK.io.download(url)
     evidence = "manual"
@@ -277,9 +372,12 @@ def load_sample_term_bto_ursa(c):
     source_id = ensure_inserted_and_get_index(c,
             "source", "name", [source])[source]
 
-    c.execute("SELECT accession,id FROM sample;")
-    sample_accession_to_id = dict(c)
-    c.execute("SELECT name,id FROM term;")
+    sample_accession_to_id = mapq("SELECT accession,id FROM sample;")
+    c.execute("""
+            SELECT term.name,term.id FROM term
+            INNER JOIN ontology
+            ON term.ontology_id=ontology.id
+            WHERE ontology.prefix='BTO';""")
     term_name_to_id = dict(c)
 
     def generate():
@@ -373,7 +471,7 @@ def load_sample_age(c):
             age = (age + float(age_end)) / 2
         
         unit = group_if_match(PATTERNS["age_unit"], 
-                "age_unit", self.text) \
+                "age_unit", text) \
                 or m.group("age_unit2") \
                 or m.group("age_unit1")
                 #or default_unit
@@ -383,27 +481,91 @@ def load_sample_age(c):
         if not unit in TIME_CONVERSION:
             continue
         conversion_factor = TIME_CONVERSION[unit]
-        rows.append(age_term_id, sample_id, evidence_id, source_id,
-                age * conversion_factor)
+        rows.append((age_term_id, sample_id, evidence_id, source_id,
+                age * conversion_factor))
     c.executemany("""
         INSERT INTO term_sample 
             (term_id,sample_id,evidence_id,source_id,value) 
         VALUES (%s,%s,%s,%s,%s)""", rows)
 
+
+# AILUN probe mappings
+
+def read_ailun():
+    c.execute("SELECT accession,id FROM platform;")
+    platform_accession_to_id = dict(c)
+
+    AILUN_DIR = "/data/public/geo/annotation/AILUN"
+    for i,path in enumerate(os.listdir(AILUN_DIR)):
+        if not path.endswith(".annot.gz"):
+            continue
+        platform_accession = path.split(".")[0]
+        platform_id = platform_accession_to_id.get(platform_accession)
+        if not platform_id:
+            continue
+        path = os.path.join(AILUN_DIR, path)
+        mappings = []
+        with gzip.open(path, "rt") as h:
+            for line in h:
+                try:
+                    probe_name, gene_id, *_ = line.split("\t")
+                    gene_id = int(gene_id)
+                    mappings.append((probe_name, gene_id))
+                except:
+                    pass
+        LOG.debug("Processing platform %s" % platform_accession)
+        yield platform_id, mappings
+
+@populates("probe")
+def load_probe(c):
+    with tempfile.NamedTemporaryFile("wt") as h:
+        for platform_id, mappings in read_ailun():
+            for probe_name, _ in mappings:
+                h.write("%s\t%s\n" % (platform_id, probe_name))
+        h.flush()
+        bulk_load(h.name, "probe", "platform_id", "accession")
+
+@populates("probe_gene")
+def load_probe_gene(c):
+    c.execute("SELECT id FROM gene;")
+    genes = set(r[0] for r in c)
+
+    with tempfile.NamedTemporaryFile("wt", delete=False) as h:
+        for platform_id, mappings in read_ailun():
+            c.execute("SELECT accession,id FROM probe WHERE platform_id=%s;", 
+                    (platform_id,))
+            probe_name_to_id = dict(c)
+            pairs = set()
+            for probe_name, gene_id in mappings:
+                probe_id = probe_name_to_id[probe_name]
+                if not gene_id in genes:
+                    continue
+                pair = (probe_id,gene_id)
+                if not pair in pairs:
+                    h.write("%s\t%s\n" % pair)
+                    pairs.add(pair)
+    try:
+        sp.call(["sort", "-S", "4G", "-u", "-o", h.name, h.name])
+        bulk_load(h.name, "probe_gene", "probe_id", "gene_id")
+    finally:
+        os.unlink(h.name)
+
 if __name__ == "__main__":
-    db = psycopg2.connect("dbname=nova user=gilesc")
-    c = db.cursor()
-    #print("Loading taxon")
-    #load_taxon(c)
-    #db.commit()
-    #print("Loading gene")
-    #load_gene(c)
-    #db.commit()
+    connection = connect()
+    c = cursor = connection.cursor()
+
+    load_taxon(c)
+    connection.commit()
+    load_gene(c)
     load_geo(c)
-    db.commit()
-    #load_ontologies(c)
-    #load_gene_go(c)
-    load_sample_term_bto_ursa(c)
-    db.commit()
+    connection.commit()
+
+    #load_probe(c)
+    #load_probe_gene(c)
+
+    load_ontologies(c)
+    connection.commit()
+    load_gene_go(c)
+    load_ursa(c)
     load_sample_age(c)
-    db.commit()
+    connection.commit()
