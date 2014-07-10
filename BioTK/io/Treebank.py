@@ -6,7 +6,7 @@ import tarfile
 
 from pyparsing import Word, Forward, Group, Suppress, OneOrMore
 
-from BioTK.io.cache import memcached, download
+from BioTK.cache import download, cached
 from BioTK.io import generic_open
 from BioTK.text.types import Tree
 
@@ -21,7 +21,7 @@ node <<= Group(LPAR + tag + OneOrMore(node | token) + RPAR)\
         .setParseAction(lambda s,l,t: tuple(t[0]))
 treebank = OneOrMore(node)
 
-@memcached()
+@cached
 def _parse(handle):
     return list(treebank.parseString(handle.read()))
 

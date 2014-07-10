@@ -83,10 +83,15 @@ def search_genes(q):
         pass
 
     # Otherwise, search the text of gene symbols, names, and terms
-    rows = [(g.id, g.symbol, g.taxon.name, g.name)
-        for g in 
-        db.query(Gene)\
-                .filter(Gene.symbol.ilike("%"+q+"%"))]
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT g.id,g.symbol,t.name,g.name
+        FROM gene g
+        INNER JOIN taxon t
+        ON g.taxon_id=t.id
+        WHERE g.symbol ILIKE '%""" + q.replace("%","") + "%';")
+    rows = list(cursor)
+
     if len(rows) >= 1:
         df = pd.DataFrame.from_records(rows,
                 columns=["Gene ID", "Symbol", "Species", "Name"])\
@@ -129,7 +134,8 @@ def search():
         return
 
     genes = search_genes(q)
-    terms = search_terms(q)
+    #terms = search_terms(q)
+    terms = None
    
     if genes is None and terms is None:
         msg = "<h3>Sorry, no results found for query: '%s'</h3>" % q

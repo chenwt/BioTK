@@ -29,7 +29,8 @@ cfg_search_paths = [
         os.path.join(os.curdir, "BioTK.cfg"),
         os.path.expanduser("~/.BioTK.cfg"),
         os.path.expanduser("~/.config/BioTK/BioTK.cfg"),
-        "/etc/BioTK/BioTK.cfg"
+        "/etc/BioTK/BioTK.cfg",
+        "/opt/BioTK/BioTK.cfg"
 ]
 
 user_cfg_path = None

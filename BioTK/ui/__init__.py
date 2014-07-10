@@ -9,7 +9,7 @@ from bottle import Bottle, static_file, debug
 from jinja2 import Environment, FileSystemLoader
 
 from BioTK import CONFIG, LOG
-from BioTK.db import get_session
+from BioTK.db import connect
 
 cache = redis.StrictRedis(host=CONFIG["redis.host"], 
         port=int(CONFIG["redis.port"]),
@@ -18,7 +18,7 @@ cache = redis.StrictRedis(host=CONFIG["redis.host"],
 root = Bottle()
 debug(True)
 env = Environment(loader=FileSystemLoader("resources/ui/templates"))
-env.globals["db"] = db = get_session()
+env.globals["db"] = db = connect()
 STATIC_ROOT = "resources/ui/static/"
 
 def render_template(tmpl, **kwargs):

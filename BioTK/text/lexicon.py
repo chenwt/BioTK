@@ -1,6 +1,6 @@
 import collections
 
-from BioTK.io.cache import download
+from BioTK.cache import download
 
 def common_words(n=1000):
     """

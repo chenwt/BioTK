@@ -5,32 +5,26 @@ import kombu.compression
 
 from BioTK import CONFIG
 
-redis_base_uri = "redis://%s:%s" % (
-        CONFIG["redis.host"],
-        CONFIG["redis.port"])
-#broker_uri = "%s/%s" % (
-#        redis_base_uri,
-#        int(CONFIG["redis.task_queue.index"]))
+BROKER_URL = CONFIG["celery.broker.url"]
 
-BROKER_URL = "amqp://"
-CELERY_RESULT_BACKEND = "%s/%s" % (
-        redis_base_uri,
+CELERY_RESULT_BACKEND = "redis://%s:%s/%s" % (
+        CONFIG["redis.host"],
+        CONFIG["redis.port"],
         int(CONFIG["redis.result_store.index"]))
 
 CELERY_IMPORTS = (
-        "BioTK.task.etc",
-        "BioTK.task.graph.load",
-        "BioTK.task.region"
+        "BioTK.task.db.load",
 )
 CELERY_WORKER_DIRECT = True
 
 # Queues and routes
 
-exchange = CELERY_DEFAULT_EXCHANGE = Exchange('default')
+queue = CONFIG["celery.queue"]
+exchange = CELERY_DEFAULT_EXCHANGE = Exchange(queue)
 CELERY_QUEUES=(
-    Queue('default', Exchange('default'), routing_key='default'),
+    Queue(queue, Exchange(queue), routing_key=queue),
 )
-CELERY_DEFAULT_QUEUE="default"
+CELERY_DEFAULT_QUEUE=queue
 
 # Compression and serialization
 

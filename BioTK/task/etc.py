@@ -18,7 +18,7 @@ from .queue import QUEUE
 MIN_SAMPLES = 25
 MAX_SAMPLES = 100 if socket.gethostname() == "phoenix" else 400
 store = region_db = None
-db = get_session()
+#db = get_session()
 
 def correlate(x, y):
     ix = ~(np.isnan(x) | np.isnan(y))
@@ -115,8 +115,8 @@ data = None
 @worker_process_init.connect
 def initialize(sender, **kwargs):
     global data
-    data = dict((taxon_id, TaxonDataset(taxon_id))
-            for taxon_id in [9606, 10116, 10090])
+    #data = dict((taxon_id, TaxonDataset(taxon_id))
+    #        for taxon_id in [9606, 10116, 10090])
 
 #######
 # Tasks

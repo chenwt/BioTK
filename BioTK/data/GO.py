@@ -10,9 +10,9 @@ import networkx as nx
 import pandas as pd
 
 import BioTK.io
-import BioTK.io.cache
 import BioTK.io.OBO
 
+from BioTK.cache import download
 from BioTK.ontology import Ontology
 
 __all__ = ["GeneOntology"]
@@ -21,7 +21,7 @@ GO = "http://www.geneontology.org/ontology/obo_format_1_2/gene_ontology_ext.obo"
 GENE2GO = "ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene2go.gz"
 
 def _get_annotation(taxon_id):
-    path = BioTK.io.cache.download(GENE2GO)
+    path = download(GENE2GO)
     with gzip.open(path, "r") as h:
         df = pd.read_table(h, skiprows=1, 
                 header=None, names=("Taxon ID", "Gene ID", "Term ID", 
@@ -31,7 +31,7 @@ def _get_annotation(taxon_id):
 
 class GeneOntology(Ontology):
     def __init__(self):
-        path = BioTK.io.cache.download(GO)
+        path = download(GO)
         with open(path, "rt") as handle:
             o = BioTK.io.OBO.parse(handle)
         BioTK.io.OBO.Ontology.__init__(self, o.terms, o.synonyms, o.relations)

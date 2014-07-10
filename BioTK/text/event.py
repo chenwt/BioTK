@@ -120,13 +120,13 @@ class RelEx(object):
                         break
         return relations
 
-from BioTK.io.cache import memcached
 from BioTK.io import Wren 
 from BioTK.text.lexicon import common_words
+from BioTK.cache import cached
 
 from collections import defaultdict
 
-@memcached()
+@cached
 def get_synonyms():
     cw = common_words(50000)
 

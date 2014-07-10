@@ -4,4 +4,4 @@ QUEUE.config_from_object("BioTK.task.config")
 
 from .etc import *
 from .region import *
-from .graph import *
+from .db import *

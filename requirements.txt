@@ -13,32 +13,29 @@ pandas
 
 # Statistics
 patsy
-git+https://github.com/statsmodels/statsmodels.git
-git+https://github.com/scikit-learn/scikit-learn.git
+statsmodels
+scikit-learn
 
 # Other analysis packages
 networkx
+nltk
 
 # Data management
 redis
 hiredis
-py2neo
 celery
 
 # Data management (To be phased out)
-git+https://github.com/zzzeek/sqlalchemy.git
 psycopg2
-h5py
-python3-memcached
 
 # Utilities
 cement
 sortedcontainers
 pyparsing
 click
+lz4
 
 # Web packages
 bottle
 cherrypy
 jinja2
-

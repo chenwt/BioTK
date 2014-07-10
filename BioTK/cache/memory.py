@@ -32,7 +32,7 @@ def cached(fn):
     @functools.wraps(fn)
     def decorator(*args, **kwargs):
         kwargs_tuple = tuple(sorted(kwargs.items()))
-        if not isinstance(args, collections.Hashable, args) \
+        if not isinstance(args, collections.Hashable) \
                 or not isinstance(kwargs_tuple, collections.Hashable):
             msg = "Function arguments not hashable:"
             msg += "\n\targs:%s\n\tkwargs:%s"
