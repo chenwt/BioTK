@@ -25,11 +25,14 @@ def main():
     #load_sample_age()
 
     load_probe()
-    #load_probe_gene()
-    #load_probe_data_from_archive("/data/public/ncbi/geo/miniml/GPL96.tar.xz").delay()
+    load_probe_gene()
+    #load_probe_gene_from_accession(71, "GPL96")
+    #load_probe_data()
 
+    #index_all()
+    #load_probe_data_from_archive("/data/public/ncbi/geo/miniml/GPL96.tar.xz").delay()
     #collapse_probe_data()
-    #collapse_probe_data_for_platform(71)
+    collapse_probe_data_for_platform(71)
 
 if __name__ == "__main__":
     main()

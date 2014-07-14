@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import tarfile
 
+import bottleneck
 import numpy as np
 import pandas as pd
 import psycopg2
@@ -22,6 +23,7 @@ from BioTK import LOG, CONFIG
 from BioTK.cache import cached, download
 from BioTK.io import OBO
 from BioTK.db import connect
+import BioTK.util
 
 from ..queue import QUEUE
 
@@ -614,6 +616,7 @@ def load_probe_gene_from_accession(platform_id, platform_accession):
     path = os.path.join(AILUN_DIR, "%s.annot.gz" % platform_accession)
     if not os.path.exists(path):
         return
+    genes = get_genes()
     probe_name_to_id = mapq("""
         SELECT accession,id FROM probe
         WHERE platform_id=%s;""" % platform_id)
@@ -628,6 +631,8 @@ def load_probe_gene_from_accession(platform_id, platform_accession):
                 except Exception as e:
                     pass
                 gene_id = int(gene_id)
+                if not gene_id in genes:
+                    continue
                 probe_id = probe_name_to_id.get(probe_name)
                 if probe_id is None:
                     continue
@@ -637,7 +642,10 @@ def load_probe_gene_from_accession(platform_id, platform_accession):
 
 @populates("probe_gene")
 def load_probe_gene():
+    ensure_index("probe", ["platform_id"])
+    ensure_index("sample", ["platform_id"])
     cursor.execute("SELECT id,accession FROM platform;")
+    genes = get_genes()
     jobs = list(cursor)
     group(load_probe_gene_from_accession.s(*r) for r in jobs)()
 
@@ -717,10 +725,11 @@ SELECT * FROM channel
 WHERE probe_data IS NOT NULL
 LIMIT 1;""")
 def load_probe_data():
-    GEO_DIR = "/data/public/geo/miniml"
+    GEO_DIR = "/data/public/ncbi/geo/miniml"
     paths = [os.path.join(GEO_DIR, name) for name in os.listdir(GEO_DIR)]
     paths.sort(key=os.path.getsize, reverse=True)
     group(load_probe_data_from_archive.s(path) for path in paths)()
+
 
 def collapse_probe_data_for_platform(platform_id):
     LOG.debug(platform_id)
@@ -763,50 +772,54 @@ def collapse_probe_data_for_platform(platform_id):
             ORDER BY probe_id;""", (platform_id,))
     for gene_id, probe_id in cursor:
         mask.loc[gene_id, probe_id] = 1
-    n = np.array(mask.sum())
-    mask = mask.as_matrix()
-    print(n)
-    print(mask)
-    print(n.sum())
-    print(mask.sum().sum())
-    if True:
-        return
 
-    cursor.execute("""
-        SELECT sample_id,channel,probe_data
-        FROM channel
-        INNER JOIN sample
-        ON channel.sample_id=sample.id
-        WHERE probe_data IS NOT NULL
-        AND channel.taxon_id=%s
-        AND sample.platform_id=%s""", 
-        (taxon_id, platform_id,))
-    for sample_id, channel, data in cursor:
-        data = np.array(data)
+    #mask = mask.to_sparse(fill_value=0)
+    mask = (mask.T / mask.sum(axis=1)).T
 
-        ix = annotation[data.index]
-        mu = data.groupby(ix).mean().iloc[:,0]
-        mu = mu + 1e-5 - mu.min()
-        if mu.max() > 100:
-            mu = mu.apply(np.log2)
-        mu = (mu - mu.mean()) / mu.std()
-        data = np.array(mu[genes])
-        data = list(map(float, data))
+    LOG.debug("Mask loaded")
+
+    while True:
         cursor.execute("""
+            SELECT sample_id,channel,probe_data
+            FROM channel
+            INNER JOIN sample
+            ON channel.sample_id=sample.id
+            WHERE probe_data IS NOT NULL
+            AND gene_data IS NULL
+            AND channel.taxon_id=%s
+            AND sample.platform_id=%s
+            LIMIT 10""", 
+            (taxon_id, platform_id,))
+
+        rows = []
+        for sample_id, channel, data in cursor:
+            data = np.array(data)
+            v = mask.dot(data)
+            if v.max() > 100: #bottleneck.nanmax(v) > 100:
+                #v = np.log2(v)
+                v = v.apply(np.log2)
+            #v = (v - bottleneck.nanmean(v)) / bottleneck.nanstd(v)
+            v = (v - v.mean()) / v.std()
+            data = list(map(float, v))
+            rows.append((data, sample_id, channel))
+
+        if not rows:
+            break
+        insert = connection.cursor()
+        insert.executemany("""
             UPDATE channel
             SET gene_data=%s
             WHERE channel.sample_id=%s AND channel.channel=%s""",
-            (data, sample_id, channel))
-    connection.commit()
+            rows)
+        LOG.debug("Inserting chunk")
+        connection.commit()
 
 def collapse_probe_data():
     cursor.execute("SELECT id FROM platform;")
     platforms = [r[0] for r in cursor]
-    for platform_id in platforms:
-        collapse_probe_data_for_platform(platform_id)
+    group(collapse_probe_data_for_platform.s(platform_id) for platform_id in platforms)()
 
-# Text mining
-
+# Text mining 
 from BioTK.io import MEDLINE
 
 @populates("journal")
@@ -866,7 +879,7 @@ def carpe_diem():
 # Indexing
 ##########
 
-def ensure_index(table, columns, index_type):
+def ensure_index(table, columns, index_type="btree"):
     if len(columns) == 1 and "to_tsvector" in columns[0]:
         name = "_".join([table] + ["to_tsvector"] + ["idx"])
     else:
@@ -888,23 +901,24 @@ indexes = {
         ("taxon", "name"),
         ("gene", "symbol", "name"),
         ("series", "title", "summary", "design"),
-        ("sample", "title", "source_name", "description", "characteristics"),
+        #("sample", "title", "source_name", "description", "characteristics"),
         ("term", "name"),
     ],
     "btree": [
-        ("sample", "taxon_id"),
+        ("channel", "taxon_id"),
         ("sample", "platform_id"),
+        ("gene", "taxon_id"),
         ("probe", "platform_id"),
         ("term", "ontology_id"),
         ("term_gene", "term_id"),
         ("term_gene", "gene_id"),
-        ("term_sample", "term_id"),
-        ("term_sample", "sample_id")
+        ("term_channel", "term_id"),
+        ("term_channel", "sample_id", "channel")
     ]
 }
 
 def tsvec(*columns):
-    return "to_tsvector('english', (%s))" % " || ' ' || ".join(columns)
+    return ["to_tsvector('english', (%s))" % " || ' ' || ".join(columns)]
 
 def index_all():
     for type, ixs in indexes.items():
