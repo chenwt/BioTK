@@ -10,7 +10,7 @@ import pandas as pd
 from celery import group
 from celery.signals import worker_process_init
 
-from centrum import MMAT
+from BioTK.mmat import MMAT
 from BioTK.io.BBI import BigWigFile
 from BioTK.io import BEDFile
 

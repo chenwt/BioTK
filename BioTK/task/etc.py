@@ -10,7 +10,7 @@ from celery.signals import worker_process_init
 
 from BioTK.db import *
 from BioTK.io.BBI import BigWigFile
-from centrum.mmat import MMAT
+from BioTK.mmat import MMAT
 
 from .queue import QUEUE
 

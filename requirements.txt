@@ -1,6 +1,3 @@
-# Personal packages 
-centrum
-
 # Basic numerics packages
 numpy
 scipy

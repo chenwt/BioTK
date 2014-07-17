@@ -10,28 +10,28 @@ def main():
     load_taxon()
     load_gene()
 
-    load_journal()
-    load_publication()
+    #load_journal()
+    #load_publication()
 
-    load_platform()
-    load_series()
-    load_sample()
-    load_sample_series()
-    load_channel()
+    #load_platform()
+    #load_series()
+    #load_sample()
+    #load_sample_series()
+    #load_channel()
 
-    load_ontologies()
-    load_gene_go()
-    load_ursa()
+    #load_ontologies()
+    #load_gene_go()
+    #load_ursa()
     #load_sample_age()
 
-    load_probe()
-    load_probe_gene()
+    #load_probe()
+    #load_probe_gene()
     #load_probe_gene_from_accession(71, "GPL96")
     #load_probe_data()
 
     #index_all()
     #load_probe_data_from_archive("/data/public/ncbi/geo/miniml/GPL96.tar.xz").delay()
-    collapse_probe_data()
+    #collapse_probe_data()
     #collapse_probe_data_for_platform(71)
 
 if __name__ == "__main__":
