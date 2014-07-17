@@ -731,6 +731,7 @@ def load_probe_data():
     group(load_probe_data_from_archive.s(path) for path in paths)()
 
 
+@QUEUE.task
 def collapse_probe_data_for_platform(platform_id):
     LOG.debug(platform_id)
     cursor.execute("""
@@ -760,9 +761,6 @@ def collapse_probe_data_for_platform(platform_id):
         ORDER BY id;""", (taxon_id,))
     genes = [r[0] for r in cursor]
 
-    mask = pd.DataFrame(np.zeros((len(genes), len(probes))),
-            index=genes, columns=probes)
-
     cursor.execute("""
             SELECT gene_id, probe_id
             FROM probe_gene
@@ -770,11 +768,9 @@ def collapse_probe_data_for_platform(platform_id):
             ON probe_gene.probe_id=probe.id
             WHERE probe.platform_id=%s
             ORDER BY probe_id;""", (platform_id,))
+    annotation = pd.Series(np.nan, index=probes)
     for gene_id, probe_id in cursor:
-        mask.loc[gene_id, probe_id] = 1
-
-    #mask = mask.to_sparse(fill_value=0)
-    mask = (mask.T / mask.sum(axis=1)).T
+        annotation.loc[probe_id] = gene_id
 
     LOG.debug("Mask loaded")
 
@@ -788,19 +784,20 @@ def collapse_probe_data_for_platform(platform_id):
             AND gene_data IS NULL
             AND channel.taxon_id=%s
             AND sample.platform_id=%s
-            LIMIT 10""", 
+            LIMIT 100""", 
             (taxon_id, platform_id,))
 
         rows = []
         for sample_id, channel, data in cursor:
-            data = np.array(data)
-            v = mask.dot(data)
-            if v.max() > 100: #bottleneck.nanmax(v) > 100:
-                #v = np.log2(v)
-                v = v.apply(np.log2)
-            #v = (v - bottleneck.nanmean(v)) / bottleneck.nanstd(v)
-            v = (v - v.mean()) / v.std()
-            data = list(map(float, v))
+            expression = pd.Series(data, index=probes)\
+                    .to_frame("Value").dropna()
+            ix = annotation[expression.index]
+            mu = expression.groupby(ix).mean().iloc[:,0]
+            mu = mu + 1e-5 - mu.min()
+            if mu.max() > 100:
+                mu = mu.apply(np.log2)
+            mu = (mu - mu.mean()) / mu.std()
+            data = list(map(float, mu[genes]))
             rows.append((data, sample_id, channel))
 
         if not rows:
@@ -809,15 +806,25 @@ def collapse_probe_data_for_platform(platform_id):
         insert.executemany("""
             UPDATE channel
             SET gene_data=%s
-            WHERE channel.sample_id=%s AND channel.channel=%s""",
+            WHERE channel.sample_id=%s 
+            AND channel.channel=%s""",
             rows)
         LOG.debug("Inserting chunk")
         connection.commit()
 
 def collapse_probe_data():
-    cursor.execute("SELECT id FROM platform;")
+    cursor.execute("""
+        SELECT platform.id
+        id FROM platform
+        INNER JOIN sample
+        ON sample.platform_id=platform.id
+        INNER JOIN channel
+        ON channel.sample_id=sample.id
+        GROUP BY platform.id
+        ORDER BY COUNT(channel.channel) DESC;""")
     platforms = [r[0] for r in cursor]
-    group(collapse_probe_data_for_platform.s(platform_id) for platform_id in platforms)()
+    group(collapse_probe_data_for_platform.s(
+        platform_id) for platform_id in platforms)()
 
 # Text mining 
 from BioTK.io import MEDLINE

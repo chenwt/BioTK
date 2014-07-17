@@ -31,8 +31,8 @@ def main():
 
     #index_all()
     #load_probe_data_from_archive("/data/public/ncbi/geo/miniml/GPL96.tar.xz").delay()
-    #collapse_probe_data()
-    collapse_probe_data_for_platform(71)
+    collapse_probe_data()
+    #collapse_probe_data_for_platform(71)
 
 if __name__ == "__main__":
     main()
