@@ -13,7 +13,7 @@ CELERY_RESULT_BACKEND = "redis://%s:%s/%s" % (
         int(CONFIG["redis.result_store.index"]))
 
 CELERY_IMPORTS = (
-        "BioTK.task.db.load",
+        "BioTK.db.load",
 )
 CELERY_WORKER_DIRECT = True
 

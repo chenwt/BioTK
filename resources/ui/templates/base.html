@@ -1,36 +1,22 @@
 <html>
 <head>
-<script type="text/javascript" language="javascript" 
-    data-main="/static/{{js_main}}.js" src="/static/require.js">
-requirejs.config({
-    baseUrl: "/static",
-    shim: {
-        "d3": {
-            exports: "d3"
-        },
-        "nv.d3": {
-            deps: ["d3"],
-            exports: "nv"
-        },
-        "bootstrap": {
-            deps: ["jquery"]
-        }
-    }
-});
 
 </script>
-    <link rel="stylesheet" 
-        href="/static/bootstrap/css/bootstrap.css" /> 
-    <link rel="stylesheet" 
-        href="/static/dataTables.tableTools.css" /> 
-    <link rel="stylesheet" 
-        href="/static/dataTables.bootstrap.css" /> 
-    <!--
-    <link rel="stylesheet" 
-        href="static/css/darkstrap.css" /> 
-    -->
-    <link rel="stylesheet" href="/static/nv.d3.css" /> 
-    <link rel="stylesheet" href="/static/atlas.css" /> 
+    {{ js("jquery/dist/jquery.min") }}
+    {{ js("bootstrap/dist/js/bootstrap.min") }}
+    {{ js("datatables/media/js/jquery.dataTables.min") }}
+    {{ js("datatables-tabletools/media/js/dataTables.tableTools") }}
+    {{ js("d3/d3.min") }}
+    {{ js("nvd3/nv.d3.min") }}
+
+    {{ js("BioTK/BioTK.table") }}
+    {{ js("BioTK/BioTK") }}
+
+    {{ css("bootstrap/dist/css/bootstrap.min") }}
+    {{ css("datatables-tabletools/css/dataTables.tableTools") }}
+    {{ css("BioTK/dataTables.bootstrap") }}
+    {{ css("nvd3/src/nv.d3") }}
+    {{ css("BioTK/BioTK") }}
 
     <title>AGE Atlas {% if title is defined %}- {{title}}{% endif %}</title>
 
@@ -38,6 +24,7 @@ requirejs.config({
     {% endblock %}
 </head>
 <body>
+
 <nav class="navbar navbar-default" role="navigation">
   <div class="container-fluid">
     <!-- Brand and toggle get grouped for better mobile display -->
@@ -67,9 +54,6 @@ requirejs.config({
           <ul class="dropdown-menu">
             <li><a href="/statistics">Database statistics</a></li>
             <li><a href="/changelog">Changelog</a></li>
-            <!--
-            <li class="divider"></li>
-            -->
           </ul>
         </li>
       </ul>
@@ -79,25 +63,8 @@ requirejs.config({
         </div>
         <button type="submit" class="btn btn-default">Search</button>
       </form>
-
-      <!--
-      <ul class="nav navbar-nav navbar-right">
-        <li><a href="#">Link</a></li>
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown<b class="caret"></b></a>
-          <ul class="dropdown-menu">
-            <li><a href="#">Action</a></li>
-            <li><a href="#">Another action</a></li>
-            <li><a href="#">Something else here</a></li>
-            <li class="divider"></li>
-            <li><a href="#">Separated link</a></li>
-          </ul>
-        </li>
-      </ul>
-        -->
-
-    </div><!-- /.navbar-collapse -->
-  </div><!-- /.container-fluid -->
+    </div>
+  </div>
 </nav>
 
 <div class="container">
@@ -106,7 +73,13 @@ requirejs.config({
     {% endif %}
 
     {% block body %}
+
+    {% for e in elements %}
+        {{ e.render() }}
+    {% endfor %}
+
     {{ content }}
+
     {% endblock %}
 </div>
 </body>

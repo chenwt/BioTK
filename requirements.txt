@@ -36,3 +36,4 @@ lz4
 bottle
 cherrypy
 jinja2
+git+https://github.com/gilesc/python-nvd3/

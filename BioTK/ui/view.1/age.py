@@ -35,23 +35,6 @@ def fn():
             tissues=tissues,
             title="Tissue query")
 
-@root.post("/api/table/<uuid>")
-def fn(uuid):
-    params = dict(request.params.decode())
-    table = Table.load(uuid)
-    return table.ajax(params)
-
-@root.get("/api/table/<uuid>/csv")
-def fn(uuid):
-    buffer = io.StringIO()
-    Table.load(uuid)\
-            .data\
-            .to_csv(buffer, float_format="%0.3f")
-    response.content_type = "application/csv"
-    response.set_header("Content-Disposition", 
-            "attachment; filename=age_atlas.csv")
-    return buffer.getvalue()
-
 @root.post("/gene-table")
 def fn():
     taxon_id = int(request.forms["taxon_id"])
@@ -158,23 +141,6 @@ def search():
                     server_side=True))
         return render_template("tables.html", title="Search Results",
             tables=tables)
-
-@root.get('/statistics')
-def statistics():
-    expression_counts = task.statistics.delay().get()
-    tables = [Table(expression_counts, 
-        title="Expression datasets",
-        link_format="/statistics/{0}")]
-
-    return render_template("tables.html", 
-            title="Database statistics",
-            tables=tables)
-
-@root.get('/statistics/<taxon_id>')
-def taxon_statistics(taxon_id):
-    df = task.taxon_statistics.delay(taxon_id).get()
-    tables = [Table(df, title="Common tissues")]
-    return render_template("tables.html", tables=tables)
 
 @root.get('/term/<term_id>/<taxon_id>')
 def go_term(taxon_id, term_id):

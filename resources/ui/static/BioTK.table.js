@@ -41,7 +41,7 @@ TableTools.BUTTONS.download = {
 };
 */ 
 
-$(document).ready(function() {
+function renderTables() {
     $("table.data-table").each(function() {
         var uuid = $(this).attr("uuid");
         $(this).dataTable({
@@ -67,6 +67,7 @@ $(document).ready(function() {
             }
         });
     });
+
     $("table").each(function() {
         var linkFormat = $(this).attr("link_format");
         if (typeof linkFormat !== 'undefined' && linkFormat !== false) {
@@ -80,4 +81,4 @@ $(document).ready(function() {
             });
         }
     });
-});
+}

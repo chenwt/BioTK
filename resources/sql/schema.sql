@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS term_gene (
 CREATE TABLE IF NOT EXISTS term_channel (
     term_id INTEGER NOT NULL,
     sample_id INTEGER NOT NULL,
-    channel INTEGER NOT NULL,
+    channel SMALLINT NOT NULL,
     source_id INTEGER NOT NULL,
     evidence_id INTEGER NOT NULL,
     value DOUBLE PRECISION,
