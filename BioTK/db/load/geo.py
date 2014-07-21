@@ -1,6 +1,9 @@
 from .util import *
 from BioTK.io.GEO import *
 
+if mp.get_start_method() is None:
+    mp.set_start_method("spawn")
+#lock = mp.Lock()
 
 def _upsert_platform(p, source_id):
     cursor.execute("""
@@ -88,7 +91,21 @@ def _insert_sample(s, platform_id, probes):
                 return_id=False)
         break
 
+def load_platform(path):
+    for e in parse(path):
+        if isinstance(e, Platform):
+            try:
+                _upsert_platform(e, source_id)
+            except:
+                pass
+        elif isinstance(e, Sample):
+            return
+            
 def load_series(path):
+    global connection, cursor
+    connection = connect()
+    cursor = connection.cursor()
+
     source = "Gene Expression Omnibus"
     source_id = ensure_inserted_and_get_index("source", "name", 
             [source])[source]
@@ -102,21 +119,28 @@ def load_series(path):
     series_accession_to_id = {}
     probes = {}
 
+    n = 0
     for e in parse(path):
         if isinstance(e, Database):
             continue
         elif isinstance(e, Platform):
-            platform_id, p_probes = _upsert_platform(e, source_id)
-            probes[platform_id] = p_probes
-            platform_accession_to_id[e.accession] = platform_id
+            try:
+                platform_id, p_probes = _upsert_platform(e, source_id)
+                probes[platform_id] = p_probes
+                platform_accession_to_id[e.accession] = platform_id
+            except:
+                return accession, n
         elif isinstance(e, Series):
             series_accession_to_id[e.accession] = _insert_series(e, source_id)
         elif isinstance(e, Sample):
             platform_id = platform_accession_to_id[e.platform_accession]
-            if e.taxon_id in taxa:
+            if len(e.channels) == 0:
+                continue
+            if e.channels[0].taxon_id in taxa:
+                n += 1
                 sample_id = _insert_sample(e, platform_id, probes[platform_id])
-
     connection.commit()
+    return accession, n
 
 @populates("platform")
 def load_platform1():
@@ -504,11 +528,27 @@ def collapse_probe_data():
         platform_id) for platform_id in platforms)()
 
 def load():
+    p = mp.Pool(initializer=initialize)
     root = "/data/public/ncbi/geo/series"
-    for file in os.listdir(root):
-        if file.endswith("_family.soft.gz"):
-            path = os.path.join(root, file)
-            load_series(path)
+    paths = [os.path.join(root, file)
+                for file in os.listdir(root)
+                if file.endswith("_family.soft.gz")]
+    for p in paths:
+        LOG.debug("Loading platform from %s" % p)
+        try:
+            load_platform(p)
+        except:
+            pass
+    connection.commit()
+
+    #for accession, n in p.imap(load_series, 
+    #        ):
+    #    LOG.debug("%s: %s samples loaded" % (accession, n))
+
+    #root = "/data/public/ncbi/geo/series"
+    #for file in os.listdir(root):
+    #        path = os.path.join(root, file)
+    #        load_series(path)
 
     #load_probe()
     #load_probe_gene()

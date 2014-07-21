@@ -5,6 +5,7 @@ import os
 import functools
 import tempfile
 import subprocess as sp
+import multiprocessing as mp
 
 import click
 import sqlite3
@@ -19,7 +20,7 @@ from celery import group
 from celery.signals import worker_process_init
 
 from BioTK import LOG, CONFIG, CACHE_DIR
-from BioTK.cache import cached, download
+from BioTK.cache import cached, download, CACHE
 from BioTK.io import OBO
 from BioTK.db import connect
 import BioTK.util
@@ -34,7 +35,7 @@ from BioTK.task import QUEUE
 def initialize(*args, **kwargs):
     global connection, cursor
     connection = connect()
-    c = cursor = connection.cursor()
+    cursor = connection.cursor()
 
 initialize()
 
