@@ -15,6 +15,9 @@ import os
 import re
 import sys
 import urllib.request
+from collections import namedtuple, defaultdict
+import datetime
+from pprint import pprint
 
 import pandas as pd
 import numpy
@@ -27,205 +30,139 @@ def as_float(item):
     except:
         return numpy.nan
         
-def read_table(lines, end_tag):
-    buffer = io.StringIO()
-    for line in lines:
-        if line.startswith(end_tag):
-            buffer.seek(0)
-            return pd.io.parsers.read_csv(buffer, sep="\t")
-        buffer.write(line)
-
 def read_value(line):
     try:
         return line.strip().split(" = ", 2)[1]
     except IndexError:
         return ""
 
-class GSM(object):
-    """
-    Represents a single GEO sample.
-    """
-    _columns = ["title", "supplementary_file", "table",
-            "hyb_protocol", "scan_protocol", "data_processing",
-            "description", "platform_id", "geo_accession",
-            "anchor", "type", "tag_count", "tag_length"]
-    _channel_columns = ["source_name", "organism", "characteristics",
-            "biomaterial_provider", "treatment_protocol",
-            "growth_protocol", "molecule",
-            "extract_protocol", "label",
-            "label_protocol"]
+def as_int(attrs, key):
+    v = attrs.get(key)
+    if v is not None:
+        return int(v.split("\n")[0]) 
 
-    #for col in sample_channel_columns:
-    #    sample_columns.append(col + "_ch1")
+def as_date(attrs, key):
+    try:
+        return datetime.datetime.strptime("%b %d %Y", attrs[key]).date()
+    except:
+        return
 
+def split_lines(attrs, key):
+    if key in attrs:
+        return attrs[key].split("\n")
 
-    def __init__(self, accession, expression, attributes=None):
-        self.accession = accession
-        self.expression = expression
-        self.attributes = attributes
+def identity(attrs, key):
+    return attrs.get(key)
 
-    def __repr__(self):
-        return "<Sample: %s>" % self.accession
-        
-class GPL(object):
-    """
-    Object containing information about a GEO platform and 
-    mapping of probes to other accessions.
-    """
-    __slots__ = ["accession", "taxon_id", "organism", "title", "table"]
+Database = namedtuple("Database", "name")
+Platform = namedtuple("Platform", "accession,title,manufacturer,table")
+Series = namedtuple("Series", 
+    "accession,title,summary,design,type,submission_date,pubmed_id")
+Sample = namedtuple("Sample", "accession,platform_accession,title,description,status,submission_date,last_update_date,type,hybridization_protocol,data_processing,contact,supplementary_file,channel_count,channels,table")
+Channel = namedtuple("Channel", 
+    "channel,taxon_id,source_name,characteristics,molecule,label,treatment_protocol,extract_protocol,label_protocol")
 
-    def __init__(self, accession, taxon_id, organism, title, table):
-        self.accession = accession
-        self.taxon_id = taxon_id
-        self.organism = organism
-        self.title = title
-        self.table = table.set_index("ID")
+def _fix_attributes(cls, attrs):
+    to_delete = set()
+    for fk,tk,method in [
+            ("taxid", "taxon_id", as_int), 
+            ("pubmed_id", "pubmed_id", as_int),
+            ("channel_count", "channel_count", as_int),
+            ("submission_date", "submission_date", as_date),
+            ("last_update_date", "last_update_date", as_date),
+            ("hyb_protocol", "hybridization_protocol", identity),
+            ("platform_id", "platform_accession", identity)
+            ]:
+        if fk in attrs:
+            attrs[tk] = method(attrs, fk)
+            to_delete.add(fk)
+    for k in attrs.keys():
+        if not k in cls._fields:
+            to_delete.add(k)
+    for k in to_delete:
+        del attrs[k]
+    for k in cls._fields:
+        if not k == "accession":
+            attrs.setdefault(k, None)
 
-    def __repr__(self):
-        return "<Platform description: %s - %s>" % (self.accession, self.title)
-
-    @staticmethod
-    def parse(handle):
-        # FIXME: the taxon ID is not listed in the .annot.gz file
-        for line in handle:
-            line = line.strip()
-            if line.startswith("!Annotation_platform ="):
-                accession = read_value(line)
-            elif line.startswith("!Annotation_platform_title"):
-                title = read_value(line)
-            elif line.startswith("!Annotation_platform_organism"):
-                organism = read_value(line)
-            elif line.startswith("!platform_table_begin"):
-                table = read_table(handle, "!platform_table_end")
+def _read_table(lines):
+    lines = iter(lines)
+    for line in lines:
+        if line.strip().endswith("table_begin"):
+            table_data = io.StringIO()
+            for line in lines:
+                if line.strip().endswith("table_end"):
+                    break
+                table_data.write(line)
+            table_data.seek(0)
+            return pd.read_table(table_data, index_col=0)
+ 
+def _parse_attributes(cls, lines, fix=True):
+    # attributes
+    attrs = defaultdict(list)
+    for line in lines:
+        if not line.startswith("!"):
+            continue
         try:
-            return GPL(accession, None, organism, title, table)
-        except NameError:
-            raise IOError("Could not parse platform SOFT file.")
+            key, value = line.strip().split(" = ", 1)
+            key = key.split("_", 1)[1]
+        except ValueError:
+            pass
+        attrs[key].append(value)
+    attrs = dict((k, "\n".join(vs).strip()) for k,vs in attrs.items())
 
-    @staticmethod
-    def fetch(accession):
-        assert accession.startswith("GPL")
-        url = "/geo/platforms/GPL%snnn/%s/annot/%s.annot.gz" % \
-                (accession[3:-3], accession, accession)
-        with BioTK.io.NCBI.download(url, decompress="gzip") as handle:
-            return GPL.parse(handle)
+    # table
+    attrs["table"] = _read_table(lines)
 
-"""
-class GSE(object):
-    @staticmethod
-    def fetch(accession):
-        assert accession.startswith("GSE")
-        url = "/geo/series/GSE%snnn/%s/matrix/
-"""
+    if fix:
+        _fix_attributes(cls, attrs)
+    return attrs
 
-class Family(object):
-    """
-    A class to read from whole-platform SOFT datasets, such
-    as those found at ftp://ftp.ncbi.nlm.nih.gov/geo/platforms/ . 
+def _parse_database(accession, lines):
+    return Database(accession)
 
-    It assumes the platform data will precede the samples.
-    """
-    def __init__(self, platform, samples, expression):
-        self.platform = platform
-        self.samples = samples
-        self.expression = expression
+def _parse_platform(accession, lines):
+    attrs = _parse_attributes(Platform, lines)
+    return Platform(accession, **attrs)
 
-    @property
-    def accession(self):
-        return self.platform.accession
+def _parse_series(accession, lines):
+    attrs = _parse_attributes(Series, lines)
+    return Series(accession, **attrs)
 
-    def __repr__(self):
-        return "<Family %s with %s samples>" % \
-                (self.accession, self.expression.shape[0])
+def _parse_sample(accession, lines):
+    attrs = _parse_attributes(Sample, lines, fix=False)
+    channel_count = int(attrs["channel_count"])
+    channels = []
+    for i in range(1, channel_count+1):
+        ch_attrs = {}
+        for k,v in attrs.items():
+            if k.endswith("_ch%s" % i):
+                k = "_".join(k.split("_")[:-1])
+                ch_attrs[k] = v
+        _fix_attributes(Channel, ch_attrs)
+        ch_attrs["channel"] = i
+        channels.append(Channel(**ch_attrs))
+    attrs["channels"] = channels
+    _fix_attributes(Sample, attrs)
+    return Sample(accession, **attrs)
 
-    @staticmethod
-    def _parse_platform(handle):
-        while True:
-            line = handle.__next__()
-            if line.startswith("!platform_table_begin"):
-                table = read_table(handle, "!platform_table_end")
-                break
-            elif line.startswith("!Platform_taxid"):
-                taxon_id = int(read_value(line))
-            elif line.startswith("!Platform_title"):
-                title = read_value(line)
-            elif line.startswith("!Platform_organism"):
-                organism = read_value(line)
-            elif line.startswith("!Platform_geo_accession"):
-                accession = read_value(line)
-        return GPL(accession, taxon_id, organism, title, table) 
+def _parse(handle):
+    lines = []
+    for line in handle:
+        if not line.startswith("^"):
+            lines.append(line)
+        else:
+            if lines:
+                try:
+                    key = "_parse_" + type.lower()
+                    handler = globals()[key]
+                    yield handler(accession, lines)
+                except KeyError as e:
+                    print(e)
+                    print("No handler found for type:", type)
+            type, accession = line[1:].strip().split(" = ")
+            lines = []
 
-    _TRANSFORMERS = {
-            "channel_count": int,
-    }
-
-    @staticmethod
-    def _parse_single(handle):
-        platform = Family._parse_platform(handle)
-        yield platform
-
-        while True:
-            try:
-                line = handle.__next__().strip()
-                if line.startswith("^SAMPLE"):
-                    attrs = collections.defaultdict(str)
-                    accession = read_value(line)
-
-                elif line.startswith("!Sample_"):
-                    key = line.split(" = ")[0].lstrip("!Sample_")
-                    value = read_value(line)
-                    attrs[key] += value + "\n"
-                elif line.startswith("!sample_table_begin"):
-                    expression = read_table(handle, "!sample_table_end")
-                    expression = expression.set_index("ID_REF")["VALUE"]
-                    if expression.dtype != float:
-                        expression = pd.Series(list(map(as_float, expression)), 
-                            index=expression.index)
-
-                    for k,v in attrs.items():
-                        attrs[k] = v.strip()
-                        if k in Family._TRANSFORMERS:
-                            attrs[k] = Family._TRANSFORMERS[k](v)
-                    yield GSM(accession, expression, 
-                            attributes=dict(attrs.items()))
-            except StopIteration:
-                break
-            except Exception as e:
-                print(e)
-                continue
-
-    @staticmethod
-    def parse(handle, limit=0, chunk_size=100):
-        # FIXME: make sure platform/probes have same alignment
-        # in all chunks
-        it = Family._parse_single(handle)
-        platform = it.__next__()
-        if limit:
-            it = itertools.islice(it, 0, limit)
-
-        for gsms in BioTK.util.chunks(it, chunk_size):
-            accessions = [gsm.accession for gsm in gsms]
-            samples = [gsm.attributes for gsm in gsms]
-            expression = [gsm.expression for gsm in gsms]
-
-            samples = pd.DataFrame.from_records(samples, index=accessions)
-            expression = pd.DataFrame(expression, index=accessions)
-            platform_table = platform.table.T
-            platform_table, expression = \
-                    platform_table.align(expression, axis=1, join="left")
-            platform.table = platform_table.T
-            yield Family(platform, samples, expression)
-
-    @staticmethod
-    def fetch(accession):
-        assert accession.startswith("GPL")
-        url = "/geo/platforms/GPL%snnn/%s/soft/%s_family.soft.gz" % \
-                (accession[3:-3], accession, accession)
-        with BioTK.io.NCBI.download(url, decompress="gzip") as handle:
-            return Family.parse(handle, chunk_size=0).__next__()
-
-def fetch(accession):
-    if accession.startswith("GSE"):
-        return GSE.fetch(accession)
-    elif accession.startswith("GPL"):
-        return GPL.fetch(accession)
+def parse(path):
+    with gzip.open(path, "rt") as h:
+        yield from _parse(h)

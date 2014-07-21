@@ -1,3 +1,5 @@
+import yaml
+
 from .util import *
 
 #########
@@ -6,7 +8,8 @@ from .util import *
 
 @populates("taxon")
 def load_taxon():
-    taxa = common_taxa()
+    cfg = yaml.load(open("BioTK.yml"))
+    taxa = set(cfg["taxa"])
     url = "ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz"
     cached_path = download(url)
     with tarfile.open(cached_path, mode="r:gz") as archive:
@@ -18,11 +21,10 @@ def load_taxon():
                 "scientific name",["id","name"]]
         data = data.drop_duplicates("id").dropna()
         data = data[data["name"].isin(taxa)]
-        cursor.executemany("""
-            INSERT INTO taxon (id, name) VALUES (%s,%s);
-            """, ((int(id), str(name))
+        bulk_load_generator(((int(id), str(name))
                 for id, name in
-                data.to_records(index=False)))
+                data.to_records(index=False)),
+                "taxon", "id", "name")
 
 @populates("gene")
 def load_gene():

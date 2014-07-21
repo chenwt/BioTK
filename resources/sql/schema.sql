@@ -26,6 +26,37 @@ CREATE TABLE IF NOT EXISTS source (
     name VARCHAR UNIQUE
 );
 
+-- Publications
+
+CREATE TABLE IF NOT EXISTS journal (
+    id SERIAL PRIMARY KEY,
+    nlm_id INTEGER,
+    name VARCHAR,
+    issn VARCHAR UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS publication (
+    id SERIAL PRIMARY KEY,
+    journal_id INTEGER,
+    pubmed_id INTEGER UNIQUE,
+    pmc_id INTEGER UNIQUE,
+
+    title VARCHAR,
+    abstract VARCHAR,
+    full_text VARCHAR,
+
+    parse JSON,
+
+    FOREIGN KEY (journal_id) REFERENCES journal (id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS publication_doi (
+    publication_id INTEGER,
+    doi VARCHAR UNIQUE,
+
+    FOREIGN KEY (publication_id) REFERENCES publication(id) ON DELETE CASCADE
+);
+
 -- Datasets
 
 CREATE TABLE IF NOT EXISTS platform (
@@ -42,16 +73,18 @@ CREATE TABLE IF NOT EXISTS platform (
 CREATE TABLE IF NOT EXISTS series (
     id SERIAL PRIMARY KEY,
     source_id INTEGER NOT NULL,
+    pubmed_id INTEGER,
 
     accession VARCHAR UNIQUE,
 
-    "type" VARCHAR,
+    title VARCHAR,
     summary VARCHAR,
+    "type" VARCHAR,
     design VARCHAR,
     submission_date DATE,
-    title VARCHAR,
 
-    FOREIGN KEY (source_id) REFERENCES source(id)
+    FOREIGN KEY (source_id) REFERENCES source(id),
+    FOREIGN KEY (pubmed_id) REFERENCES publication(pubmed_id)
 );
 
 CREATE TABLE IF NOT EXISTS sample (
@@ -62,15 +95,15 @@ CREATE TABLE IF NOT EXISTS sample (
     accession VARCHAR UNIQUE NOT NULL,
 
     title VARCHAR,
+    description VARCHAR,
     status VARCHAR,
     submission_date VARCHAR,
     last_update_date VARCHAR,
     "type" VARCHAR,
     hybridization_protocol VARCHAR,
-    description VARCHAR,
     data_processing VARCHAR,
     contact VARCHAR,
-    supplementary_file VARCHAR,
+    supplementary_file VARCHAR[],
     channel_count INTEGER,
 
     FOREIGN KEY(platform_id) REFERENCES platform(id) ON DELETE CASCADE
@@ -134,37 +167,6 @@ CREATE TABLE probe_gene (
     PRIMARY KEY (probe_id, gene_id),
     FOREIGN KEY (probe_id) REFERENCES probe(id) ON DELETE CASCADE,
     FOREIGN KEY (gene_id) REFERENCES gene(id) ON DELETE CASCADE
-);
-
--- Publications
-
-CREATE TABLE IF NOT EXISTS journal (
-    id SERIAL PRIMARY KEY,
-    nlm_id INTEGER,
-    name VARCHAR,
-    issn VARCHAR UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS publication (
-    id SERIAL PRIMARY KEY,
-    journal_id INTEGER,
-    pubmed_id INTEGER UNIQUE,
-    pmc_id INTEGER UNIQUE,
-
-    title VARCHAR,
-    abstract VARCHAR,
-    full_text VARCHAR,
-
-    parse JSON,
-
-    FOREIGN KEY (journal_id) REFERENCES journal (id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS publication_doi (
-    publication_id INTEGER,
-    doi VARCHAR UNIQUE,
-
-    FOREIGN KEY (publication_id) REFERENCES publication(id) ON DELETE CASCADE
 );
 
 -- Ontologies

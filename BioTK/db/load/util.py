@@ -18,7 +18,7 @@ import psycopg2
 from celery import group
 from celery.signals import worker_process_init
 
-from BioTK import LOG, CONFIG
+from BioTK import LOG, CONFIG, CACHE_DIR
 from BioTK.cache import cached, download
 from BioTK.io import OBO
 from BioTK.db import connect
@@ -52,7 +52,7 @@ def bulk_load(path, table, *columns):
 
 # FIXME add FIFO and concurrently load with psql
 def bulk_load_generator(generator, table, *columns):
-    with tempfile.NamedTemporaryFile("wt") as h:
+    with tempfile.NamedTemporaryFile("wt", dir="/home/gilesc/.cache/") as h:
         for row in generator:
             row = list(map(lambda x: 
                 str(x)\
@@ -113,9 +113,9 @@ def populates(*tables, check_query=None):
             if needed:
                 LOG.info("Executing %s" % fn.__name__)
                 rs = fn(*args, **kwargs)
-                connection.commit()
             else:
                 LOG.info("Skipping %s" % fn.__name__)
+            connection.commit()
         return wrap
     return decorator
 
@@ -133,6 +133,16 @@ def read_dmp(handle, columns):
             header=None)
 
 def geo_connect():
+    db_path = os.path.join(CACHE_DIR, "GEOmetadb.sqlite")
+    if not os.path.exists(db_path):
+        gz_path = download("http://gbnci.abcc.ncifcrf.gov/geo/GEOmetadb.sqlite.gz")
+        with gzip.open(gz_path, "rb") as h_in:
+            with open(db_path, "wb") as h_out:
+                while True:
+                    data = h_in.read(4096)
+                    if not data:
+                        break
+                    h_out.write(data)
     return sqlite3.connect("/data/public/ncbi/geo/GEOmetadb.sqlite")
 
 def common_taxa():

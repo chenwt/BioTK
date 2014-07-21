@@ -1,4 +1,15 @@
 name: AGE Atlas
+server:
+    host: 0.0.0.0
+    port: 9000
 menu: 
-    foo: /bar
-    baz: /bak
+    - [Query, [[Tissue, /query/tissue]]]
+    - [Tutorial, /tutorial]
+    - [About, [[Database statistics, /statistics], [Changelog, /changelog]]]
+quick-search:
+    enabled: true
+database:
+    name: dev
+    host: localhost
+    port: 5432
+    user: gilesc

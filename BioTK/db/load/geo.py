@@ -1,7 +1,125 @@
 from .util import *
+from BioTK.io.GEO import *
+
+
+def _upsert_platform(p, source_id):
+    cursor.execute("""
+        SELECT id FROM platform 
+        WHERE accession=%s;""", (p.accession,))
+    try:
+        id = next(cursor)[0]
+        cursor.execute("""
+            SELECT accession
+            FROM probe
+            WHERE platform_id=%s
+            ORDER BY accession;""", (id,))
+        probes = [r[0] for r in cursor]
+    except StopIteration:
+        cursor.execute("""
+            INSERT INTO platform
+                (source_id, accession, title, manufacturer)
+                VALUES (%s,%s,%s,%s)
+            RETURNING id;""", 
+            (source_id, p.accession, p.title, p.manufacturer))
+        id = next(cursor)[0]
+        probes = list(sorted(set(map(str,p.table.index))))
+        cursor.executemany("""
+            INSERT INTO probe
+                (platform_id, accession)
+            VALUES (%s,%s)""", ((id,a) for a in probes))
+    return id, probes
+
+def _insert_args(table, args, return_id=True):
+    q = """INSERT INTO %s VALUES (%s)""" % \
+            (table, ", ".join(["%s" for _ in args]))
+    if return_id:
+        q += "\nRETURNING id;"
+    cursor.execute(q, args)
+    if return_id:
+        return next(cursor)[0]
+
+def _insert_series(s, source_id):
+    cursor.execute("""
+        INSERT INTO series
+            (source_id, pubmed_id, accession, title, summary,
+                "type", design, submission_date)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        RETURNING id;""",
+        (source_id, s.pubmed_id, s.accession, s.title, s.summary,
+            s.type, s.design, s.submission_date))
+    return next(cursor)[0]
+
+def _insert_sample(s, platform_id, probes):
+    cursor.execute("""
+        SELECT id FROM sample
+        WHERE accession=%s LIMIT 1;""", (s.accession,))
+    try:
+        return next(cursor)[0]
+    except StopIteration:
+        pass
+    sf = s.supplementary_file
+    supplementary_file = sf.split("\n") if sf and sf != "NONE" else None
+    cursor.execute("""
+        INSERT INTO sample
+            (platform_id, accession, title, description,
+            status, submission_date, last_update_date,
+            "type", hybridization_protocol,
+            data_processing, contact, supplementary_file,
+            channel_count)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING ID;""", 
+            (platform_id, s.accession, s.title, s.description,
+            s.status, s.submission_date, s.last_update_date,
+            s.type, s.hybridization_protocol, s.data_processing,
+            s.contact, supplementary_file, s.channel_count))
+    id = next(cursor)[0]
+    
+    s.table.index = list(map(str, s.table.index))
+    for c in s.channels:
+        if s.table.dtypes[0] == np.float64:
+            data = s.table.iloc[:,0][probes].tolist()
+        else:
+            data = None
+        _insert_args("channel",
+                (id, c.channel, c.taxon_id, c.source_name,
+                    c.characteristics, c.molecule, c.label,
+                    c.treatment_protocol, c.extract_protocol,
+                    c.label_protocol, data, None),
+                return_id=False)
+        break
+
+def load_series(path):
+    source = "Gene Expression Omnibus"
+    source_id = ensure_inserted_and_get_index("source", "name", 
+            [source])[source]
+    accession = path.split("/")[-1].split("_")[0]
+    LOG.debug("Loading %s" % accession)
+
+    cursor.execute("SELECT id FROM taxon;")
+    taxa = set(r[0] for r in cursor)
+
+    platform_accession_to_id = {}
+    series_accession_to_id = {}
+    probes = {}
+
+    for e in parse(path):
+        if isinstance(e, Database):
+            continue
+        elif isinstance(e, Platform):
+            platform_id, p_probes = _upsert_platform(e, source_id)
+            probes[platform_id] = p_probes
+            platform_accession_to_id[e.accession] = platform_id
+        elif isinstance(e, Series):
+            series_accession_to_id[e.accession] = _insert_series(e, source_id)
+        elif isinstance(e, Sample):
+            platform_id = platform_accession_to_id[e.platform_accession]
+            if e.taxon_id in taxa:
+                sample_id = _insert_sample(e, platform_id, probes[platform_id])
+
+    connection.commit()
 
 @populates("platform")
-def load_platform():
+def load_platform1():
     geo_db = geo_connect()
     gc = geo_db.cursor()
 
@@ -17,7 +135,7 @@ def load_platform():
             RETURNING id;""", r)
 
 @populates("series")
-def load_series():
+def load_series1():
     geo_db = geo_connect()
     gc = geo_db.cursor()
     source = "Gene Expression Omnibus"
@@ -386,14 +504,14 @@ def collapse_probe_data():
         platform_id) for platform_id in platforms)()
 
 def load():
-    load_platform()
-    load_series()
-    load_sample()
-    load_sample_series()
-    load_channel()
+    root = "/data/public/ncbi/geo/series"
+    for file in os.listdir(root):
+        if file.endswith("_family.soft.gz"):
+            path = os.path.join(root, file)
+            load_series(path)
 
-    load_probe()
-    load_probe_gene()
+    #load_probe()
+    #load_probe_gene()
     #load_probe_gene_from_accession(71, "GPL96")
-    load_probe_data()
-    collapse_probe_data()
+    #load_probe_data()
+    #collapse_probe_data()

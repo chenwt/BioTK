@@ -1,6 +1,10 @@
+import BioTK.io
+
 from .util import *
 
-def load_ontology(prefix, name, path):
+def load_ontology(prefix, name, url):
+    path = download(url)
+
     cursor.execute("""
         INSERT INTO ontology (prefix,name) VALUES (%s,%s) RETURNING id""",
             (prefix, name))
@@ -56,6 +60,7 @@ def load_ontology(prefix, name, path):
         INSERT INTO term_term (agent_id,target_id,relationship_id)
         VALUES (%s,%s,%s);
         """, (agent_id, target_id, relationship_id))
+    connection.commit()
 
 OBO_PATH = "/data/public/ontology/obo/"
 ONTOLOGIES = [
@@ -68,7 +73,8 @@ ONTOLOGIES = [
 def load_ontologies():
     for prefix, name in ONTOLOGIES:
         LOG.debug("Loading data for %s (%s)" % (prefix, name))
-        load_ontology(prefix, name, OBO_PATH+prefix+".obo")
+        url = "http://berkeleybop.org/ontologies/%s.obo" % prefix.lower()
+        load_ontology(prefix, name, url)
        
 ############################################
 # Manual or official gene/sample annotations
@@ -100,7 +106,8 @@ def load_gene_go():
         records = ((accession_to_term_id[term_accession], int(gene_id),
                 evidence_to_id[evidence], source_id)
                 for gene_id,term_accession,evidence 
-                in df.iloc[:,1:4].dropna().itertuples(index=False))
+                in df.iloc[:,1:4].dropna().itertuples(index=False)
+                if term_accession in accession_to_term_id)
         bulk_load_generator(records, "term_gene",
                 "term_id","gene_id","evidence_id","source_id")
 

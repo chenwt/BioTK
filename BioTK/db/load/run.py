@@ -20,9 +20,9 @@ def load_all():
     load_ontology()
     load_text()
     load_geo()
-    load_annotate()
+    #load_annotate()
 
-    index_all()
+    #index_all()
     LOG.info("Load complete")
 
     #load_probe_data_from_archive("/data/public/ncbi/geo/miniml/GPL96.tar.xz").delay()
