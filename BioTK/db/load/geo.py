@@ -145,7 +145,7 @@ def _load_platform(path):
 
 def load_platform(path):
     try:
-        _load_platform(path)
+        return _load_platform(path)
     except:
         pass
 
