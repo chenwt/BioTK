@@ -23,6 +23,7 @@ import pandas as pd
 import numpy
 
 import BioTK.io.NCBI
+from BioTK import LOG
 
 def as_float(item):
     try:
@@ -155,8 +156,11 @@ def _parse(handle):
             if lines:
                 try:
                     key = "_parse_" + type.lower()
-                    handler = globals()[key]
-                    yield handler(accession, lines)
+                    try:
+                        handler = globals()[key]
+                        yield handler(accession, lines)
+                    except Exception as e:
+                        LOG.debug(e)
                 except KeyError as e:
                     print(e)
                     print("No handler found for type:", type)

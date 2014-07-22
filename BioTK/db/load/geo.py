@@ -3,9 +3,8 @@ from BioTK.io.GEO import *
 
 if mp.get_start_method() is None:
     mp.set_start_method("spawn")
-#lock = mp.Lock()
 
-def _upsert_platform(p, source_id):
+def _upsert_platform(p, source_id, cursor):
     cursor.execute("""
         SELECT id FROM platform 
         WHERE accession=%s;""", (p.accession,))
@@ -32,7 +31,7 @@ def _upsert_platform(p, source_id):
             VALUES (%s,%s)""", ((id,a) for a in probes))
     return id, probes
 
-def _insert_args(table, args, return_id=True):
+def _insert_args(table, args, cursor, return_id=True):
     q = """INSERT INTO %s VALUES (%s)""" % \
             (table, ", ".join(["%s" for _ in args]))
     if return_id:
@@ -52,7 +51,7 @@ def _insert_series(s, source_id):
             s.type, s.design, s.submission_date))
     return next(cursor)[0]
 
-def _insert_sample(s, platform_id, probes):
+def _insert_sample(s, platform_id, probes, cursor):
     cursor.execute("""
         SELECT id FROM sample
         WHERE accession=%s LIMIT 1;""", (s.accession,))
@@ -62,6 +61,7 @@ def _insert_sample(s, platform_id, probes):
         pass
     sf = s.supplementary_file
     supplementary_file = sf.split("\n") if sf and sf != "NONE" else None
+    LOG.debug(s.accession)
     cursor.execute("""
         INSERT INTO sample
             (platform_id, accession, title, description,
@@ -77,6 +77,9 @@ def _insert_sample(s, platform_id, probes):
             s.contact, supplementary_file, s.channel_count))
     id = next(cursor)[0]
     
+    if s.table is None:
+        return
+
     s.table.index = list(map(str, s.table.index))
     for c in s.channels:
         if s.table.dtypes[0] == np.float64:
@@ -88,21 +91,11 @@ def _insert_sample(s, platform_id, probes):
                     c.characteristics, c.molecule, c.label,
                     c.treatment_protocol, c.extract_protocol,
                     c.label_protocol, data, None),
+                cursor,
                 return_id=False)
         break
 
-def load_platform(path):
-    for e in parse(path):
-        if isinstance(e, Platform):
-            try:
-                _upsert_platform(e, source_id)
-            except:
-                pass
-        elif isinstance(e, Sample):
-            return
-            
-def load_series(path):
-    global connection, cursor
+def _load_platform(path):
     connection = connect()
     cursor = connection.cursor()
 
@@ -112,11 +105,19 @@ def load_series(path):
     accession = path.split("/")[-1].split("_")[0]
     LOG.debug("Loading %s" % accession)
 
+    cursor.execute("""
+        SELECT * FROM platform
+        WHERE accession=%s""", (accession,))
+    try:
+        next(cursor)[0]
+        return
+    except StopIteration:
+        pass
+
     cursor.execute("SELECT id FROM taxon;")
     taxa = set(r[0] for r in cursor)
 
     platform_accession_to_id = {}
-    series_accession_to_id = {}
     probes = {}
 
     n = 0
@@ -125,22 +126,28 @@ def load_series(path):
             continue
         elif isinstance(e, Platform):
             try:
-                platform_id, p_probes = _upsert_platform(e, source_id)
+                platform_id, p_probes = _upsert_platform(e, source_id, cursor)
                 probes[platform_id] = p_probes
                 platform_accession_to_id[e.accession] = platform_id
-            except:
+            except Exception as e:
+                print(e)
                 return accession, n
-        elif isinstance(e, Series):
-            series_accession_to_id[e.accession] = _insert_series(e, source_id)
         elif isinstance(e, Sample):
             platform_id = platform_accession_to_id[e.platform_accession]
             if len(e.channels) == 0:
                 continue
             if e.channels[0].taxon_id in taxa:
                 n += 1
-                sample_id = _insert_sample(e, platform_id, probes[platform_id])
+                sample_id = _insert_sample(e, platform_id, 
+                        probes[platform_id], cursor)
     connection.commit()
     return accession, n
+
+def load_platform(path):
+    try:
+        _load_platform(path)
+    except:
+        pass
 
 @populates("platform")
 def load_platform1():
@@ -529,21 +536,12 @@ def collapse_probe_data():
 
 def load():
     p = mp.Pool(initializer=initialize)
-    root = "/data/public/ncbi/geo/series"
+    root = "/data/public/ncbi/geo/platform"
     paths = [os.path.join(root, file)
                 for file in os.listdir(root)
                 if file.endswith("_family.soft.gz")]
-    for p in paths:
-        LOG.debug("Loading platform from %s" % p)
-        try:
-            load_platform(p)
-        except:
-            pass
-    connection.commit()
-
-    #for accession, n in p.imap(load_series, 
-    #        ):
-    #    LOG.debug("%s: %s samples loaded" % (accession, n))
+    for accession, n in p.imap(load_platform, paths):
+        LOG.debug("%s: %s samples loaded" % (accession, n))
 
     #root = "/data/public/ncbi/geo/series"
     #for file in os.listdir(root):

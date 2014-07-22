@@ -37,8 +37,6 @@ def initialize(*args, **kwargs):
     connection = connect()
     cursor = connection.cursor()
 
-initialize()
-
 def bulk_load(path, table, *columns):
     with open(path) as h:
         LOG.info("Bulk loading %s from %s" % (table, path))
