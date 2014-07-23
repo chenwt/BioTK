@@ -133,6 +133,8 @@ def _load_platform(path):
                 print(e)
                 return accession, n
         elif isinstance(e, Sample):
+            if n and n % 1000 == 0:
+                connection.commit()
             platform_id = platform_accession_to_id[e.platform_accession]
             if len(e.channels) == 0:
                 continue
@@ -534,8 +536,8 @@ def collapse_probe_data():
     group(collapse_probe_data_for_platform.s(
         platform_id) for platform_id in platforms)()
 
-def load():
-    p = mp.Pool(initializer=initialize)
+def load_platforms():
+    p = mp.Pool(6, initializer=initialize)
     root = "/data/public/ncbi/geo/platform"
     paths = [os.path.join(root, file)
                 for file in os.listdir(root)
@@ -543,12 +545,13 @@ def load():
     for accession, n in p.imap(load_platform, paths):
         LOG.debug("%s: %s samples loaded" % (accession, n))
 
+def load():
     #root = "/data/public/ncbi/geo/series"
     #for file in os.listdir(root):
     #        path = os.path.join(root, file)
     #        load_series(path)
 
-    #load_probe()
+    load_platforms()
     #load_probe_gene()
     #load_probe_gene_from_accession(71, "GPL96")
     #load_probe_data()

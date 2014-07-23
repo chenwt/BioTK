@@ -1,3 +1,5 @@
+import setproctitle
+
 from .util import *
 
 from .core import load as load_core
@@ -13,6 +15,8 @@ from .geo import load as load_geo
 #from .annotate import load
 
 def load_all():
+    setproctitle.setproctitle("btk-db")
+
     initialize()
     ensure_schema()
 

@@ -31,6 +31,7 @@ sortedcontainers
 pyparsing
 click
 lz4
+setproctitle
 
 # Web packages
 bottle
