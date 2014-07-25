@@ -1,0 +1,17 @@
+p {
+    font-size: 20px;
+}
+
+hr {
+    border-bottom: 1px solid #ccc;
+}
+
+.loading {
+    text-align: center;
+}
+
+/*
+svg text {
+    font-size: 1.2em;
+}
+*/
