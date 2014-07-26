@@ -110,7 +110,7 @@ def _load_platform(path):
         WHERE accession=%s""", (accession,))
     try:
         next(cursor)[0]
-        return
+        return accession, 0
     except StopIteration:
         pass
 
@@ -537,7 +537,7 @@ def collapse_probe_data():
         platform_id) for platform_id in platforms)()
 
 def load_platforms():
-    p = mp.Pool(6, initializer=initialize)
+    p = mp.Pool(initializer=initialize)
     root = "/data/public/ncbi/geo/platform"
     paths = [os.path.join(root, file)
                 for file in os.listdir(root)
@@ -551,8 +551,6 @@ def load():
     #        path = os.path.join(root, file)
     #        load_series(path)
 
-    load_platforms()
-    #load_probe_gene()
-    #load_probe_gene_from_accession(71, "GPL96")
-    #load_probe_data()
-    #collapse_probe_data()
+    #load_platforms()
+    load_probe_gene()
+    collapse_probe_data()

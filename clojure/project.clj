@@ -7,8 +7,10 @@
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.11"]]
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/java.jdbc "0.3.2"]
+                 [org.clojure/java.jdbc "0.3.3"]
                  [org.clojure/core.cache "0.6.3"]
+                 ;[c3p0 "0.9.1.2"]
+                 [korma "0.3.2"]
                  [com.taoensso/carmine "2.6.2"]
                  [com.aliasi/lingpipe "4.0.1"]
                  [postgresql "9.1-901.jdbc4"]
@@ -25,7 +27,7 @@
   :ring {:port 5678
          :auto-refresh? true
          :handler es.corygil.bio.ui.atlas.route/application}
-  :repl-options {:init-ns es.corygil.bio.db
+  :repl-options {:init-ns es.corygil.bio.db.load
                  ;:init (-main)
                  }
   ; ClojureScript
