@@ -25,14 +25,17 @@
 (defn args-key [q args]
   (format "cache.sql.%s.%s" (name q) (hash args)))
 
-(defn execute [q & {:keys [args cache?] :or {args [] cache? false}}]
+(defn execute [q & {:keys [args order cache?] :or {args [] cache? false}}]
   (or (c/get (args-key q args))
       (let [rs (sql/query spec (vec (cons (queries q) args))
-                          :identifiers identity
                           :as-arrays? true)
-            columns (first rs)
+            columns (mapv name (first rs)) 
             rows (rest rs)
             table (frame columns rows :label (name q))]
+        (let [table (if-not order
+                      table
+                      (let [[c dir] order]
+                        (sortby-column table c order)))])
         (if-not cache? table
           (c/add! table :extra-keys [(args-key q args)])))))
 

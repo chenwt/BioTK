@@ -20,6 +20,9 @@
   (GET "/plot/gene/:gene-id" [gene-id]
        (v/plot-gene (Integer/parseInt gene-id))) 
 
+  (GET "/query/tissue" []
+       (v/query-tissue))
+
   (GET "/control" [] (v/control nil))
   (POST "/control" request 
         (v/control (:params request)))

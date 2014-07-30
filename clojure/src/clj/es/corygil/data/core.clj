@@ -4,6 +4,8 @@
     [es.corygil.data.ops.scalar :as s]  
     [es.corygil.data.ops.reductions :as r]))
 
+(def frame)
+
 (def rm-nan 
   (partial filter #(not (Double/isNaN %))))
 
@@ -21,7 +23,8 @@
 (defprotocol NDFrame
   (rows [this])
   (columns [this])
-  (groupby [this f]))
+  (groupby [this f])
+  (sortby-column [this col dir]))
 
 (defprotocol ScalarOps
   (square [this])
@@ -111,10 +114,19 @@
               (into {}
                     (for [[k ss] (group-by f this)]
                       [k (Frame. k index ss {})]))))
- 
+  (sortby-column [this c dir]
+    (assert (contains? (.columns this) c))
+    (let [col-ix (.indexOf (.columns this) c)
+          rs ((if (= dir :asc) identity reverse) 
+                (sort-by #(% (inc col-ix))
+                         (map cons (.values index)
+                              (rows this))))]
+      (frame (.columns this) (mapv rest rs)
+        :label label 
+        :index (Index. (.label index) (mapv first rs)))))
+
   clojure.lang.Seqable
   (seq [this] (seq data)))
-
 
 (defn parse-field
   ([x default]
@@ -134,12 +146,17 @@
                (into-array values)
                (into-array (map str values))))))
 
-(defn frame [columns rows & {:keys [label index-col]
+
+; FIXME: implement index-col, and case where index object
+; is givne instead of seq
+(defn frame [columns rows & {:keys [label index index-col]
                              :or {label nil}}]
   (let [[index rows columns]
         (if (-> index-col nil? not)
-          (throw (Exception. "Not implemented") )
-          [(Index. nil (-> rows count range vec)) rows columns])]
+          (throw (Exception. "Not implemented"))
+          [(Index. nil 
+                   (or index (-> rows count range vec)))
+           rows columns])]
     (Frame. label index
             (doall
               (for [[n d] (map vector columns 

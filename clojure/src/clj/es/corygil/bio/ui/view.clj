@@ -21,7 +21,7 @@
         "Query" 
         [:b {:class "caret"}]]
        [:ul {:class "dropdown-menu"}
-        [:li [:a {:href "/query/tisue"} "Tissue"]]]]
+        [:li [:a {:href "/query/tissue"} "Tissue"]]]]
 
       [:li [:a {:href "/tutorial"} "Tutorial"]]
 
@@ -117,3 +117,11 @@
   (let [df (db/execute :gene-expression :args [gene-id] :cache? true)]
     [:div
      (p/scatter (df "Age") (df "Z-Score"))]))
+
+(defpage query-tissue []
+  [:div
+   [:h3 "Select a species:"]
+   (t/render
+     (db/execute :channel-data-by-taxon
+                 :cache? true
+                 :order ["Probe Samples" :desc]))])
