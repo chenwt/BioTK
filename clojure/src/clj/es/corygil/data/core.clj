@@ -87,6 +87,11 @@
           data (mapv (vec data) ys)
           ss (mapv #(% xs) data)]
       (Frame. label (mapv #(nth (.values index) %) xs) ss metadata)))
+  (invoke [this y]
+    (first
+      (for [c data
+            :when (= (.label c) y)]
+        c)))
 
   HasDimensions
   (dims [this] [(-> data first dims first) (count data)])

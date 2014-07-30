@@ -16,13 +16,12 @@
          (:uuid (meta plot))}
    [:p {:class "loading"} "Loading data"]])
 
-(defn scatter [data & kwargs]
-  ; 'data' is a collection of Series types
+(defn scatter [xs ys & kwargs]
   (let [plot (c/add! 
                (merge {:type :scatter
-                       :data (for [s data]
-                        {:key (:name s) :values
-                        (mapv (fn [x y] {:x x :y y}) (:xs s) (:ys s))})}
+                       :data {:key "foo" :values
+                              (for [[x y] (map vector xs ys)]
+                                {:x x :y y})}}
                       (apply common kwargs)))]
     (render plot)))
 

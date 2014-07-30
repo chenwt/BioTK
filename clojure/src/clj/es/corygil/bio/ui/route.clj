@@ -17,6 +17,8 @@
   (GET "/statistics" [] (v/statistics))
   (GET "/statistics/taxon/:taxon-id" [taxon-id]
        (v/taxon-statistics (Integer/parseInt taxon-id)))
+  (GET "/plot/gene/:gene-id" [gene-id]
+       (v/plot-gene (Integer/parseInt gene-id))) 
 
   (GET "/control" [] (v/control nil))
   (POST "/control" request 

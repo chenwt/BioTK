@@ -2,6 +2,7 @@
   (:require
     [hiccup.page :refer [html5 include-js include-css]]
     [hiccup.core :as h]
+    [es.corygil.bio.db.core :as db]
     [es.corygil.bio.ui.table :as t]
     [es.corygil.bio.ui.plot :as p]))
 
@@ -93,25 +94,26 @@
 
 (defpage index []
   [:div 
-    (p/scatter [p/test-series]) 
+    ;(p/scatter [p/test-series]) 
     ;(p/bar p/test-series)
    ])
 
 (defpage statistics []
-  (t/render-query "SELECT * FROM channel_data_by_taxon;"))
+  (t/render-query :channel-data-by-taxon))
 
 (defpage taxon-statistics [taxon-id]
-  (t/render-query 
-    "SELECT cd.* FROM channel_data_by_accession cd
-    INNER JOIN taxon 
-    ON taxon.name=cd.\"Species\"
-    WHERE taxon.id=?;" taxon-id))
+  (t/render-query :channel-data-for-taxon taxon-id))
 
 (defstatic tutorial "tutorial")
 
 (defpage control [params]
-  (prn params)
   [:form {:id "control" :method "post"}
     [:h3 "Database"]
    [:input {:type "submit" :name "action" :value "MyButton"}]
    [:input {:type "submit" :name "action" :value "MyButton2"}]])
+
+(defpage plot-gene [gene-id]
+  (require 'es.corygil.bio.db.core :reload)
+  (let [df (db/execute :gene-expression :args [gene-id] :cache? true)]
+    [:div
+     (p/scatter (df "Age") (df "Z-Score"))]))

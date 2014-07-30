@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [source])
   (:use
     korma.db
-    korma.core
+    [korma.core :exclude [queries]] 
     es.corygil.math
     es.corygil.bio.db.core)
   (:require

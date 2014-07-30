@@ -28,6 +28,7 @@
 (defn execute [q & {:keys [args cache?] :or {args [] cache? false}}]
   (or (c/get (args-key q args))
       (let [rs (sql/query spec (vec (cons (queries q) args))
+                          :identifiers identity
                           :as-arrays? true)
             columns (first rs)
             rows (rest rs)

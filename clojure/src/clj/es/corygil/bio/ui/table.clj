@@ -17,7 +17,7 @@
        [:td c])]]])
 
 (defn render-query [q & args]
-  (render (db/execute q args)))
+  (render (db/execute q :args args :cache? true)))
 
 (defn ajax [request]
   (let [params (request :params)
