@@ -9,7 +9,8 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/java.jdbc "0.3.3"]
                  [org.clojure/core.cache "0.6.3"]
-                 ;[c3p0 "0.9.1.2"]
+                 [org.clojure/data.csv "0.1.2"]
+                 [yesql "0.4.0"]
                  [korma "0.3.2"]
                  [com.taoensso/carmine "2.6.2"]
                  [com.aliasi/lingpipe "4.0.1"]
@@ -18,6 +19,7 @@
                  [ring/ring-json "0.3.1"]
                  [compojure "1.1.6"]
                  [hiccup "1.0.4"]
+                 [aysylu/loom "0.5.0"]
 
                  [org.clojure/clojurescript "0.0-2197"]
                  [jayq "2.5.1"]
@@ -26,8 +28,8 @@
   ; Ring
   :ring {:port 5678
          :auto-refresh? true
-         :handler es.corygil.bio.ui.atlas.route/application}
-  :repl-options {:init-ns es.corygil.bio.db.load
+         :handler es.corygil.bio.ui.route/application}
+  :repl-options {:init-ns user ;sandbox.zoltan
                  ;:init (-main)
                  }
   ; ClojureScript

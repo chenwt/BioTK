@@ -1,4 +1,4 @@
-(ns es.corygil.bio.text)
+(ns es.corygil.text)
 
 (def tokenizer-factory
   (com.aliasi.tokenizer.IndoEuropeanTokenizerFactory/INSTANCE))
@@ -16,7 +16,8 @@
       true false)))
 
 (defn chunk [chunker text]
-  (sort-by #(- (:start %) (:end %))
-           (for [m (.chunk chunker text)] 
-             (Match. (Integer/parseInt (.type m)) 
-                     (.start m) (.end m)))))
+  (when text
+    (sort-by #(- (:start %) (:end %))
+             (for [m (.chunk chunker text)] 
+               (Match. (Integer/parseInt (.type m)) 
+                       (.start m) (.end m))))))

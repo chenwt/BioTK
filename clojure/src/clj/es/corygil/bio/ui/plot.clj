@@ -1,6 +1,6 @@
-(ns es.corygil.bio.ui.atlas.plot
+(ns es.corygil.bio.ui.plot
   (:require
-    [es.corygil.bio.ui.atlas.cache :as c]))
+    [es.corygil.cache :as c]))
 
 (defrecord Series [name xs ys])
 
@@ -12,7 +12,8 @@
   {:title title :x-label x-label :y-label y-label})
 
 (defn render [plot]
-  [:div {:class "plot" :type (:type plot) :uuid (:uuid plot)}
+  [:div {:class "plot" :type (:type plot) :uuid 
+         (:uuid (meta plot))}
    [:p {:class "loading"} "Loading data"]])
 
 (defn scatter [data & kwargs]
@@ -36,4 +37,4 @@
 
 (defn ajax [request]
   (let [uuid (get-in request [:params :uuid])]
-    (c/lookup uuid)))
+    (c/get uuid)))

@@ -149,7 +149,7 @@ def load_platform(path):
     try:
         return _load_platform(path)
     except:
-        pass
+        return "Unknown", 0
 
 @populates("platform")
 def load_platform1():
@@ -439,6 +439,9 @@ def load_probe_data():
 
 @QUEUE.task
 def collapse_probe_data_for_platform(platform_id):
+    connection = connect()
+    cursor = connection.cursor()
+
     LOG.debug(platform_id)
     cursor.execute("""
         SELECT taxon.id
@@ -518,11 +521,9 @@ def collapse_probe_data_for_platform(platform_id):
         LOG.debug("Inserting chunk")
         connection.commit()
 
-@populates(check_query="""
-    SELECT * FROM channel
-    WHERE gene_data IS NOT NULL
-    LIMIT 1;""")
 def collapse_probe_data():
+    connection = connect()
+    cursor = connection.cursor()
     cursor.execute("""
         SELECT platform.id
         id FROM platform
@@ -552,5 +553,5 @@ def load():
     #        load_series(path)
 
     #load_platforms()
-    load_probe_gene()
+    #load_probe_gene()
     collapse_probe_data()

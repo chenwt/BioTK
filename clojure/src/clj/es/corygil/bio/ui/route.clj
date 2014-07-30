@@ -1,4 +1,4 @@
-(ns es.corygil.bio.ui.atlas.route
+(ns es.corygil.bio.ui.route
   (:require
     [compojure.core :refer [defroutes GET POST]]
     [compojure.handler :as handler]
@@ -7,9 +7,9 @@
     [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
     [ring.adapter.jetty :as ring]
 
-    [es.corygil.bio.ui.atlas.table :as t]  
-    [es.corygil.bio.ui.atlas.plot :as p]
-    [es.corygil.bio.ui.atlas.view :as v]))
+    [es.corygil.bio.ui.table :as t]  
+    [es.corygil.bio.ui.plot :as p]
+    [es.corygil.bio.ui.view :as v]))
 
 (defroutes routes
   (GET "/" [] (v/index))
@@ -29,9 +29,23 @@
   (route/not-found 
     "404: Page Not Found"))
 
+(defn- log [msg & vals]
+  (let [line (apply format msg vals)]
+    (locking System/out (println line))))
+
+(defn wrap-request-logging [handler]
+  (fn [{:keys [request-method uri] :as req}]
+    (let [start  (System/currentTimeMillis)
+          resp   (handler req)
+          finish (System/currentTimeMillis)
+          total  (- finish start)]
+      (log "request %s %s (%dms)" request-method uri total)
+      resp)))
+
 (def application 
   (->
     (handler/site routes) 
+    wrap-request-logging
     (wrap-json-response {:keywords? true})
     (wrap-json-body {:keywords? true :bigdecimals? true})))
 

@@ -1,9 +1,9 @@
-(ns es.corygil.bio.ui.atlas.view
+(ns es.corygil.bio.ui.view
   (:require
     [hiccup.page :refer [html5 include-js include-css]]
     [hiccup.core :as h]
-    [es.corygil.bio.ui.atlas.table :as t]
-    [es.corygil.bio.ui.atlas.plot :as p]))
+    [es.corygil.bio.ui.table :as t]
+    [es.corygil.bio.ui.plot :as p]))
 
 (def TITLE "AGE Atlas")
 
@@ -94,7 +94,8 @@
 (defpage index []
   [:div 
     (p/scatter [p/test-series]) 
-    (p/bar p/test-series)])
+    ;(p/bar p/test-series)
+   ])
 
 (defpage statistics []
   (t/render-query "SELECT * FROM channel_data_by_taxon;"))
