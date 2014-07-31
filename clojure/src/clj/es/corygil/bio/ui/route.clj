@@ -17,15 +17,26 @@
   (GET "/statistics" [] (v/statistics))
   (GET "/statistics/taxon/:taxon-id" [taxon-id]
        (v/taxon-statistics (Integer/parseInt taxon-id)))
-  (GET "/plot/gene/:gene-id" [gene-id]
+
+  (GET ["/plot/gene/:gene-id" :gene-id #"[0-9]+"] [gene-id]
        (v/plot-gene (Integer/parseInt gene-id))) 
+  (GET ["/plot/tissue/:taxon-id/:tissue-id" 
+        :tissue-id #"[0-9]+" :taxon-id #"[0-9]+"]
+       [taxon-id tissue-id]
+       (v/plot-tissue taxon-id tissue-id))
 
   (GET "/query/tissue" []
        (v/query-tissue))
+  (GET "/query/tissue/:taxon-id" [taxon-id]
+       (v/query-tissue-for-taxon
+         (Integer/parseInt taxon-id)))
+
+  (POST "/search" {params :params}
+        (v/quick-search (:query params)))
 
   (GET "/control" [] (v/control nil))
-  (POST "/control" request 
-        (v/control (:params request)))
+  (POST "/control" {params :params} 
+        (v/control params))
 
   (POST "/ajax/table" request (t/ajax request))
   (POST "/ajax/plot" request 

@@ -2,6 +2,7 @@
   (:require
     [hiccup.page :refer [html5 include-js include-css]]
     [hiccup.core :as h]
+    [clojure.java.jdbc :as sql]
     [es.corygil.bio.db.core :as db]
     [es.corygil.bio.ui.table :as t]
     [es.corygil.bio.ui.plot :as p]))
@@ -92,6 +93,10 @@
     `(def ~name 
        (constantly (render-page ~data)))))
 
+(comment
+  (.createArrayOf (sql/get-connection db/spec)
+                                   "varchar"
+                                   (into-array String ["heart"])))
 (defpage index []
   [:div 
     ;(p/scatter [p/test-series]) 
@@ -112,16 +117,30 @@
    [:input {:type "submit" :name "action" :value "MyButton"}]
    [:input {:type "submit" :name "action" :value "MyButton2"}]])
 
-(defpage plot-gene [gene-id]
-  (require 'es.corygil.bio.db.core :reload)
-  (let [df (db/execute :gene-expression :args [gene-id] :cache? true)]
-    [:div
-     (p/scatter (df "Age") (df "Z-Score"))]))
+(def default-tissues ["heart" "lung" "liver"])
 
-(defpage query-tissue []
+(defpage plot-gene [gene-id]
+  [:div
+   (p/scatter 
+     (for [tissue default-tissues]
+       (db/execute :gene-expression-in-tissue 
+                   :cache? true
+                   :args [gene-id tissue gene-id])))])
+
+(defpage query-tissue [])
+
+(defpage query-tissue-for-taxon [taxon-id]
   [:div
    [:h3 "Select a species:"]
    (t/render
-     (db/execute :channel-data-by-taxon
-                 :cache? true
-                 :order ["Probe Samples" :desc]))])
+     (db/execute :term-channel-count :args ["BTO"] :cache? true)
+     :link-format (format "/plot/tissue/%s/{1}" taxon-id))])
+
+(defpage plot-tissue [taxon-id tissue-id]
+  [:h1
+   "Not implemented"])
+
+(defpage quick-search [q]
+  (t/render
+    (db/execute :query-gene :args [q] :cache? true)
+    :link-format "/plot/gene/{0}"))

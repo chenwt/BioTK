@@ -6,11 +6,13 @@
     [es.corygil.bio.db.core :as db]
     [clojure.java.jdbc :as sql]))
 
-(defn render [table]
- [:table {:class "table table-striped table-hover display data-table"
-           :cellspacing "0"
-           :width "100%"
-           :uuid (:uuid (meta table))}
+(defn render [table & {:keys [link-format]}]
+ [:table (merge {:class "table table-striped table-hover display data-table"
+                 :cellspacing "0"
+                 :width "100%"
+                 :uuid (:uuid (meta table))}
+                (if link-format
+                  {:link_format link-format}))
    [:thead
     [:tr
      (for [c (.columns table)]
@@ -27,7 +29,6 @@
         sort-col (Integer/parseInt (order :column))
         length (Integer/parseInt (params :length))
         t (c/get (params :uuid))  
-        _ (prn ((.columns t) sort-col))
         table (sortby-column t
                 ((.columns t) sort-col)
                 (keyword (:dir order)))
@@ -44,4 +45,5 @@
       :recordsTotal nr
       :recordsFiltered (count filtered-rows)
       :data 
-      (take length (drop start filtered-rows))}})) 
+      (or (take length (drop start filtered-rows))
+          [])}}))

@@ -108,12 +108,15 @@
               (values {:name name}))
       (get-source-id! name))))
 
-(defonce age-term-id
-  (select-scalar term
-                 (fields :term.id)
-                 (join ontology)
-                 (where
-                   {:ontology.prefix "PATO" :term.name "age"})))
+(def age-term-id nil)
+(comment
+  (defonce age-term-id
+    (select-scalar term
+                   (fields :term.id)
+                   (join ontology)
+                   (where
+                     {:ontology.prefix "PATO" :term.name "age"}))))
+
 
 
 (defn insert-many [table rows & {:keys [chunk-size] :or {chunk-size 500}}]

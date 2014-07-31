@@ -10,6 +10,8 @@
                  [org.clojure/java.jdbc "0.3.3"]
                  [org.clojure/core.cache "0.6.3"]
                  [org.clojure/data.csv "0.1.2"]
+                 [org.clojure/data.json "0.2.5"]
+                 [com.novemberain/monger "2.0.0"]
                  [yesql "0.4.0"]
                  [korma "0.3.2"]
                  [com.taoensso/carmine "2.6.2"]
@@ -29,8 +31,8 @@
   :ring {:port 5678
          :auto-refresh? true
          :handler es.corygil.bio.ui.route/application}
-  :repl-options {:init-ns user ;sandbox.zoltan
-                 ;:init (-main)
+  :repl-options {:init-ns es.corygil.bio.db.load2
+                 :init (-main)
                  }
   ; ClojureScript
   ;:hooks [leiningen.cljsbuild]

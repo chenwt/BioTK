@@ -33,7 +33,7 @@ $(function() {
         });
     });
 
-    $("table").each(function() {
+    $("table.data-table").each(function() {
         var linkFormat = $(this).attr("link_format");
         if (typeof linkFormat !== 'undefined' && linkFormat !== false) {
             $("tbody", this).on("click", "tr", function() {

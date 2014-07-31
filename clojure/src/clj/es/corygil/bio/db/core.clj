@@ -5,10 +5,30 @@
     korma.db
     [korma.core :exclude [queries]])
   (:import
-    [es.corygil.data.core Frame])
+    [es.corygil.data.core Frame]
+    [org.postgresql.util PGobject])
   (:require
     [es.corygil.cache :as c]
+    [clojure.data.json :as json]
     [clojure.java.jdbc :as sql]))
+
+;; http://hiim.tv/clojure/2014/05/15/clojure-postgres-json/
+
+(extend-protocol sql/ISQLValue
+  clojure.lang.IPersistentMap
+  (sql-value [value]
+    (doto (PGobject.)
+      (.setType "json")
+      (.setValue (json/write-str value)))))
+
+(extend-protocol sql/IResultSetReadColumn
+  PGobject
+  (result-set-read-column [pgobj metadata idx]
+    (let [type  (.getType pgobj)
+          value (.getValue pgobj)]
+      (case type
+        "json" (json/read-str value)
+        :else value))))
 
 (def spec
   (:database
@@ -27,23 +47,30 @@
 
 (defn execute [q & {:keys [args order cache?] :or {args [] cache? false}}]
   (or (c/get (args-key q args))
-      (let [rs (sql/query spec (vec (cons (queries q) args))
+      (let [rs (sql/query spec (vec (cons 
+                                      (or (queries q)
+                                          (format "SELECT * FROM %s;"
+                                                  (.replaceAll (name q)
+                                                               "-" "_")))
+                                          args))
+                          :identifiers identity
                           :as-arrays? true)
             columns (mapv name (first rs)) 
+            order (or order [(first columns) :asc])
             rows (rest rs)
             table (frame columns rows :label (name q))]
         (let [table (if-not order
                       table
                       (let [[c dir] order]
-                        (sortby-column table c order)))])
-        (if-not cache? table
-          (c/add! table :extra-keys [(args-key q args)])))))
+                        (sortby-column table c order)))]
+          (if-not cache? table
+            (c/add! table :extra-keys [(args-key q args)]))))))
 
 (defdb db
   (postgres {:db "dev"
              :user "gilesc"
              :port 5432
-             :host "db-pool"}))
+             :host "db"}))
 
 (declare taxon gene platform sample channel ontology term synonym
          evidence source term-gene term-channel)

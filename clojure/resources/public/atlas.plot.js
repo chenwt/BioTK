@@ -3,18 +3,21 @@ plot = {
         var type = div.attr("type");
         var uuid = div.attr("uuid");
         $.post("/ajax/plot", {"uuid": uuid}, function(o) {
+            console.log(o);
             nv.addGraph(function() {
                 div.empty();
                 div.append("<h4 align='center'></h4><svg></svg>");
                 var title = div.children()[0];
                 title.innerHTML = o.title;
 
-                var chart = plot[type](o);
+                var chart = plot[type]()
+                    .height(o.height);
                 chart.yAxis.axisLabel(o["y-label"]);
                 chart.xAxis.axisLabel(o["x-label"]);
 
                 var svg = div.children()[1];
-                console.log(o);
+                svg.setAttribute("height", o.height);
+
                 d3.select(svg)
                     .datum(o.data)
                     .call(chart);
@@ -29,7 +32,7 @@ plot = {
      * Chart types
      */
     
-    scatter: function(o) {
+    scatter: function() {
         var chart = nv.models.scatterChart()
             .color(d3.scale.category10().range());
         chart.xAxis
@@ -49,7 +52,7 @@ plot = {
         */
         return chart;
     },
-    bar: function(o) {
+    bar: function() {
         var chart = nv.models.discreteBarChart()
             .x(function(d) { return d[0] })
             .y(function(d) { return d[1] })

@@ -62,7 +62,7 @@
   (invoke [this ix]
     (if (seq? ix)
       (Series. label 
-               (mapv #(nth (.values index) %) ix)
+               (mapv #((.values index) %) ix)
                (mapv #(aget values %) ix))
       (aget values ix)))
 
@@ -89,7 +89,7 @@
           ys (or ys (range ny))
           data (mapv (vec data) ys)
           ss (mapv #(% xs) data)]
-      (Frame. label (mapv #(nth (.values index) %) xs) ss metadata)))
+      (Frame. label (mapv #((.values index) %) xs) ss metadata)))
   (invoke [this y]
     (first
       (for [c data
@@ -115,12 +115,12 @@
                     (for [[k ss] (group-by f this)]
                       [k (Frame. k index ss {})]))))
   (sortby-column [this c dir]
-    (assert (contains? (.columns this) c))
     (let [col-ix (.indexOf (.columns this) c)
+          _ (assert (not= col-ix -1))
           rs ((if (= dir :asc) identity reverse) 
                 (sort-by #(% (inc col-ix))
-                         (map cons (.values index)
-                              (rows this))))]
+                         (map #(vec (cons %1 %2))
+                              (.values index) (rows this))))]
       (frame (.columns this) (mapv rest rs)
         :label label 
         :index (Index. (.label index) (mapv first rs)))))
@@ -154,8 +154,8 @@
   (let [[index rows columns]
         (if (-> index-col nil? not)
           (throw (Exception. "Not implemented"))
-          [(Index. nil 
-                   (or index (-> rows count range vec)))
+          [(or index
+               (Index. nil (-> rows count range vec))) 
            rows columns])]
     (Frame. label index
             (doall
