@@ -20,11 +20,11 @@ def load_all():
     initialize()
     ensure_schema()
 
-    load_core()
-    load_ontology()
-    load_text()
-    load_geo()
-    #load_annotate()
+    #load_core()
+    #load_ontology()
+    #load_text()
+    #load_geo()
+    load_annotate()
 
     #index_all()
     LOG.info("Load complete")

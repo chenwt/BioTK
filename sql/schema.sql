@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS gene (
     id SERIAL PRIMARY KEY, 
     symbol VARCHAR,
     name VARCHAR,
+    data JSON,
     
     FOREIGN KEY (taxon_id) REFERENCES taxon (id) ON DELETE CASCADE
 );
@@ -154,10 +155,12 @@ CREATE TABLE probe (
     id SERIAL PRIMARY KEY,
     platform_id INTEGER,
     accession VARCHAR,
+    data HSTORE,
 
     UNIQUE (platform_id, accession),
 
-    FOREIGN KEY (platform_id) REFERENCES platform(id) ON DELETE CASCADE
+    FOREIGN KEY (platform_id) REFERENCES platform(id) 
+        ON DELETE CASCADE
 );
 
 CREATE TABLE probe_gene (
@@ -165,8 +168,10 @@ CREATE TABLE probe_gene (
     gene_id INTEGER,
 
     PRIMARY KEY (probe_id, gene_id),
-    FOREIGN KEY (probe_id) REFERENCES probe(id) ON DELETE CASCADE,
-    FOREIGN KEY (gene_id) REFERENCES gene(id) ON DELETE CASCADE
+    FOREIGN KEY (probe_id) REFERENCES probe(id) 
+        ON DELETE CASCADE,
+    FOREIGN KEY (gene_id) REFERENCES gene(id) 
+        ON DELETE CASCADE
 );
 
 -- Ontologies
@@ -190,7 +195,8 @@ CREATE TABLE IF NOT EXISTS term (
     accession VARCHAR UNIQUE,
     name VARCHAR,
 
-    FOREIGN KEY (ontology_id) REFERENCES ontology(id) ON DELETE CASCADE,
+    FOREIGN KEY (ontology_id) REFERENCES ontology(id) 
+        ON DELETE CASCADE,
     FOREIGN KEY (namespace_id) REFERENCES namespace(id)
 );
 
@@ -207,9 +213,12 @@ CREATE TABLE IF NOT EXISTS term_term (
 
     PRIMARY KEY (agent_id, target_id, relationship_id),
 
-    FOREIGN KEY (agent_id) REFERENCES term(id) ON DELETE CASCADE,
-    FOREIGN KEY (target_id) REFERENCES term(id) ON DELETE CASCADE,
-    FOREIGN KEY (relationship_id) REFERENCES relationship(id) ON DELETE CASCADE
+    FOREIGN KEY (agent_id) REFERENCES term(id) 
+        ON DELETE CASCADE,
+    FOREIGN KEY (target_id) REFERENCES term(id) 
+        ON DELETE CASCADE,
+    FOREIGN KEY (relationship_id) REFERENCES relationship(id) 
+        ON DELETE CASCADE
 );
 
 -- Gene and sample annotation
@@ -234,9 +243,11 @@ CREATE TABLE IF NOT EXISTS term_channel (
     source_id INTEGER NOT NULL,
     evidence_id INTEGER NOT NULL,
     value DOUBLE PRECISION,
+    probability DOUBLE PRECISION,
 
     FOREIGN KEY (term_id) REFERENCES term(id) ON DELETE CASCADE,
-    FOREIGN KEY (sample_id, channel) REFERENCES channel(sample_id, channel) ON DELETE CASCADE,
+    FOREIGN KEY (sample_id, channel) 
+        REFERENCES channel(sample_id, channel) ON DELETE CASCADE,
     FOREIGN KEY (source_id) REFERENCES source(id),
     FOREIGN KEY (evidence_id) REFERENCES evidence(id)
 );

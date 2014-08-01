@@ -140,4 +140,4 @@ def load_channel_age():
 
 def load():
     load_ursa()
-    load_channel_age()
+    #load_channel_age()

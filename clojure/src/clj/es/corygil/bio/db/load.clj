@@ -1,13 +1,21 @@
 (ns es.corygil.bio.db.load
   (:refer-clojure :exclude [source])
   (:use
-    korma.db
-    [korma.core :exclude [queries]] 
-    es.corygil.math
-    es.corygil.bio.db.core)
+    es.corygil.math)
   (:require
+    [clojure.java.jdbc :as sql]
+    [es.corygil.bio.db.core :as db]
     [es.corygil.text :as text]))
 
+(def query (partial sql/query db/spec))
+(def insert! (partial sql/insert! db/spec))
+
+(defn insert-term-channel! [rows]
+  (apply insert! "term_channel"
+         ["term_id" "sample_id" "channel"
+          "source_id" "evidence_id" "value" "probability"]
+         rows))
+ 
 (def patterns
   {:age #"\bage( *\((?<unitx>[a-z]*)\))?:[ \t]*(?<age>\d+[\.0-9]*)(( *\- *| (to|or) )(?<end>\d+[\.\d]*))?([ \t]*(?<unity> [a-z]+))?"
    :age-unit #"(age\s*unit[s]*|unit[s]* of age): (?<unit>[a-z])"
@@ -60,94 +68,90 @@
 (defonce ontology-trie
   (memoize
     (fn [prefix]
-      (text/chunker
-        (for [t (select term
-                        (with synonym
-                          (fields :text))
-                        (with ontology
-                          (fields)
-                          (where {:prefix prefix})))
-              s (cons (:name t) (map :text (:synonym t)))]
-          (es.corygil.text.Synonym. (:id t) s))))))
+      (let [q ["SELECT * FROM ontology_synonyms WHERE prefix=?"
+               prefix]]
+        (text/chunker
+          (for [s (query q)]
+            (es.corygil.text.Synonym. (:id s) (:synonym s))))))))
 
 (defn extract-ontology [prefix txt]
   (for [match (text/chunk (ontology-trie prefix) txt)]
     (:id match)))
 
-(defmacro defgetset [fn-name table]
-  `(defn ~fn-name [name-field]
-     (if-let [id 
-              (select-scalar ~table 
-                             (fields :id)
-                             (where {:name name-field}))]
-       id
-       (do
-         (insert ~table
-                 (values {:name name-field}))
-         (~fn-name name-field)))))
+(defn get-id! [table e-name]
+  (let [q (-> (str "get-" (name table) "-id")
+              keyword db/lookup-query)
+        row (first (query [q e-name]))]
+    (if-not row
+      (do
+        (insert! (name table) ["name"] [e-name])
+        (get-id! table e-name)) 
+      (:id row))))
 
 (defn get-evidence-id! [name]
-  (if-let [id 
-           (select-scalar evidence 
-                          (fields :id)
-                          (where {:name name}))]
-    id
-    (do
-      (insert evidence
-              (values {:name name}))
-      (get-evidence-id! name))))
+  (get-id! :evidence name))
 
 (defn get-source-id! [name]
-  (if-let [id 
-           (select-scalar source 
-                          (fields :id)
-                          (where {:name name}))]
-    id
-    (do
-      (insert source
-              (values {:name name}))
-      (get-source-id! name))))
+  (get-id! :source name))
 
-(def age-term-id nil)
-(comment
-  (defonce age-term-id
-    (select-scalar term
-                   (fields :term.id)
-                   (join ontology)
-                   (where
-                     {:ontology.prefix "PATO" :term.name "age"}))))
+(defonce age-term-id
+  (->
+    (sql/query db/spec "SELECT age_term_id();")
+    first :age_term_id))
 
-
-
-(defn insert-many [table rows & {:keys [chunk-size] :or {chunk-size 500}}]
-  (doseq [cnk (partition-all chunk-size rows)]
-    (insert table (values cnk))))
+(defn extract-channel-age []
+  (let [evidence-id (get-evidence-id! "text-mining")
+        source-id (get-source-id! "Wren Lab")]
+    (for [t (query ["SELECT * FROM channel_text"])
+          :let [age (or 
+                      (extract-age (:channel_text t))
+                      (extract-age (:sample_text t)))]
+          :when age]
+      [age-term-id (:sample_id t) (:channel t)
+       source-id evidence-id age nil])))
 
 (defn annotate-channel-age! []
-  (let [evidence-id (get-evidence-id! "text-mining")
-        source-id (get-source-id! "Wren Lab")
-        term-id age-term-id]
-    (insert-many term-channel
-                 (for [t (select channel-text) 
-                       :let [age (or (extract-age (:channel_text t))
-                                     (extract-age (:sample_text t)))]
-                       :when age]
-                   {:term_id term-id :sample_id (:id t) 
-                    :channel (:channel t)
-                    :source_id source-id :evidence_id evidence-id
-                    :value age}))))
+  (insert-term-channel!
+    (extract-channel-age)))
 
 (defn annotate-channel-with-ontology! [prefix]
-  (insert-many term-channel
-               (let [evidence-id (get-evidence-id! "text-mining")
-                     source-id (get-source-id! "Wren Lab")]
-                 (for [t (select channel-text)
-                       term-id (extract-ontology prefix 
-                                                 (str (:channel_text t) " " (:sample_text t)))]
-                   {:term_id term-id :sample_id (:id t) :channel (:channel t)
-                    :source_id source-id :evidence_id evidence-id}))))
+  (insert-term-channel!
+    (let [evidence-id (get-evidence-id! "text-mining")
+          source-id (get-source-id! "Wren Lab")]
+      (for [t (query ["SELECT * FROM channel_text"])
+            term-id 
+            (extract-ontology 
+              prefix 
+              (str (:channel_text t) " " (:sample_text t)))]
+        [term-id (:sample_id t) (:channel t) 
+         source-id evidence-id nil nil]))))
+
+(def ursa-annotations
+  (clojure.java.io/resource
+    "data/manual_annotations_ursa.csv"))
+
+(defn sample-accession-to-id [taxon-id]
+  (into {}
+        (map #(vector (:accession %) (:id %))
+             (query [(db/lookup-query :sample-accession-map)
+                     taxon-id]))))
+
+(defn import-ursa! []
+  (with-open [rdr (clojure.java.io/reader ursa-annotations)]
+    (let [gsm-to-id (sample-accession-to-id 9606)
+          evidence-id (get-evidence-id! "manual")
+          source-id (get-source-id! "URSA")]
+      (insert-term-channel!
+        (for [line (line-seq rdr)
+                :let [[gsm _ term] (.split line "\t")
+                      term-id (first
+                                (extract-ontology "BTO" term))
+                      sample-id (gsm-to-id gsm)]
+                :when (and term-id sample-id)]
+          [term-id sample-id 1 
+           source-id evidence-id nil 0.99])))))
 
 (defn -main []
   (annotate-channel-with-ontology! "BTO")
   (annotate-channel-age!)
-  )
+  (import-ursa!))

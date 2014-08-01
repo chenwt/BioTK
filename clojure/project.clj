@@ -31,8 +31,8 @@
   :ring {:port 5678
          :auto-refresh? true
          :handler es.corygil.bio.ui.route/application}
-  :repl-options {:init-ns es.corygil.bio.db.load2
-                 :init (-main)
+  :repl-options {:init-ns user ;es.corygil.bio.db.load2
+                 ;:init (-main)
                  }
   ; ClojureScript
   ;:hooks [leiningen.cljsbuild]

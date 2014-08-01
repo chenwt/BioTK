@@ -1,5 +1,5 @@
 database:
-    host: db-pool
+    host: wren.omrf.hsc.net.ou.edu
     port: 9999
     name: dev
 taxa:
