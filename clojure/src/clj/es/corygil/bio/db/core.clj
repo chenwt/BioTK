@@ -1,9 +1,6 @@
 (ns es.corygil.bio.db.core
-  (:refer-clojure :exclude [source])
   (:use
-    es.corygil.data.core
-    korma.db
-    [korma.core :exclude [queries]])
+    es.corygil.data.core)
   (:import
     [es.corygil.data.core Frame]
     [org.postgresql.util PGobject])
@@ -11,24 +8,6 @@
     [es.corygil.cache :as c]
     [clojure.data.json :as json]
     [clojure.java.jdbc :as sql]))
-
-;; http://hiim.tv/clojure/2014/05/15/clojure-postgres-json/
-
-(extend-protocol sql/ISQLValue
-  clojure.lang.IPersistentMap
-  (sql-value [value]
-    (doto (PGobject.)
-      (.setType "json")
-      (.setValue (json/write-str value)))))
-
-(extend-protocol sql/IResultSetReadColumn
-  PGobject
-  (result-set-read-column [pgobj metadata idx]
-    (let [type  (.getType pgobj)
-          value (.getValue pgobj)]
-      (case type
-        "json" (json/read-str value)
-        :else value))))
 
 (def spec
   (:database
