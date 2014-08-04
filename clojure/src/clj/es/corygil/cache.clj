@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [get])
   (:require
     [taoensso.carmine :as car :refer [wcar]]
+    [clojure.tools.logging :as log]
     [clojure.core.cache :as c]))
 
 (def cache 
@@ -46,3 +47,5 @@
       (doseq [k ks]
         (car/set k item)))
     item))
+
+

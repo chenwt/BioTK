@@ -6,11 +6,21 @@
   :source-paths ["src/clj" "src/cljs"]
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-ring "0.8.11"]]
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :repositories
+  [["biojava" {:url "http://www.biojava.org/download/maven/"}]]
+  :dependencies [
+                 ; java
+                 [org.apache.commons/commons-compress "1.8.1"]
+                 ; java bio
+                 [org.biojava/biojava3-ontology "4.0.0-SNAPSHOT"]
+                 ; clojure core
+                 [org.clojure/clojure "1.6.0"]
                  [org.clojure/java.jdbc "0.3.3"]
                  [org.clojure/core.cache "0.6.3"]
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/data.json "0.2.5"]
+                 [org.clojure/tools.logging "0.3.0"]
+                 ; clojure 3rd party
                  [com.novemberain/monger "2.0.0"]
                  [yesql "0.4.0"]
                  [korma "0.3.2"]
@@ -22,10 +32,9 @@
                  [compojure "1.1.6"]
                  [hiccup "1.0.4"]
                  [aysylu/loom "0.5.0"]
-
+                 ; clojurescript
                  [org.clojure/clojurescript "0.0-2197"]
                  [jayq "2.5.1"]
-                 
                  ]
   ; Ring
   :ring {:port 5678

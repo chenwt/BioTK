@@ -1,80 +1,18 @@
-CREATE EXTENSION hstore;
-
--- Base
-
-CREATE TABLE IF NOT EXISTS taxon (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR
-);
-
-CREATE TABLE IF NOT EXISTS gene (
-    taxon_id INTEGER,
-    id SERIAL PRIMARY KEY, 
-    symbol VARCHAR,
-    name VARCHAR,
-    data JSON,
-    
-    FOREIGN KEY (taxon_id) REFERENCES taxon (id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS evidence (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS source (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR UNIQUE
-);
-
--- Publications
-
-CREATE TABLE IF NOT EXISTS journal (
-    id SERIAL PRIMARY KEY,
-    nlm_id INTEGER,
-    name VARCHAR,
-    issn VARCHAR UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS publication (
-    id SERIAL PRIMARY KEY,
-    journal_id INTEGER,
-    pubmed_id INTEGER UNIQUE,
-    pmc_id INTEGER UNIQUE,
-
-    title VARCHAR,
-    abstract VARCHAR,
-    full_text VARCHAR,
-
-    parse JSON,
-
-    FOREIGN KEY (journal_id) REFERENCES journal (id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS publication_doi (
-    publication_id INTEGER,
-    doi VARCHAR UNIQUE,
-
-    FOREIGN KEY (publication_id) REFERENCES publication(id) ON DELETE CASCADE
-);
-
 -- Datasets
 
 CREATE TABLE IF NOT EXISTS platform (
-    id SERIAL PRIMARY KEY,
     source_id INTEGER NOT NULL,
 
-    accession VARCHAR UNIQUE,
     title VARCHAR,
     manufacturer VARCHAR,
 
+    PRIMARY KEY (id),
     FOREIGN KEY (source_id) REFERENCES source(id)
-);
+) INHERITS (entity);
 
 CREATE TABLE IF NOT EXISTS series (
-    id SERIAL PRIMARY KEY,
     source_id INTEGER NOT NULL,
-    pubmed_id INTEGER,
+    --pubmed_id INTEGER,
 
     accession VARCHAR UNIQUE,
 
@@ -84,13 +22,11 @@ CREATE TABLE IF NOT EXISTS series (
     design VARCHAR,
     submission_date DATE,
 
-    FOREIGN KEY (source_id) REFERENCES source(id),
-    FOREIGN KEY (pubmed_id) REFERENCES publication(pubmed_id)
-);
+    FOREIGN KEY (source_id) REFERENCES source(id)
+    --FOREIGN KEY (pubmed_id) REFERENCES publication(pubmed_id)
+) INHERITS (entity);
 
 CREATE TABLE IF NOT EXISTS sample (
-    id SERIAL PRIMARY KEY,
-
     platform_id INTEGER NOT NULL,
 
     accession VARCHAR UNIQUE NOT NULL,
@@ -108,7 +44,7 @@ CREATE TABLE IF NOT EXISTS sample (
     channel_count INTEGER,
 
     FOREIGN KEY(platform_id) REFERENCES platform(id) ON DELETE CASCADE
-);
+) INHERITS (named_entity);
 
 CREATE TABLE IF NOT EXISTS channel (
     sample_id INTEGER NOT NULL,
@@ -174,64 +110,19 @@ CREATE TABLE probe_gene (
         ON DELETE CASCADE
 );
 
--- Ontologies
-
-CREATE TABLE IF NOT EXISTS ontology (
-    id SERIAL PRIMARY KEY,
-    prefix VARCHAR UNIQUE,
-    name VARCHAR UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS namespace (
-    id SERIAL PRIMARY KEY,
-    text VARCHAR UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS term (
-    id SERIAL PRIMARY KEY,
-    ontology_id INTEGER,
-    namespace_id INTEGER,
-
-    accession VARCHAR UNIQUE,
-    name VARCHAR,
-
-    FOREIGN KEY (ontology_id) REFERENCES ontology(id) 
-        ON DELETE CASCADE,
-    FOREIGN KEY (namespace_id) REFERENCES namespace(id)
-);
-
-CREATE TABLE IF NOT EXISTS relationship (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS term_term (
-    agent_id INTEGER,
-    target_id INTEGER,
-    relationship_id INTEGER,
-    value DOUBLE PRECISION,
-
-    PRIMARY KEY (agent_id, target_id, relationship_id),
-
-    FOREIGN KEY (agent_id) REFERENCES term(id) 
-        ON DELETE CASCADE,
-    FOREIGN KEY (target_id) REFERENCES term(id) 
-        ON DELETE CASCADE,
-    FOREIGN KEY (relationship_id) REFERENCES relationship(id) 
-        ON DELETE CASCADE
-);
-
 -- Gene and sample annotation
 
 CREATE TABLE IF NOT EXISTS term_gene (
     term_id INTEGER NOT NULL,
     gene_id INTEGER NOT NULL,
+    predicate_id INTEGER,
     source_id INTEGER NOT NULL,
     evidence_id INTEGER NOT NULL,
     value DOUBLE PRECISION,
 
     FOREIGN KEY (term_id) REFERENCES term(id) ON DELETE CASCADE,
     FOREIGN KEY (gene_id) REFERENCES gene(id) ON DELETE CASCADE,
+    FOREIGN KEY (predicate_id) REFERENCES predicate(id) ON DELETE CASCADE,
     FOREIGN KEY (source_id) REFERENCES source(id),
     FOREIGN KEY (evidence_id) REFERENCES evidence(id)
 );
@@ -250,31 +141,4 @@ CREATE TABLE IF NOT EXISTS term_channel (
         REFERENCES channel(sample_id, channel) ON DELETE CASCADE,
     FOREIGN KEY (source_id) REFERENCES source(id),
     FOREIGN KEY (evidence_id) REFERENCES evidence(id)
-);
-
--- Synonyms
-
-CREATE TABLE IF NOT EXISTS "synonym" (
-    id SERIAL PRIMARY KEY,
-    text VARCHAR UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS term_synonym (
-    term_id INTEGER,
-    synonym_id INTEGER,
-
-    PRIMARY KEY (term_id, synonym_id),
-
-    FOREIGN KEY (term_id) REFERENCES term(id) ON DELETE CASCADE,
-    FOREIGN KEY (synonym_id) REFERENCES "synonym"(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS gene_synonym (
-    gene_id INTEGER,
-    synonym_id INTEGER,
-
-    PRIMARY KEY (gene_id, synonym_id),
-
-    FOREIGN KEY (gene_id) REFERENCES gene(id),
-    FOREIGN KEY (synonym_id) REFERENCES "synonym"(id)
 );

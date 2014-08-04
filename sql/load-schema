@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+for file in schema/*.sql; do
+    echo -e "\n************"
+    echo $file
+    echo "************"
+    psql "$@" < $file
+done

@@ -1,0 +1,6 @@
+- Add check constraints to entity_synonym and relation to mimic foreign key constraints
+  (can't use b/c of inheritance)
+- Move accession to join tables (so one entity can have multiple accessions) 
+    - Make sure an entity can't have multiple primary accessions
+- Finish changes to text
+- Finish changes to sample

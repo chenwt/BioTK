@@ -7,9 +7,6 @@
     [es.corygil.bio.db.core :as db]
     [es.corygil.text :as text]))
 
-(def query (partial sql/query db/spec))
-(def insert! (partial sql/insert! db/spec))
-
 (defn insert-term-channel! [rows]
   (apply insert! "term_channel"
          ["term_id" "sample_id" "channel"
@@ -150,6 +147,7 @@
                 :when (and term-id sample-id)]
           [term-id sample-id 1 
            source-id evidence-id nil 0.99])))))
+
 
 (defn -main []
   (annotate-channel-with-ontology! "BTO")

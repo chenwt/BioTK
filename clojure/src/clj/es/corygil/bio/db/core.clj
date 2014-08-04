@@ -13,6 +13,24 @@
   (:database
     (load-file "config.clj")))
 
+(def query (partial sql/query spec))
+
+(defn insert! [table columns rows] 
+  (when (seq rows)
+    (apply sql/insert! spec 
+           (name table) 
+           (map name columns) 
+           rows)))
+
+(def insert-relations!
+  (partial insert! :relation
+           [:subject_id :object_id :predicate_id
+            :source_id :evidence_id :value :probability]))
+
+(def insert-one! (partial sql/insert! spec))
+
+(def execute! (partial sql/execute! spec))
+ 
 (def query-dir 
   (java.io.File. 
     (.getFile (clojure.java.io/resource "sql/query/"))))

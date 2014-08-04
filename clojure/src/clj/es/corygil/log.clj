@@ -1,0 +1,1 @@
+(ns es.corygil.log)
