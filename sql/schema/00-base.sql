@@ -3,7 +3,7 @@ CREATE EXTENSION hstore;
 -- Abstract tables
 
 CREATE TABLE IF NOT EXISTS entity (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     accession VARCHAR,
     name VARCHAR
 );
@@ -80,9 +80,9 @@ CREATE TABLE entity_synonym (
 );
 
 CREATE TABLE IF NOT EXISTS relation (
-    id SERIAL PRIMARY KEY,
-    subject_id INTEGER NOT NULL,
-    object_id INTEGER NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    subject_id BIGINT NOT NULL,
+    object_id BIGINT NOT NULL,
     predicate_id INTEGER NOT NULL,
     source_id INTEGER NOT NULL,
     evidence_id INTEGER NOT NULL,

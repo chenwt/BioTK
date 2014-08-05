@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS ontology (
 ) INHERITS (entity);
 
 CREATE TABLE IF NOT EXISTS term (
-    ontology_id INTEGER,
+    ontology_id BIGINT,
     namespace_id INTEGER,
 
     PRIMARY KEY (id),

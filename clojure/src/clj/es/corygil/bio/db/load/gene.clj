@@ -1,5 +1,7 @@
 (ns es.corygil.bio.db.load.gene
   (:require
+    [es.corygil.bio.db.load.util :refer [defloader]]
+    [clojure.tools.logging :as log]
     [es.corygil.bio.db.query :as ?]
     [es.corygil.bio.db.core :refer [insert!]]
     [es.corygil.io :refer [download gzip-reader tgz-extract] :reload true]))
@@ -17,8 +19,7 @@
     (get-in (load-file "config.clj")
             [:database :species])))
 
-
-(defn load-taxonomy! []
+(defloader load-taxonomy! :taxon
   (insert! :taxon [:accession :name]
            (for [line
                    (line-seq
@@ -31,12 +32,13 @@
                    :when (and 
                            (= type "scientific name") 
                            (contains? species name))]
-             [(str taxon-id) name])))
+             [(str taxon-id) name]))
+  (log/info "[taxon] - Load complete"))
 
 (defn gene-field [x]
   (if-not (= x "-") x))
 
-(defn load-gene! []
+(defloader load-gene! :gene
   (let [taxon-ids 
         (?/->map "SELECT accession,id FROM taxon;")]
     (insert! :gene [:taxon_id :accession :symbol :name]
@@ -47,7 +49,5 @@
                          symbol (gene-field (nth fields 3))
                          name (gene-field (nth fields 11))]
                    :when taxon-id]
-               [taxon-id gene-id symbol name]))))
-
-(defn -main []
-  (load-gene!))
+               [taxon-id gene-id symbol name]))
+    (log/info "[gene] - Load complete")))

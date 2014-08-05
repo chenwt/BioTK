@@ -1,6 +1,7 @@
 (ns es.corygil.bio.db.query
+  (:refer-clojure :exclude [name])
   (:require
-    [es.corygil.bio.db.core :refer [query]]))
+    [es.corygil.bio.db.core :refer [query name]]))
 
 (defn ->map [q]
   (->>
@@ -28,7 +29,19 @@
     (query (cons q args)
            :as-arrays? true)))
  
-(defn ->scalars [q]
-  (map first (->rows q)))
+(defn ->scalars [q & args]
+  (map first (apply ->rows q args)))
+
+(defn ->scalar [q & args]
+  (ffirst (apply ->rows q args)))
 
 (def ?->frame nil)
+
+(defn has-results? [q]
+  (-> q query seq))
+
+(defn table-empty? [table]
+  (->> table
+       name
+       (format "SELECT * FROM %s LIMIT 1;")
+       has-results? not))

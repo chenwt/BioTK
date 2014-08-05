@@ -1,12 +1,12 @@
 (ns es.corygil.bio.db.load.ontology
   (:require
+    [es.corygil.bio.db.query :as ?] 
     [clojure.tools.logging :as log]
     [loom.attr :refer [attrs attr]]
     [loom.graph :refer [nodes edges]]
     [es.corygil.bio.db.core :as db 
      :reload true
      :refer [query insert! execute! insert-relations!]]
-    [es.corygil.bio.db.query :as ? :reload true] 
     [es.corygil.bio.ontology :refer [make-ontology-graph] :reload true]
     [es.corygil.io :refer [download]])
   (:import

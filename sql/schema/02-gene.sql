@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS taxon (
 ) INHERITS (entity);
 
 CREATE TABLE IF NOT EXISTS gene (
-    taxon_id INTEGER,
+    taxon_id BIGINT,
     symbol VARCHAR,
     data JSON,
     

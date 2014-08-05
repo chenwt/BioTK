@@ -1,4 +1,5 @@
 (ns es.corygil.bio.db.core
+  (:refer-clojure :exclude [name])
   (:use
     es.corygil.data.core)
   (:import
@@ -8,6 +9,9 @@
     [es.corygil.cache :as c]
     [clojure.data.json :as json]
     [clojure.java.jdbc :as sql]))
+
+(defn name [x]
+  (.replaceAll (clojure.core/name x) "-" "_"))
 
 (def spec
   (:database
@@ -27,10 +31,22 @@
            [:subject_id :object_id :predicate_id
             :source_id :evidence_id :value :probability]))
 
-(def insert-one! (partial sql/insert! spec))
+(defn insert-one! [table columns row & 
+                   {:keys [return-id?] :or {return-id? true}}]
+  (let [q (format "INSERT INTO %s (%s) VALUES (%s) %s;"
+                  (name table)
+                  (->> columns (map name) (interpose ",") (apply str))
+                  (apply str (interpose "," (repeat (count columns) "?")))
+                  (if return-id? "RETURNING id" ""))
+        q (cons q row)]
+    (if return-id?
+      (:id (first (query q)))
+      (sql/execute! spec q))))
 
 (def execute! (partial sql/execute! spec))
- 
+
+; Prepared queries
+
 (def query-dir 
   (java.io.File. 
     (.getFile (clojure.java.io/resource "sql/query/"))))

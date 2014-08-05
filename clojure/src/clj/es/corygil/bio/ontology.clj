@@ -1,5 +1,6 @@
 (ns es.corygil.bio.ontology
   (:require
+    [es.corygil.bio.db.query :as ?]
     [loom.attr :refer [add-attr add-attr-to-nodes add-attr-to-edges]]
     [loom.graph :refer [digraph add-edges add-nodes]]))
 
@@ -26,8 +27,7 @@
       terms)
     :prefix prefix :name ontology-name))
 
-(defn gene-ontology-concepts []
-  (?/rows))
+(defn gene-ontology-concepts [])
 
 (defn ontology-graph [prefix & {:keys [node-key]
                                 :or {node-key :id}}]) 
