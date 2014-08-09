@@ -11,8 +11,13 @@
   :dependencies [
                  ; java
                  [org.apache.commons/commons-compress "1.8.1"]
+                 [com.mchange/c3p0 "0.9.2.1"]
+                 [com.aliasi/lingpipe "4.0.1"]
+                 [postgresql "9.1-901.jdbc4"]
+
                  ; java bio
                  [org.biojava/biojava3-ontology "4.0.0-SNAPSHOT"]
+
                  ; clojure core
                  [org.clojure/clojure "1.6.0"]
                  [org.clojure/java.jdbc "0.3.3"]
@@ -20,18 +25,19 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/data.json "0.2.5"]
                  [org.clojure/tools.logging "0.3.0"]
+
                  ; clojure 3rd party
+                 [com.novemberain/langohr "2.11.0"]
                  [com.novemberain/monger "2.0.0"]
-                 [yesql "0.4.0"]
-                 [korma "0.3.2"]
                  [com.taoensso/carmine "2.6.2"]
-                 [com.aliasi/lingpipe "4.0.1"]
-                 [postgresql "9.1-901.jdbc4"]
+                 [aysylu/loom "0.5.0"]
+
+                 ; clojure web dev
                  [ring/ring-jetty-adapter "1.2.1"]
                  [ring/ring-json "0.3.1"]
                  [compojure "1.1.6"]
                  [hiccup "1.0.4"]
-                 [aysylu/loom "0.5.0"]
+
                  ; clojurescript
                  [org.clojure/clojurescript "0.0-2197"]
                  [jayq "2.5.1"]

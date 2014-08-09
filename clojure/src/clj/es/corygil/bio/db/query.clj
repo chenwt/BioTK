@@ -3,9 +3,9 @@
   (:require
     [es.corygil.bio.db.core :refer [query name]]))
 
-(defn ->map [q]
+(defn ->map [q & args]
   (->>
-    (query [q] :as-arrays? true)
+    (query (cons q args) :as-arrays? true)
     rest
     (into {})))
 
@@ -37,8 +37,9 @@
 
 (def ?->frame nil)
 
-(defn has-results? [q]
-  (-> q query seq))
+(defn has-results? [q & args]
+  (seq
+    (query (cons q args))))
 
 (defn table-empty? [table]
   (->> table

@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+import argparse
+import psycopg2
+
+p = argparse.ArgumentParser()
+p.add_argument("--host", "-H", 
+        default="db.wren.omrf.hsc.net.ou.edu")
+p.add_argument("--database", "-d",
+        default="dev")
+p.add_argument("--port", "-p", type=int, default=5432)
+args = parser.parse_args()
+db = psycopg2.connect(
+        host=args.host,
+        port=args.port,
+        database=args.database)
+c = db.cursor()
+
+lines = sys.stdin
+samples = next(lines).split("\t")
+for line in lines:
+    gene, *data = line.split("\t")
+    hstore = {}
+    for s,d in zip(samples, data):
+        if d.strip():
+            hstore[s] = d
+    c.execute("""
+    INSERT INTO gene (data)
+    VALUES (?);""", (hstore,))
+db.commit()

@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS sample_series (
 
 -- Probes & probe mappings
 
-CREATE TABLE probe (
+CREATE TABLE IF NOT EXISTS probe (
     platform_id INTEGER,
 
     PRIMARY KEY (id),
@@ -98,7 +98,7 @@ CREATE TABLE probe (
         ON DELETE CASCADE
 ) INHERITS (entity);
 
-CREATE TABLE probe_value (
+CREATE TABLE IF NOT EXISTS probe_value (
     probe_id BIGINT,
     sample_id BIGINT,
     channel SMALLINT,
@@ -123,9 +123,77 @@ CREATE TABLE probe_gene (
     probe_id BIGINT,
     gene_id BIGINT,
 
-    PRIMARY KEY (probe_id, gene_id),
-    FOREIGN KEY (probe_id) REFERENCES probe(id) 
-        ON DELETE CASCADE,
-    FOREIGN KEY (gene_id) REFERENCES gene(id) 
-        ON DELETE CASCADE
+    UNIQUE (probe_id, gene_id),
+    -- indexes and FKs added in add-index-probe-value.sql
+
+    --FOREIGN KEY (probe_id) REFERENCES probe(id),
+    --FOREIGN KEY (gene_id) REFERENCES gene(id)
 );
+
+CREATE MATERIALIZED VIEW probe_gene_collapsed (
+    probe_id, gene_id
+) AS ( 
+    WITH probe_summary AS (
+        SELECT 
+            ROW_NUMBER() OVER (
+                PARTITION BY probe_value.probe_id 
+                ORDER BY AVG(probe_value.value) DESC
+                ) AS i,
+            probe_value.probe_id AS probe_id, 
+            probe_gene.gene_id AS gene_id, 
+            AVG(probe_value.value) AS mean
+        FROM probe_value
+        INNER JOIN probe_gene
+        ON probe_gene.probe_id=probe_value.probe_id
+        GROUP BY probe_gene.gene_id, probe_value.probe_id
+        ORDER BY mean DESC)
+    SELECT s.probe_id, s.gene_id
+        FROM probe_summary s
+        WHERE s.i = 1
+) WITH NO DATA;
+
+--ALTER TABLE probe_gene_collapsed ADD CONSTRAINT
+--    probe_gene_collapsed_probe_id_fkey
+--    FOREIGN KEY (probe_id) REFERENCES probe(id);
+
+--ALTER TABLE probe_gene_collapsed ADD CONSTRAINT
+--    probe_gene_collapsed_gene_id_fkey
+--    FOREIGN KEY (gene_id) REFERENCES gene(id);
+
+CREATE INDEX probe_gene_collapsed_probe_id_idx
+    ON probe_gene_collapsed(probe_id);
+CREATE INDEX probe_gene_collapsed_gene_id_idx
+    ON probe_gene_collapsed(gene_id);
+
+--CREATE MATERIALIZED VIEW gene_value (
+--    sample_id, channel, gene_id, value
+--) AS (
+--    SELECT 
+--        pv.sample_id, pv.channel, 
+--        g.id as gene_id, 
+--        CASE WHEN q.mean<100 THEN 
+--            avg(pv.value) 
+--        ELSE avg(log(pv.value-q.minimum+1)) 
+--        END AS value 
+--    FROM gene g 
+--    INNER JOIN probe_gene 
+--        ON probe_gene.gene_id=g.id 
+--    INNER JOIN probe_value pv 
+--        ON pv.probe_id=probe_gene.probe_id 
+--    INNER JOIN (
+--        SELECT sample_id, channel, 
+--            AVG(value) AS mean, 
+--            MIN(value) as minimum
+--        FROM probe_value 
+--        WHERE sample_id BETWEEN 17354312 AND 17354322 
+--        GROUP BY sample_id, channel
+--    ) by_channel
+--        ON by_channel.sample_id=pv.sample_id 
+--            AND by_channel.channel=pv.channel 
+--    GROUP BY g.id, pv.sample_id, pv.channel, q.mean
+--) WITH NO DATA;
+--
+--CREATE INDEX gene_value_gene_id_idx
+--    ON gene_value(gene_id);
+--CREATE INDEX gene_value_sample_id_channel_idx
+--    ON gene_value(sample_id,channel);

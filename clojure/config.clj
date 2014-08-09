@@ -1,7 +1,7 @@
 {
  :database 
  {:subprotocol "postgresql"
-  :subname "//wren.omrf.hsc.net.ou.edu:5432/dev"
+  :subname "//wren.omrf.hsc.net.ou.edu:5432/dev2"
   ;:subname "//localhost:5432/dev"
   :user "gilesc"
   :species
