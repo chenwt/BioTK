@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+# USAGE: $0 <gold> <predicted>
+# Both are tab-delimited, two-column files with:
+# - First column: row/datum ID
+# - Second column: true or predicted value
+
+# Caveats:
+# - Only works with categorical labels
+# - Ignores predictions from <predicted> whose row labels are not in <gold>
+#   (a prediction that should be null should be blank in <gold>)
+
+labels=$(mktemp)
+trap 'rm -f $labels' EXIT
+join -t'	' -a 1 <(sort -k1b,1 $1) <(sort -k1b,1 $2) | cut -f2-3 > $labels
+
+nr() {
+    wc -l | awk '{print $1}'
+}
+
+calc() {
+    echo "scale=2; $1" | bc | awk '{printf "%0.3f", $0}'
+}
+
+N=$(nr < $labels)
+NPOS=$(tawk '$1!=""' < $labels | nr)
+TP=$(tawk '$1!="" && $1==$2' < $labels | nr)
+FP=$(tawk '$2!="" && $1!=$2' < $labels | nr)
+FN=$(tawk '$2=="" && $1!=$2' < $labels | nr)
+TN=$(tawk '$1=="" && $2==""' < $labels | nr)
+MOST_COMMON=$(tawk '$1!="" {print $1}' < $labels | sort | uniq -c | sort -rnk1 | head -1 | awk '{print $1}')
+
+cat <<EOF
+TP	$TP
+FP	$FP
+FN	$FN
+TN	$TN
+
+Precision	$(calc "$TP / ($TP + $FP)")
+Baseline Precision	$(calc "$MOST_COMMON / $N")
+EOF

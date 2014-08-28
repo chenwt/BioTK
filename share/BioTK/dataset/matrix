@@ -5,7 +5,7 @@ accession="$2"
 base="$BTK_DATA"/ncbi/geo
 
 usage() {
-    echo "USAGE: btk dataset matrix [probe|gene|taxon] <accession>" 1>&2
+    echo "USAGE: dataset matrix [probe|gene|taxon] <accession>" 1>&2
     exit 1
 }
 
@@ -18,5 +18,5 @@ case $type in
     ?) usage ;;
 esac
 
-make -C "$base" -f $(realpath $(dirname $0)/mk/matrix.make) $path
-zcat -f $path
+make -C "$base" -f $(realpath $(dirname $0)/mk/matrix.make) $path 1>&2
+zcat -f "$base"/$path

@@ -6,4 +6,7 @@ miniml/%.tar.gz :
 matrix/probe/%.gz : miniml/%.tar.gz
 	geo extract $^ | pigz > $@
 
+matrix/gene/%.gz : matrix/probe/%.gz
+	geo collapse $^ | pigz > $@
+
 # vim: set ft=make :

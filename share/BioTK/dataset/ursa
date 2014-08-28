@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+read -d '' q <<EOF
+SELECT s.value,t.accession
+FROM synonym s
+INNER JOIN entity_synonym es
+ON es.synonym_id=s.id
+INNER JOIN term t
+ON t.id=es.entity_id
+INNER JOIN ontology o
+ON o.id=t.ontology_id
+WHERE o.accession='BTO'
+UNION
+SELECT t.name,t.accession
+FROM term t
+INNER JOIN ontology o
+ON o.id=t.ontology_id
+WHERE o.accession='BTO'
+EOF
+
+cat $BTK_DATA/ontology/ursa.tsv \
+    | sed 1d \
+    | cut -f1,3 \
+    | dm translate -c 2 <(btkdb query "$q")

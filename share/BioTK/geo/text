@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+btkdb query "SELECT s.accession, s.title, s.description, s.status, \
+    c.source_name, c.characteristics
+    FROM sample s \
+    INNER JOIN channel c \
+    ON s.id=c.sample_id \
+    WHERE s.type='RNA' \
+    AND c.channel=1"

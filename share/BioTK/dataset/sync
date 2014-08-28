@@ -39,23 +39,13 @@ maybe_download_gz bioconductor/SRAmetadb.sqlite http://gbnci.abcc.ncifcrf.gov/ba
 # NCBI data
 ###########
 
-mkdir -p ncbi/{gene/list,geo/{miniml,matrix/{probe,gene,taxon}},taxonomy}
-mkdir -p ncbi/gene/list
+mkdir -p ncbi/{gene,geo/{miniml,matrix/{probe,gene,taxon}},taxonomy}
 
 gene_files="gene_info gene2go gene2accession gene2ensembl gene2refseq"
 for file in $gene_files; do
-    maybe_download ncbi/gene/${file}.gz ftp://ftp.ncbi.nih.gov/gene/DATA/${file}.gz
+    maybe_download ncbi/gene/${file}.gz \
+        ftp://ftp.ncbi.nih.gov/gene/DATA/${file}.gz
 done
-
-if [ ! "$(ls -A ncbi/gene/list)" ]; then
-    echo "* Creating gene lists..." 1>&2
-    zcat ncbi/gene/gene_info.gz | sed 1d | awk '{ print $2 >> "ncbi/gene/list/"$1 }'
-    for file in ncbi/gene/list/*; do 
-        echo -e "\t* $file" 1>&2
-        sort -u -k2b,2 -o $file $file
-    done
-    parallel gzip ::: ncbi/gene/list/*
-fi
 
 if [ ! "$(ls -A ncbi/gene/gene-go)" ]; then
     mkdir -p ncbi/gene/gene-go/{canonical,predicted}
@@ -70,7 +60,8 @@ if [ ! "$(ls -A ncbi/gene/gene-go)" ]; then
     cd ../../../..
 fi
 
-maybe_download ncbi/taxonomy/taxdump.tar.gz ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz
+maybe_download ncbi/taxonomy/taxdump.tar.gz \
+    ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz
 
 if [ ! -e ncbi/taxonomy/id2name ]; then
     echo "* Extracting taxonomy names ..." 1&>2

@@ -29,7 +29,7 @@ try:
     class BuildDoc(sphinx.setup_command.BuildDoc):
         def __init__(self, *args, **kwargs):
             # TODO: Do programmatically
-            subprocess.call(["sphinx-apidoc", "-o", "doc/api", "."])
+            subprocess.call(["sphinx-apidoc", "-o", "build/sphinx", "."])
             super(BuildDoc, self).__init__(*args, **kwargs)
     cmdclass["doc"] = BuildDoc
 except ImportError:
