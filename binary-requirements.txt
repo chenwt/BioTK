@@ -1,0 +1,8 @@
+pigz
+datamash
+parallel
+rustc
+cargo
+lz4
+python3
+realpath

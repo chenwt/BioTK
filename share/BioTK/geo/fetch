@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF 1>&2
+Download, reorder, and LZMA compress GEO platform data in MiniML format.
+
+USAGE: $0 [-o outdir] GPL1234 GPL4567 ...
+EOF
+}
+
+mkdir -p $HOME/.cache/btk
+outdir=$(pwd)
+key=~/.aspera/connect/etc/asperaweb_id_dsa.openssh
+host=anonftp@ftp.ncbi.nlm.nih.gov
+tmpdir=$(mktemp -d -p $HOME/.cache/btk)
+speed=200M
+
+trap "rm -rf $tmpdir" EXIT
+
+while getopts h opt; do
+    case $opt in
+        o) outdir=$(realpath "$OPTARG") ;;
+        h) usage && exit 0 ;;
+        *) usage && exit 1 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [ $# == 0 ]; then
+    sqlite3 $BTK_DATA/bioconductor/GEOmetadb.sqlite "SELECT gpl FROM gpl;"
+else
+    for gpl in "$@"; do
+        echo $gpl
+    done
+fi | while read accession; do
+    if [ ${#accession} -lt 6 ]; then
+        group=GPLnnn
+    else
+        group=${accession:0:-3}nnn
+    fi
+    o="$outdir"/${accession}.tar.gz
+    if [ -f "$o" ]; then
+        continue
+    fi
+
+    uri=/geo/platforms/${group}/${accession}/miniml/
+    wd=$tmpdir/$accession
+
+    echo "* Downloading $accession ..." 1>&2
+    ascp -T -l $speed -d -i $key $host:$uri $tmpdir || continue #&> /dev/null
+    mv $tmpdir/miniml $wd
+    echo "* Decompressing $accession data ..." 1>&2
+    for file in $wd/*.tgz; do
+        tar -C $wd -zxf $file
+    done
+    rm $wd/*.tgz
+    echo "* Compressing $accession data ..." 1>&2
+    ( cd $wd ; tar -cf - * | pigz -0 > "$o")
+    echo "* Cleaning up temporary files ..." 1>&2
+    rm -rf $wd
+done

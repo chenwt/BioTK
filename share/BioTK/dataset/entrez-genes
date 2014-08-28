@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+{ 
+    echo -e "Taxon ID\tGene ID\tSymbol\tName"
+    zcat $BTK_DATA/ncbi/gene/gene_info.gz \
+        | sed 1d \
+        | cut -f1,2,11,12 \
+        | dm cuniq 2
+}

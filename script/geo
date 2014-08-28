@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# Perform operations on GEO data and query GEOmetadb
+
+btk geo "$@"

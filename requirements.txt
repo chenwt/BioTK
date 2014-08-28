@@ -22,7 +22,7 @@ redis
 hiredis
 celery
 
-# Data management (To be phased out)
+# Data management
 psycopg2
 
 # Utilities
@@ -32,6 +32,7 @@ pyparsing
 click
 lz4
 setproctitle
+pyyaml
 
 # Web packages
 bottle

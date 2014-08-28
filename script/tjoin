@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+export LANG=C #en_US.UTF-8
+export LC_COLLATE=C #en_US.UTF-8
+export LC_ALL=C #en_US.UTF-8
+
+opts=""
+sa=1
+sb=1
+while getopts j:1:2:o: opt; do
+    opts+=" -$opt $OPTARG"
+    case $opt in
+        1) sa="$OPTARG" ;;
+        2) sb="$OPTARG" ;;
+        j) sa="$OPTARG"; sb="$OPTARG" ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+[ $# != 2 ] && {
+    echo "Incorrect number of arguments."
+    exit 1
+} 1>&2
+
+if [[ "$1" == "-" ]]; then
+    tabsort -k${sa}b,${sa} \
+        | join -t '	' $opts - <(tabsort -k${sb}b,${sb} "$2")
+elif [[ "$2" == "-" ]]; then
+    tabsort -k${sb}b,${sb} \
+        | join -t '	' $opts <(tabsort -k${sa}b,${sa} "$1") -
+else
+    join -t '	' $opts \
+        <(tabsort -k${sa}b,${sa} "$1") <(tabsort -k${sb}b,${sb} "$2")
+fi

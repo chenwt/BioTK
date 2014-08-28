@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+table="$1"
+shift
+fields="\"$1\""
+shift
+
+for arg in "$@"; do
+    fields+=", \"$arg\""
+done
+btkdb execute -c "COPY (SELECT $fields FROM $table) \
+    TO STDOUT WITH (FORMAT csv, HEADER true);" \
+    | parallel --pipe --block 10M csv2tsv

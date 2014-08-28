@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+mkdir -p $HOME/.cache/parallel/
+
+head -1
+parallel --header 1 --compress --tmpdir=$HOME/.cache/parallel/ --block-size=50M --pipe "$@"

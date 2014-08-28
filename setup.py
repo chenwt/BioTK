@@ -12,6 +12,11 @@ from setuptools.command.test import test as TestCommand
 from pip.req import parse_requirements
 
 args = sys.argv[2:]
+devnull = open(os.devnull, "w")
+
+class DependencyNotFound(Exception):
+    def __init__(self, *args, **kwargs):
+        super(DependencyNotFound, self).__init__(*args, **kwargs)
 
 ################################
 # setup.py commands/entry points
@@ -82,6 +87,9 @@ cmdclass["clean"] = Clean
 # Find scripts and requirements
 ###############################
 
+entry_points = {}
+
+"""
 entry_points = {"console_scripts":
         [
             "btk = BioTK.cli:btk",
@@ -95,9 +103,26 @@ for root, dirs, files in os.walk(join(dirname(__file__), "BioTK", "script")):
             module = "BioTK.script.%s:main" % name
             entry_points["console_scripts"].append("%s = %s" % 
                     (name.replace("_", "-"), module))
+"""
 
 requirements = [str(item.req) for item in 
         parse_requirements("requirements.txt")]
+
+###########################
+# Check native dependencies
+###########################
+
+from distutils.spawn import find_executable
+
+with open("binary-requirements.txt") as h:
+    for line in h:
+        req = line.strip()
+        if not req or req.startswith("#"):
+            continue
+        if not find_executable(req):
+            raise DependencyNotFound("Binary dependency %s not found in PATH. Aborting." % req)
+        else:
+            print("* Found", req, file=sys.stderr)
 
 #########################
 # Set include directories
@@ -114,7 +139,11 @@ except ImportError:
 # Extension modules
 ###################
 
-pxd = ["BioTK/genome/types.pxd", "BioTK/genome/index.pxd", "BioTK/io/_BBI.pxd"]
+pxd = [
+    "BioTK/genome/types.pxd", 
+    "BioTK/genome/index.pxd", 
+    "BioTK/io/_BBI.pxd"
+]
 
 extensions = [
     Extension("BioTK.genome.types",
@@ -134,9 +163,6 @@ extensions = [
         language="c++")
 ]
 
-class LibraryNotFound(Exception):
-    pass
-
 def pkgconfig(*packages, **kw):
     flag_map = {'-I': 'include_dirs', 
                 '-L': 'library_dirs', 
@@ -144,9 +170,11 @@ def pkgconfig(*packages, **kw):
     try:
         args = ["pkg-config", "--libs", "--cflags"]
         args.extend(packages)
-        out = subprocess.check_output(args).decode(sys.getdefaultencoding())
+        out = subprocess\
+                .check_output(args, stderr=devnull)\
+                .decode(sys.getdefaultencoding())
     except subprocess.CalledProcessError:
-        raise LibraryNotFound()
+        raise DependencyNotFound()
 
     kw = {}
     for token in out.split():
@@ -159,8 +187,8 @@ try:
     libmdb = pkgconfig("libmdb")
     extensions.append(Extension("BioTK.io.MDB", 
         ["BioTK/io/MDB.pyx"], **libmdb))
-except LibraryNotFound:
-    print("WARNING: libmdb not found. Continuing without BioTK.io.MDB...",
+except DependencyNotFound:
+    print("* WARNING: libmdb not found.\n\tContinuing without BioTK.io.MDB.\n\tIf you wish to have MS Access support, install your platform's 'mdbtools' package.",
         file=sys.stderr)
 
 ###############################
@@ -195,7 +223,7 @@ for root, dirs, files in os.walk("resources"):
 
 setup(
     name="BioTK",
-    author="Cory Giles",
+    author="Cory Giles, Mikhail Dozmorov, Xiavan Roopnarinesingh, Michael Ripperger",
     author_email="mail@corygil.es",
     version=VERSION,
     description="Utilities for genome analysis, expression analysis, and text mining.",

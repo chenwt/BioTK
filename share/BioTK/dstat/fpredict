@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+
+# FIXME: use background set of genes
+
+import sys
+import argparse
+
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+
+import btk
+
+p = argparse.ArgumentParser()
+p.add_argument("--output-format", "-o", help="Sparse output format",
+        choices=["matrix","sparse"],
+        default="sparse")
+p.add_argument("matrix", help="Correlation matrix in pkl format.")
+args = p.parse_args()
+
+C = pd.read_pickle(args.matrix)
+# Has to be a square correlation matrix
+C.index = C.columns = list(map(int, C.index))
+
+with btk.FieldReader(sys.stdin) as h:
+    mu = C.mean().mean()
+
+    if args.output_format == "matrix":
+        print(*C.index, sep="\t")
+    elif args.output_format == "sparse":
+        print("Term ID", "Gene ID", "Log Probability", sep="\t")
+
+    model = LogisticRegression()
+    for row in h:
+        term, *genes = row
+        sel = set(map(int, genes)) & set(map(int, C.index))
+        if len(sel) < 3 or len(sel) == C.shape[0]:
+            continue
+        y = np.array([1 if ix in sel else 0 for ix in C.index])
+        X = C.ix[:,sel].as_matrix()
+        #if x.mean() < mu:
+            # No predictive power...
+        #    continue
+        model.fit(X,y)
+        #y_hat = np.minimum(np.maximum(0, 
+        y_hat = model.predict_log_proba(X)
+        y_hat = y_hat[:,model.classes_==1]
+        #prior = (len(sel) + 1) / len(C.columns)
+        #y_hat = np.log(y_hat.flatten() * prior)
+        y_hat = np.round(y_hat.flatten(),2)
+        if args.output_format == "sparse":
+            s = pd.Series(y_hat, index=C.index)
+            sel_mu = s.ix[sel].mean()
+            s.ix[sel] = 0
+            s = s[(s >= sel_mu) & (~np.isinf(s))]
+            for ix,x in zip(s.index, s):
+                print(term,ix,x,sep="\t")
+        elif args.output_format == "matrix":
+            raise Exception
+            # need to set sel genes to 0 here
+            #print(term, *y_hat, sep="\t")

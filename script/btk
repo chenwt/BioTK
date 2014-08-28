@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# Call a script with subcommands stored in $INSTALL_ROOT/share/BioTK/$cmd/
+
+# GOTCHAS:
+# Currently, assumes the caller is located in $INSTALL_ROOT/{bin,script}
+
+source $(dirname $0)/../etc/profile.d/BioTK.sh
+
+cmd="$1"
+dir=$(dirname $0)/../share/BioTK/"$cmd"
+shift
+
+if [ $# -eq 0 ]; then
+    echo "$cmd - description"
+    echo -e "\ncommands:"
+    for script in "$dir"/*; do
+        if [ -e "$script" ]; then
+            echo -e "\t$(basename $script)"
+        fi
+    done
+    exit 1
+fi 1>&2
+
+sub="$1"
+shift
+"$dir"/"$sub" "$@"

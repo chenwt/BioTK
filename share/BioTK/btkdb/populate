@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+source $(dirname $0)/script/util.sh
+
+########
+# Schema
+########
+
+echo "* Loading schema ..." 1>&2
+cat $(dirname $0)/sql/schema/*.sql \
+    | btkdb execute
+
+######
+# NCBI
+######
+
+echo "* Populating taxon ..." 1>&2
+dataset taxonomy-names \
+   | btkdb import taxon accession name 
+
+echo "* Populating gene ..." 1>&2
+dataset entrez-genes \
+    | sed 1d \
+    | substitute-kvs taxon 1 accession id \
+    | parallel --pipe --block 10M \
+        btkdb import gene taxon_id accession symbol name
+
+#####
+# GEO
+#####
+
+echo "* Inserting GEO metadata ..." 1>&2
+$(dirname $0)/script/populate-geo.sh
+
+############
+# Ontologies
+############
+
+echo "* Inserting ontologies ..." 1>&2
+
+$(dirname $0)/script/populate-ontology.sh \
+    BTO "Brenda Tissue Ontology" $BTK_DATA/ontology/bto.obo
+$(dirname $0)/script/populate-ontology.sh \
+    PATO "Phenotypic Quality Ontology" $BTK_DATA/ontology/pato.obo
+$(dirname $0)/script/populate-ontology.sh \
+    GO "Gene Ontology" $BTK_DATA/ontology/go.obo
+
+###################
+# Ontology mappings
+###################
+
+# URSA
+
+echo "* Inserting URSA annotations ..." 1>&2
+
+echo "annotated_with" | insert-kvs predicate
+echo "URSA" | insert-kvs source
+echo "manual" | insert-kvs evidence
+
+cut -f1,3 $BTK_DATA/ontology/ursa.tsv \
+    | sed 1d \
+    | tawk '{print $0,"annotated_with","URSA","manual",1.0}' \
+    | dm translate -c 2 <(echo \
+        "COPY ( SELECT term.name,term.id FROM term \
+            INNER JOIN ontology \
+            ON ontology.id=term.ontology_id \
+            WHERE ontology.accession='BTO') TO STDOUT CSV" \
+            | btkdb execute | csv2tsv) \
+    | substitute-kvs sample 1 accession \
+    | substitute-kvs predicate 3 \
+    | substitute-kvs source 4 \
+    | substitute-kvs evidence 5 \
+    | btkdb import relation \
+        subject_id object_id predicate_id source_id evidence_id probability
+
+# Gene-GO mappings
+
+echo "* Inserting Gene-GO annotations ..." 1>&2
+
+echo NCBI | insert-kvs source
+zcat $BTK_DATA/ncbi/gene/gene2go.gz \
+    | sed 1d | cut -f4 | tabsort -u \
+    | insert-kvs evidence
+
+zcat $BTK_DATA/ncbi/gene/gene2go.gz \
+    | sed 1d \
+    | cut -f2-4 \
+    | tabsort -u \
+    | tawk '{print $0,"annotated_with","NCBI"}' \
+    | substitute-kvs gene 1 accession id \
+    | substitute-kvs term 2 accession id \
+    | substitute-kvs evidence 3 \
+    | substitute-kvs predicate 4 \
+    | substitute-kvs source 5 \
+    | btkdb import relation \
+        subject_id object_id evidence_id predicate_id source_id

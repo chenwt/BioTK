@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+
+import subprocess
+import sys
+
+import btk
+
+cfg = btk.get_configuration()["database"]
+
+args = ["psql", 
+        "-X", # Don't use psqlrc
+        "-F", "\t",
+        "-d", cfg["name"],
+        "-h", cfg["host"],
+        "-p", str(cfg["port"])]
+args.extend(sys.argv[1:])
+p = subprocess.Popen(args,
+    stdin=sys.stdin,
+    stdout=sys.stdout,
+    stderr=sys.stderr)
+p.communicate()

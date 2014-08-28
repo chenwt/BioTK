@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+echo -e "Sample ID\tChannel\tTissue\tAge\tGender"
+
+csv2tsv \
+    | dm cut gsm_id channel bto_id age gender \
+    | sed 1d \
+    | tawk '$3 && $4' \
+    | dm sort -k1b,1

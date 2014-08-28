@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+
+# TODO: allow columns to be specified
+
+import sys
+
+import btk
+
+fill = sys.argv[1]
+
+with btk.FieldReader(sys.stdin) as h:
+    print(*next(h), sep="\t")
+    for fields in h:
+        fields = [f if f else fill for f in fields]
+        print(*fields, sep="\t")

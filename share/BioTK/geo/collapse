@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+# samples X probes on stdin -> samples X genes on stdout
+
+DATA_DIR=${DATA_DIR-$HOME/data}
+
+platform=$(basename $1 .gz)
+#taxon=$(gpl-taxon $platform)
+taxon=9606
+{
+    echo "* Collapsing matrix"
+    echo -e "\t* Accession: $platform"
+    echo -e "\t* Taxon ID: $taxon" 
+} 1>&2
+
+[ -z "$platform" ] || [ -z "$taxon" ] && {
+    echo "USAGE: $0 GPLxxx.gz" 1>&2
+    exit 1
+}
+
+map=$(mktemp -p /dev/shm) 
+trap "rm -f $map" EXIT
+zcat $DATA_DIR/stanford/ailun/${platform}.annot.gz \
+    | cut -f1-2 \
+    | sort -k1b,1 \
+    | join -t'	' - <(zcat $1 | head | dm describe | sort -k1b,1) \
+    | sort -rnk3 \
+    | tawk '!($2 in a) { print; a[$2] = 0; }' \
+    | cut -f1-2 \
+    | sort -k2b,2 \
+    | join -1 2 -2 1 -t'	' -a 2 - <(zcat $DATA_DIR/ncbi/gene/list/${taxon}) \
+    | sort -k2b,2 > $map
+
+header=$(mktemp -p /dev/shm)
+trap "rm -f $header" EXIT
+zcat $1 | head -1 | tr '\t' '\n' > $header
+
+export map header
+
+echo -ne "Gene ID\t"
+tr '\n' '\t' < <(cut -f1 $map | sort -k1b,1) | sed 's/\t$//'
+echo
+
+process() {
+    while read line; do
+        sample=$(echo "$line" | tr '\t' '\n' | head -1)
+        echo -ne "$sample\t"
+        paste $header <(echo "$line" | tr '\t' '\n') \
+            | sed '1d' \
+            | sort -k1b,1 \
+            | join -t$'\t' -1 2 -2 1 -a 1 $map - \
+            | sort -k2b,2 \
+            | cut -f3 \
+            | sed 1d \
+            | tr '\n' '\t'
+        echo
+    done
+}
+export -f process 
+
+block_size=10M
+zcat $1 | sed 1d | parallel --block $block_size --pipe process

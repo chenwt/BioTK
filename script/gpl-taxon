@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+DATA_DIR=${DATA_DIR-$HOME/data}
+
+organism=$(geo-query "SELECT organism FROM gpl WHERE gpl='$1'")
+
+cat $DATA_DIR/ncbi/taxonomy/id2name \
+    | tawk -vo="$organism" '$2 == o { print; }' \
+    | cut -f1 \
+    | head -1

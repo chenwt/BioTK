@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+
+import csv
+import sys
+
+import btk
+
+reader = csv.reader(sys.stdin)
+for row in reader:
+    print(*[x.replace("\n", "; ").replace("\t", " ")
+        for x in row], sep="\t")

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+taxon_id="$1"
+[ $# != 1 ] && {
+    echo "USAGE: dstat tally-go-concepts <taxon_id> < gene-list"
+} 1>&2
+
+dm sort -k1b,1 \
+    | dm join -1 2 -2 1 <(dataset go-concept-genes "$taxon_id" | dm sort -k2b,2) - \
+    | dm sort -k2,2b \
+    | ( 
+        echo -e "Concept\tPositive\tNegative"
+        tawk '
+            $3 == $4 { 
+                a[$2]["1"] += ($3 * $4)
+            } 
+            $3 != $4 {
+                a[$2]["-1"] += -($3 * $4)
+            } 
+            END { 
+                for (k in a) { 
+                    print k,a[k]["1"],a[k]["-1"]; 
+                } 
+            }' \
+        ) \
+    | dm fill 0 \
+    | tawk '$2 != 0 && $3 != 0'
