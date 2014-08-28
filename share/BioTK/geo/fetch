@@ -17,7 +17,7 @@ speed=200M
 
 trap "rm -rf $tmpdir" EXIT
 
-while getopts h opt; do
+while getopts ho: opt; do
     case $opt in
         o) outdir=$(realpath "$OPTARG") ;;
         h) usage && exit 0 ;;
