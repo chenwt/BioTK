@@ -1,4 +1,4 @@
-#![crate_name = "lcg"]
+#![crate_name = "btk"]
 #![crate_type = "lib"]
 #![feature(globs)]
 

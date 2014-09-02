@@ -1,11 +1,11 @@
 #![feature(globs)]
 
 extern crate collections;
-extern crate lcg;
+extern crate btk;
 
 use collections::treemap::TreeSet;
 
-use lcg::*;
+use btk::*;
 
 use std::os;
 use std::io::{File, BufferedReader,stdin};
@@ -16,10 +16,10 @@ fn main() {
     let q = {
         let args = os::args();
         let file = File::open(&Path::new(args[1].clone()));
-        let mut rdr = lcg::SeriesReader::new(BufferedReader::new(file));
+        let mut rdr = btk::SeriesReader::new(BufferedReader::new(file));
         rdr.next().unwrap()
     };
-    let mut sr = lcg::SeriesReader::new(stdin());
+    let mut sr = btk::SeriesReader::new(stdin());
     let r_index = sr.index.clone();
 
     let q_items : TreeSet<&String> = 

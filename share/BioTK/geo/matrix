@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+read -d '' usage <<EOF
+USAGE: geo matrix [arguments]
+
+Required arguments:
+    -o <taxon-id> : organism (NCBI Taxon ID)
+Optional arguments:
+    -t <tissue> : BTO tissue ID or name
+    -r : Output raw (non-normalized) data
+EOF
+
+usage() {
+    echo "$usage" 1>&2
+    exit 1
+}
+
+while getopts t: opt; do
+    case $opt in
+        o) organism="$OPTARG" ;;
+        t) tissue="$OPTARG" ;;
+        ?) usage ;;
+    esac
+done
+shift $((OPTIND - 1))

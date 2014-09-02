@@ -1,7 +1,13 @@
 [package]
-name = "lcg"
+name = "btk"
 version = "0.1.0"
 authors = [ "mail@corygil.es" ]
 
 [lib]
-name = "lcg"
+name = "btk"
+
+[dependencies.leveldb]
+git = "https://github.com/gilesc/rust-leveldb.git"
+
+[dependencies.msgpack]
+git = "https://github.com/mneumann/rust-msgpack.git"

@@ -1,5 +1,3 @@
-extern crate lcg;
-
 use std::io;
 
 fn main() {
