@@ -62,19 +62,19 @@ export -f process
     #| pv -qL $rate \
     #catwhile -p "$tmpdir" -s 1000 < "${archive}" \
     cat "${archive}" \
-        | bsdtar -C $tmpdir/expression -x -f - 'GSM*-1.txt'
+        | bsdtar --use-compress-program=lz4 -C $tmpdir/expression -x -f - 'GSM*-1.txt'
     touch "$tmpdir"/done
 } &
 
 echo "Working directory =" $tmpdir 1>&2
-accession=$(bsdtar qtf ${archive} '*_family.xml' | sed 's/_family.xml$//')
+accession=$(bsdtar --use-compress-program=pigz -qtf ${archive} '*_family.xml' | sed 's/_family.xml$//')
 #if [[ $accession != "GPL*"]]; then
 #    echo "ERROR: Malformed MiniML archive. Exiting..." 1>&2
 #fi
 echo "Detected accession =" $accession 1>&2
 
 echo "* Unpacking probes ..." 1>&2
-bsdtar -q -xOf ${archive} 'GPL*.txt' \
+bsdtar --use-compress-program=pigz -q -xOf ${archive} 'GPL*.txt' \
     | cut -f1 | sort -k1,1b > $tmpdir/probes || exit 1
 
 echo "* Exporting expression vectors ..." 1>&2

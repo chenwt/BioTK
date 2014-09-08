@@ -33,6 +33,10 @@ else
         echo $gpl
     done
 fi | while read accession; do
+    if [[ "$accession" == "GPL6801" ]]; then
+        continue
+    fi
+
     if [ ${#accession} -lt 6 ]; then
         group=GPLnnn
     else
@@ -47,11 +51,11 @@ fi | while read accession; do
     wd=$tmpdir/$accession
 
     echo "* Downloading $accession ..." 1>&2
-    ascp -T -l $speed -d -i $key $host:$uri $tmpdir || continue #&> /dev/null
+    aspera-copy -d $host:$uri $tmpdir || continue #&> /dev/null
     mv $tmpdir/miniml $wd
     echo "* Decompressing $accession data ..." 1>&2
     for file in $wd/*.tgz; do
-        tar -C $wd -zxf $file
+        tar --use-compress-program=pigz -C $wd -xf $file
     done
     rm $wd/*.tgz
     echo "* Compressing $accession data ..." 1>&2

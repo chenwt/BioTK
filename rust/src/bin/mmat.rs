@@ -110,7 +110,9 @@ fn positions_from_file(path: Path, xs: Vec<String>) -> Vec<uint> {
 
 impl Matrix {
     unsafe fn open(path : Path) -> Result<Matrix, IoError> {
-        //std::io::fs::mkdir_recursive(path, FilePermission(755));
+        if !path.exists() {
+            std::io::fs::mkdir(&path, std::io::UserRWX);
+        }
         unsafe {
             let data_path = path.join("data");
             let create = !data_path.is_file();
@@ -292,7 +294,7 @@ fn load(path : Path) {
             m.append(series);
             n += 1;
             if n % 100 == 0 {
-                println!("* {} rows loaded", n);
+                //println!("* {} rows loaded", n);
                 m.write_indices();
             }
         }

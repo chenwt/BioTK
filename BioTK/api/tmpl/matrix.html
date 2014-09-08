@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form method="post" action="matrix">
+    <table>
+    <tr>
+        <td>Organism:</td>
+        <td>
+        <select name="taxon_id">
+        {% for name,id in taxa %}
+            <option name="taxon_id" value="{{id}}">
+                {{name}}
+            </option>
+        {% endfor %}
+        </select>
+        </td>
+    </tr>
+    <tr>
+        <td>Tissue:</td>
+        <td>
+        <select name="tissue">
+        <option name="tissue" value="all">All</option>
+        {% for name,accession in tissues %}
+        <option name="tissue" value="{{name}}">
+        {{name}}
+        </option>
+        {% endfor %}
+        </select>
+        </td>
+    </tr>
+    <tr>
+        <td>Type</td>
+        <td>
+        <select name="type">
+            <option name="type" value="RNA">RNA</option>
+            <option name="type" value="genomic">genomic</option>
+        </select>
+        </td>
+    </tr>
+    <tr>
+        <td>Normalized?</td>
+        <td>
+            <input checked 
+                type="checkbox" name="normalized">
+            </input>
+        </td>
+    </tr>
+    <tr>
+        <td>Download?</td>
+        <td>
+            <input checked type="checkbox" 
+                name="download">
+            </input>
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+        <td><input type="submit"></input></td>
+    </tr>
+</form>
+{% endblock %}

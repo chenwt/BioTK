@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+BASE=$(dirname $0)/../share/aspera
+SPEED=250M
+
+lock=/tmp/aspera.lock
+lockfile -r-1 $lock
+trap 'rm -f $lock' EXIT
+
+$BASE/bin/ascp -T -i $BASE/etc/asperaweb_id_dsa.openssh -l $SPEED $@

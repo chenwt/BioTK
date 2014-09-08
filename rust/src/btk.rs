@@ -179,7 +179,7 @@ pub struct SeriesReader<T> {
 }
 
 impl <T : Reader> SeriesReader<T> {
-    pub fn new(mut reader: BufferedReader<T>) 
+    pub fn new(mut reader: BufferedReader<T>)
             -> SeriesReader<T> {
         let ix = {
             let header : String = reader.read_line().unwrap();
@@ -200,6 +200,8 @@ impl <T : Reader> Iterator<Series> for SeriesReader<T> {
             Ok(line) => {
                 let mut fields = line.as_slice()
                     .trim_right_chars('\n').split('\t');
+                //let x : Vec<&str> = fields.take(5).collect();
+                //println!("{}", x);
                 let key = String::from_str(fields.next().unwrap());
                 let data = fields.map(|x| 
                         from_str::<f32>(x).unwrap_or(f32::NAN)).collect();

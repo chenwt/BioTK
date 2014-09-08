@@ -63,10 +63,11 @@ CREATE TABLE IF NOT EXISTS channel (
     extract_protocol VARCHAR,
     label_protocol VARCHAR,
 
-    PRIMARY KEY (sample_id, channel),
+    UNIQUE (accession),
+    UNIQUE (sample_id, channel),
     FOREIGN KEY (sample_id) REFERENCES sample(id) ON DELETE CASCADE,
     FOREIGN KEY (taxon_id) REFERENCES taxon(id) ON DELETE CASCADE
-);
+) INHERITS (entity);
 
 CREATE TABLE IF NOT EXISTS sample_series (
     sample_id BIGINT,

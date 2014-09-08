@@ -22,6 +22,11 @@ taxon=$(btkdb query \
     echo -e "\t* Taxon ID: $taxon" 
 } 1>&2
 
+if [ ! -f $DATA_DIR/stanford/ailun/${platform}.annot.gz ]; then
+    echo "Probe-gene mapping does not exist for platform: $platform" 1>&2
+    exit 0
+fi
+
 map=$(mktemp -p /dev/shm) 
 trap "rm -f $map" EXIT
 zcat $DATA_DIR/stanford/ailun/${platform}.annot.gz \

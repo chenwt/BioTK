@@ -59,14 +59,14 @@ echo "manual" | insert-kvs evidence
 
 cut -f1,3 $BTK_DATA/ontology/ursa.tsv \
     | sed 1d \
-    | tawk '{print $0,"annotated_with","URSA","manual",1.0}' \
+    | tawk '{print $1"-1",$2,"annotated_with","URSA","manual",1.0}' \
     | dm translate -c 2 <(echo \
         "COPY ( SELECT term.name,term.id FROM term \
             INNER JOIN ontology \
             ON ontology.id=term.ontology_id \
             WHERE ontology.accession='BTO') TO STDOUT CSV" \
             | btkdb execute | csv2tsv) \
-    | substitute-kvs sample 1 accession \
+    | substitute-kvs channel 1 accession \
     | substitute-kvs predicate 3 \
     | substitute-kvs source 4 \
     | substitute-kvs evidence 5 \
@@ -94,3 +94,53 @@ zcat $BTK_DATA/ncbi/gene/gene2go.gz \
     | substitute-kvs source 5 \
     | btkdb import relation \
         subject_id object_id evidence_id predicate_id source_id
+
+btkdb refresh
+
+# Compass mappings
+
+echo "* Inserting Compass annotations ..." 1>&2
+
+echo "compass" | insert-kvs source
+echo "text mining" | insert-kvs evidence
+
+echo -e "\t* tissue" 1>&2
+zcat $BTK_DATA/lab/compass.tsv.gz \
+    | sed 1d \
+    | tawk '$3 != ""' \
+    | tawk '{print $1"-"$2,$3,"annotated_with","compass","text mining"}' \
+    | substitute-kvs channel 1 accession id \
+    | substitute-kvs term 2 accession id \
+    | substitute-kvs predicate 3 \
+    | substitute-kvs source 4 \
+    | substitute-kvs evidence 5 \
+    | btkdb import relation \
+        subject_id object_id predicate_id source_id evidence_id
+
+echo -e "\t* age" 1>&2
+age=$(btkdb query "SELECT pato_tid('age')")
+zcat $BTK_DATA/lab/compass.tsv.gz \
+    | sed 1d \
+    | tawk -vage=$age \
+        '{print $1"-"$2,age,"annotated_with","compass","text mining",$4}' \
+    | substitute-kvs channel 1 accession id \
+    | substitute-kvs predicate 3 \
+    | substitute-kvs source 4 \
+    | substitute-kvs evidence 5 \
+    | btkdb import relation \
+        subject_id object_id predicate_id source_id evidence_id value
+
+echo -e "\t* gender" 1>&2
+male=$(btkdb query "SELECT pato_tid('male')")
+female=$(btkdb query "SELECT pato_tid('female')")
+zcat $BTK_DATA/lab/compass.tsv.gz \
+    | tawk 'NR > 1 && $5 != "" {print $1"-"$2,$5}' \
+    | sed 's/m$/'$male'/' \
+    | sed 's/f$/'$female'/' \
+    | tawk '{print $1,$2,"annotated_with","compass","text mining"}' \
+    | substitute-kvs channel 1 accession id \
+    | substitute-kvs predicate 3 \
+    | substitute-kvs source 4 \
+    | substitute-kvs evidence 5 \
+    | btkdb import relation \
+        subject_id object_id predicate_id source_id evidence_id

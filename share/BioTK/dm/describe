@@ -7,9 +7,15 @@ accessions = next(sys.stdin).strip("\n").split("\t")[1:]
 sum = np.zeros(len(accessions))
 n = np.zeros(len(accessions))
 
+def as_float(x):
+    try:
+        return float(x)
+    except ValueError:
+        return np.nan
+
 for line in sys.stdin:
     fields = line.strip("\n").split("\t")[1:]
-    data = np.array([float(x) if x else np.nan for x in fields])
+    data = np.array([as_float(x) for x in fields])
     ix = ~np.isnan(data)
     sum[ix] += data[ix]
     n[ix] += 1

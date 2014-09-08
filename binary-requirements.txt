@@ -6,3 +6,4 @@ cargo
 lz4
 python3
 realpath
+lockfile

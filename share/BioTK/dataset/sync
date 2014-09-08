@@ -73,6 +73,14 @@ if [ ! -e ncbi/taxonomy/id2name ]; then
         > ncbi/taxonomy/id2name
 fi
 
+# MEDLINE
+
+if [ ! -d ncbi/medline ]; then
+    echo "* Downloading MEDLINE ..."
+    mkdir ncbi/medline
+    wget -r -nd -P ncbi/medline/ ftp://ftp.nlm.nih.gov/nlmdata/.medleasebaseline/gz/
+fi
+
 ######
 # UCSC
 ######

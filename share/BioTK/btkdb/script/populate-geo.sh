@@ -53,15 +53,17 @@ q "SELECT gpl,gsm,CAST(channel_count AS integer),title,\
 
 for i in $(seq 1 2); do
     echo -e "\t* Inserting channel $i ..." 1>&2
-    q "SELECT $i,gsm,organism_ch$i,source_name_ch$i,characteristics_ch$i,\
+    q "SELECT $i,gsm || '-' || $i, \
+            gsm,organism_ch$i,source_name_ch$i,characteristics_ch$i,\
             molecule_ch$i,label_ch$i,treatment_protocol_ch$i,\
             extract_protocol_ch$i,label_protocol_ch$i\
         FROM gsm \
         WHERE channel_count >= $i" \
-        | substitute-kvs sample 2 accession id \
-        | substitute-kvs taxon 3 name id \
+        | substitute-kvs sample 3 accession id \
+        | substitute-kvs taxon 4 name id \
         | btkdb import channel \
-            channel sample_id taxon_id source_name characteristics \
+            channel accession \
+            sample_id taxon_id source_name characteristics \
             molecule label treatment_protocol extract_protocol \
             label_protocol
 done

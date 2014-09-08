@@ -1,41 +1,103 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python
 
-# USAGE: $0 <gold> <predicted>
-# Both are tab-delimited, two-column files with:
-# - First column: row/datum ID
-# - Second column: true or predicted value
+"""
+Both "gold" and "predicted" are two-column, tab-delimited files with:
+- First column: row/datum ID
+- Second column: true or predicted value (either categorical or continuous)
 
-# Caveats:
-# - Only works with categorical labels
-# - Ignores predictions from <predicted> whose row labels are not in <gold>
-#   (a prediction that should be null should be blank in <gold>)
+Caveats:
+- Ignores predictions from <predicted> whose row labels are not in <gold>
+  (a prediction that should be null should be blank in <gold>)
+"""
 
-labels=$(mktemp)
-trap 'rm -f $labels' EXIT
-join -t'	' -a 1 <(sort -k1b,1 $1) <(sort -k1b,1 $2) | cut -f2-3 > $labels
+import argparse
+import sys
 
-nr() {
-    wc -l | awk '{print $1}'
-}
+import numpy as np
+import pandas as pd
+from sklearn import metrics
 
-calc() {
-    echo "scale=2; $1" | bc | awk '{printf "%0.3f", $0}'
-}
+def regression(y, yh, **kwargs):
+    try:
+        y = y.astype(np.float64)
+        yh = yh.astype(np.float64)
+    except ValueError as e:
+        msg = " ".join("""
+        Regression problem was specified, 
+        but the second column of either the gold 
+        or predicted file contains a non-numeric 
+        value.""".split())
+        e.args = [msg]
+        raise e
+    mu = y.mean()
+    y, yh = y.align(yh, join="left", fill_value=mu)
 
-N=$(nr < $labels)
-NPOS=$(tawk '$1!=""' < $labels | nr)
-TP=$(tawk '$1!="" && $1==$2' < $labels | nr)
-FP=$(tawk '$2!="" && $1!=$2' < $labels | nr)
-FN=$(tawk '$2=="" && $1!=$2' < $labels | nr)
-TN=$(tawk '$1=="" && $2==""' < $labels | nr)
-MOST_COMMON=$(tawk '$1!="" {print $1}' < $labels | sort | uniq -c | sort -rnk1 | head -1 | awk '{print $1}')
+    data = [getattr(metrics, k)(y,yh)
+            for k in 
+            [   "explained_variance_score",
+                "mean_absolute_error",
+                "mean_squared_error",
+                "r2_score"]]
+    return pd.Series(data,
+            index=["Explained Variance",
+                "MAD", "MSE", "R-Squared"])
 
-cat <<EOF
-TP	$TP
-FP	$FP
-FN	$FN
-TN	$TN
+def classification(y, yh, report=False):
+    most_common = y.value_counts().index[0]
+    y, yh = y.align(yh, join="left", fill_value=most_common)
+    y = pd.Categorical.from_array(y)
+    yh = pd.Categorical.from_array(yh)
 
-Precision	$(calc "$TP / ($TP + $FP)")
-Baseline Precision	$(calc "$MOST_COMMON / $N")
-EOF
+    if report:
+        return metrics.classification_report(y, yh)
+    
+    y = y.labels
+    yh = yh.labels
+    methods = [
+        "f1_score",
+        "average_precision_score",
+        "roc_auc_score",
+        "log_loss"
+    ]
+    index = [
+        "F-Measure",
+        "AP",
+        "AUC",
+        "Log Loss"
+    ]
+    data = [getattr(metrics, k)(y, yh)
+            for k in methods]
+    return pd.Series(data, index=index)
+
+def main(args):
+    p = argparse.ArgumentParser()
+    p.add_argument("gold", type=argparse.FileType("r"))
+    p.add_argument("predicted", type=argparse.FileType("r"))
+    p.add_argument("--regression", "-r", action="store_true",
+            help="Indicates this is a regression problem, altering the metrics used.")
+    p.add_argument("--report", "-e", action="store_true",
+            help="Display a detailed (non-tabular) classification report. Ignored for regression.")
+    args = p.parse_args(args)
+
+    read = lambda h: pd.read_table(h, header=None, index_col=0)\
+            .iloc[:,0].dropna()
+    y = read(args.gold)
+    yh = read(args.predicted)
+
+    if args.regression:
+        fn = regression
+    else:
+        fn = classification
+
+    try:
+        rs = fn(y,yh,report=args.report)
+        if isinstance(rs, str):
+            print(rs, end="")
+        else:
+            rs.to_csv(sys.stdout, sep="\t")
+    finally:
+        args.gold.close()
+        args.predicted.close()
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
