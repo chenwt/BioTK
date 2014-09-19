@@ -7,12 +7,13 @@ export LC_ALL=C #en_US.UTF-8
 opts=""
 sa=1
 sb=1
-while getopts j:1:2:o: opt; do
+while getopts j:1:2:o:a: opt; do
     opts+=" -$opt $OPTARG"
     case $opt in
         1) sa="$OPTARG" ;;
         2) sb="$OPTARG" ;;
         j) sa="$OPTARG"; sb="$OPTARG" ;;
+        a) ;;
     esac
 done
 shift $((OPTIND - 1))

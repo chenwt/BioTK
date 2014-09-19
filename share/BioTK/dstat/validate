@@ -8,6 +8,8 @@ Both "gold" and "predicted" are two-column, tab-delimited files with:
 Caveats:
 - Ignores predictions from <predicted> whose row labels are not in <gold>
   (a prediction that should be null should be blank in <gold>)
+- When no prediction is specified for a gold label, either maximum likelihood
+  is used (categorical) or mean (regression)
 """
 
 import argparse

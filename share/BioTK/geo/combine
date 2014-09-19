@@ -18,7 +18,8 @@ EOF
 mkdir -p "$output"/{raw,normalized}
 
 {
-    for gpl in $(btkdb query "$q"); do
+    #for gpl in $(btkdb query "$q"); do
+    for gpl in GPL96 GPL570; do
         dataset matrix gene "$gpl" 2> /dev/null
     done
 }   | grep -v '^$' | {

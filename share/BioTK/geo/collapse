@@ -32,13 +32,11 @@ trap "rm -f $map" EXIT
 zcat $DATA_DIR/stanford/ailun/${platform}.annot.gz \
     | cut -f1-2 \
     | sort -k1b,1 \
-    | join -t'	' - \
-        <(zcat $1 | head | dm describe | sort -k1b,1) \
+    | tjoin -j1 - <(zcat $1 | head -10 | dm describe) \
     | sort -rnk3 \
     | tawk '!($2 in a) { print; a[$2] = 0; }' \
     | cut -f1-2 \
-    | sort -k2b,2 \
-    | join -1 2 -2 1 -t'	' -a 2 - \
+    | tjoin -1 2 -2 1 -a 2 - \
         <(dataset gene-list $taxon) \
     | sort -k2b,2 > $map
 
@@ -58,9 +56,8 @@ process() {
         echo -ne "$sample\t"
         paste $header <(echo "$line" | tr '\t' '\n') \
             | sed '1d' \
-            | sort -k1b,1 \
-            | join -t$'\t' -1 2 -2 1 -a 1 $map - \
-            | sort -k2b,2 \
+            | tjoin -1 2 -2 1 -a 1 $map - \
+            | tsort -k2b,2 \
             | cut -f3 \
             | sed 1d \
             | tr '\n' '\t'

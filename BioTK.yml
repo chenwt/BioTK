@@ -1,7 +1,7 @@
 database:
     host: wren.omrf.hsc.net.ou.edu
-    port: 9999
-    name: dev
+    port: 5432
+    name: BioTK
 taxa:
     - Homo sapiens
     - Mus musculus

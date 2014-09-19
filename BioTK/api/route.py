@@ -75,8 +75,22 @@ def matrix():
         o = p.stdout
     return o
 
+@api.get("/tissue/<gene_id>")
+def tissue(gene_id):
+    c = db.cursor()
+    c.execute("""
+    SELECT taxon.accession
+    FROM taxon
+    INNER JOIN gene
+    ON gene.taxon_id=taxon.id
+    WHERE gene.accession=%s""", (gene_id,))
+    taxon_id = next(c)[0]
+    return taxon_id
+
 application = api
 
 if __name__ == "__main__":
-    run(api, server="cherrypy", 
-            host="0.0.0.0", port=7700)
+    run(api, 
+        server="cherrypy", 
+        host="0.0.0.0", 
+        port=7700)

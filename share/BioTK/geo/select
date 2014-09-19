@@ -15,9 +15,9 @@ p.add_argument("--tissue", "-t")
 p.add_argument("--type", "-y", choices=["RNA", "genomic"],
         default="RNA")
 p.add_argument("--raw", "-r", action="store_true")
+p.add_argument("--gene-id")
 
 args = p.parse_args()
-
 
 path = "%s/ncbi/geo/matrix/taxon/%s/%s" % (
     os.environ["BTK_DATA"],
@@ -26,7 +26,6 @@ path = "%s/ncbi/geo/matrix/taxon/%s/%s" % (
 
 if not os.path.exists(path):
     raise Exception("Path does not exist: %s" % path)
-
 
 db = BioTK.db.connect()
 c = db.cursor()
@@ -56,11 +55,26 @@ if args.tissue:
 if args.gender:
     raise NotImplementedError
 
-accessions = [a[:-2] for a in accessions]
-with tempfile.NamedTemporaryFile("w") as h:
-    for a in accessions:
-        h.write("%s\n" % a)
+def mktemp(lines):
+    h = tempfile.NamedTemporaryFile("w")
+    for line in lines:
+        h.write("%s\n" % line)
     h.flush()
-    cmd = ["mmat", "select", "-m", path, "-c", h.name]
-    p = Popen(cmd, stdout=sys.stdout)
-    p.wait()
+    return h
+
+accessions = [a[:-2] for a in accessions]
+columns = mktemp(accessions)
+cmd = ["mmat", "select", "-m", path, "-c", columns.name]
+
+if args.gene_id:
+    rows = mktemp([args.gene_id])
+    cmd.extend(["-r", rows.name])
+
+p = Popen(cmd, stdout=sys.stdout)
+p.wait()
+
+try:
+    columns.close()
+    rows.close()
+except:
+    pass

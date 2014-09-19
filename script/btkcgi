@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+# Wrapper to run CGI scripts using the BioTK
+# package. This is probably incredibly insecure,
+# so use with caution.
+
+# Set the environment (fixme)
+
+source $HOME/.bash_profile
+source $HOME/.bashrc
+source $HOME/.bash.d/BioTK.sh
+
+# Utility functions
+
+html_option() {
+    echo "<select name='$1'>"
+    tawk \
+        '{print "<option value=\""$1"\">"$2"</option>"}'
+    echo "</select>"
+}
+
+html_decode() {
+    sed 's/%3A/:/g'
+}
+
+require_gene_id() {
+    if [[ -z "$gene_id" ]]; then
+        cat <<EOF
+    Content-Type: text/html
+
+    <html><body><form method="get">
+    <p>Enter an Entrez Gene ID:</p>
+    <input type="text" name="gene_id"></input>
+    <input type="submit"></input>
+    </form></body></html>
+EOF
+    exit 0
+fi
+}
+
+taxon_id_from_gene_id() {
+    btkdb query "SELECT taxon.accession 
+        FROM taxon 
+        INNER JOIN gene 
+        ON gene.taxon_id=taxon.id 
+        WHERE gene.accession='$1'"
+}
+
+
+# Read query variables into bash variables
+
+if [[ $REQUEST_METHOD == "POST" ]]; then
+    read -a QUERY_STRING
+fi
+
+IFS="=&" p=($QUERY_STRING)
+for ((i=0; i<${#p[@]}; i+=2)); do
+    k="$(echo ${p[i]} | html_decode)"
+    v="$(echo ${p[i+1]} | html_decode)"
+    declare $k="$v"
+    export $k
+
+done
+
+# Run the CGI script
+
+source "$1"
