@@ -14,7 +14,31 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
 
-import BioTK.util
+def as_float(x):
+    try:
+        return float(x)
+    except ValueError:
+        return np.nan
+
+def chunks(it, size=1000):
+    """
+    Divide an iterator into chunks of specified size. A
+    chunk size of 0 means no maximum chunk size, and will
+    therefore return a single list.
+    
+    Returns a generator of lists.
+    """
+    if size == 0:
+        yield list(it)
+    else:
+        chunk = []
+        for elem in it:
+            chunk.append(elem)
+            if len(chunk) == size:
+                yield chunk
+                chunk = []
+        if chunk:
+            yield chunk
 
 HeaderType = np.dtype([
     ("magic", np.int64),
@@ -351,8 +375,8 @@ class MemoryMappedMatrix(View):
         with handle:
             columns = maybe_int(next(handle).split(delimiter)[1:])
             nc = len(columns)
-            chunks = BioTK.util.chunks(handle, 1000)
-            chunk = next(chunks)
+            cnks = chunks(handle, 1000)
+            chunk = next(cnks)
             index = maybe_int([line.split(delimiter)[0] for line in chunk])
 
             X = MMAT(path, 
@@ -364,7 +388,7 @@ class MemoryMappedMatrix(View):
                     columns=columns)
 
             first = True
-            for chunk in chunks:
+            for chunk in cnks:
                 nr = X.shape[0]
                 na = len(chunk)
                 if first:
@@ -377,7 +401,7 @@ class MemoryMappedMatrix(View):
                 for i,line in enumerate(chunk):
                     fields = line.split(delimiter)
                     index.append(fields[0])
-                    X.data[nr+i,:] = list(map(float, fields[1:]))
+                    X.data[nr+i,:] = list(map(as_float, fields[1:]))
                 sl = slice(nr, nr+na+1, 1)
                 X.index[sl] = fix_index(maybe_int(index))
             return X

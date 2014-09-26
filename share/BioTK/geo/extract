@@ -40,10 +40,11 @@ export verbose
 process() {
     file="$1"
     gsm=$(basename ${file%%-*})
+    channel=$(basename $file .txt | tr '-' '\n' | awk 'NR==3')
     if [[ $verbose == "y" ]]; then
         echo "** Processing $gsm ..." 1>&2
     fi
-    echo -ne "$gsm\t"
+    echo -ne "${gsm}-${channel}\t"
     cut -f1-2 $file \
         | tawk '$2 !~ /[^0-9.\-Ee]/' \
         | sort -k1,1b \

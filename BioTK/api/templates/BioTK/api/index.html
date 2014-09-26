@@ -1,0 +1,68 @@
+<html>
+<head>
+    <title>Wren Lab Data API</title>
+</head>
+<body>
+    <h1>Wren Lab Data API</h1>
+
+    <h2>Bulk data</h2>
+    <ul>
+        <li><a href="/matrix.cgi">
+                GEO submatrix download (alpha)
+        </a></li>
+    </ul>
+
+    <h2>Analyses</h2>
+    <ul>
+        <li><a href="/summary/gene.cgi">
+                BioGPS - Gene summary by tissue (alpha)
+        </a></li>
+        <li><a href="/age/correlation/gene.cgi">
+            Age correlations for one gene (alpha)
+        </a></li>
+        <li><a href="/age/correlation/tissue.cgi">
+            Age correlations for one tissue (NYI)
+        </a></li>
+    </ul>
+
+    <h2>Documentation</h2>
+    <ul>
+        <li><a href="doc.html">
+                How to automate API calls (NYI)
+        </a></li>
+    </ul>
+
+    <h2>Status legend</h2>
+    <table border="1">
+        <tr>
+            <td>release</td>
+            <td>Working, tested, and should not contain major bugs</td>
+        </tr>
+        <tr>
+            <td>RC</td>
+            <td>Working, tested or partially tested, possibly has minor bugs, but probably not major bugs</td>
+        </tr>
+        <tr>
+            <td>beta</td>
+            <td>Working, but may contain major bugs</td>
+        </tr>
+        <tr>
+            <td>alpha</td>
+            <td>Working, but probably contains major bugs</td>
+        </tr>
+        <tr>
+            <td>dev</td>
+            <td>Partially working or not working</td>
+        </tr>
+        <tr>
+            <td>NYI</td>
+            <td>Not yet implemented (a placeholder)</td>
+        </tr>
+    </table>
+
+    <p>The API itself (that is, the URLs and parameters) should be considered as subject to change for any status less than RC. At RC and release, the API can be considered as stable and unlikely to change, and all effort will be made to make changes backwards-compatible.</p>
+
+    <p>Bug reports are happily accepted for any status above dev, but only release and RC should be considered for serious use, and beta results can be used for less important things, but with care and a critical eye.</p>
+
+</body>
+</html>

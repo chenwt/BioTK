@@ -20,3 +20,5 @@ __pycache__
 
 # Site-specific configuration file
 /BioTK.cfg
+/db.sqlite3
+/.ropeproject

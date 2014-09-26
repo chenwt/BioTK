@@ -92,6 +92,18 @@ CREATE VIEW channel_age AS
         WHERE r.object_id=pato_tid('age')
         AND r.value IS NOT NULL;
 
+CREATE VIEW channel_gender AS
+    SELECT ch.id as channel_id, 'M' as gender
+    FROM channel ch
+    INNER JOIN relation r
+    ON r.subject_id=ch.id
+    WHERE r.object_id=pato_tid('male')
+    UNION
+    SELECT ch.id as channel_id, 'F' as gender
+    FROM channel ch
+    INNER JOIN relation r
+    ON r.subject_id=ch.id;
+
 CREATE MATERIALIZED VIEW channel_attribute AS
     SELECT 
         q.channel_id as channel_id,
@@ -100,17 +112,21 @@ CREATE MATERIALIZED VIEW channel_attribute AS
         t.accession as taxon_accession,
         q.tissue_accession as tissue_accession,
         q.tissue_name as tissue_name,
-        q.age as age
+        q.age as age,
+        q.gender as gender
     FROM
     (
         SELECT 
             ct.channel_id as channel_id,
             ct.tissue_accession as tissue_accession,
             ct.tissue_name as tissue_name,
-            ca.age as age
+            ca.age as age,
+            cg.gender as gender
         FROM channel_tissue ct
         FULL OUTER JOIN channel_age ca
         ON (ca.channel_id=ct.channel_id)
+        FULL OUTER JOIN channel_gender cg
+        ON (ca.channel_id=cg.channel_id)
     ) q
     INNER JOIN channel ch
     ON ch.id=q.channel_id

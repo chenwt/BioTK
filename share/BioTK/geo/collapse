@@ -31,9 +31,9 @@ map=$(mktemp -p /dev/shm)
 trap "rm -f $map" EXIT
 zcat $DATA_DIR/stanford/ailun/${platform}.annot.gz \
     | cut -f1-2 \
-    | sort -k1b,1 \
+    | tsort -k1b,1 \
     | tjoin -j1 - <(zcat $1 | head -10 | dm describe) \
-    | sort -rnk3 \
+    | tsort -rnk3 \
     | tawk '!($2 in a) { print; a[$2] = 0; }' \
     | cut -f1-2 \
     | tjoin -1 2 -2 1 -a 2 - \
@@ -59,7 +59,7 @@ process() {
             | tjoin -1 2 -2 1 -a 1 $map - \
             | tsort -k2b,2 \
             | cut -f3 \
-            | sed 1d \
+            | sed '$d' \
             | tr '\n' '\t'
         echo
     done
