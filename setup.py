@@ -46,7 +46,7 @@ class Test(TestCommand):
         TestCommand.finalize_options(self)
         self.test_args = args
         self.test_suite = True
-    
+
     def run_tests(self):
         import pytest
         errno = pytest.main(self.test_args)
@@ -87,10 +87,11 @@ cmdclass["clean"] = Clean
 # Find scripts and requirements
 ###############################
 
-entry_points = {}
-
-"""
 entry_points = {"console_scripts":
+                [
+                    "mmat = BioTK.mmat:cli"
+                ]}
+"""
         [
             "btk = BioTK.cli:btk",
             "transpose = BioTK.cli.standalone:transpose"
@@ -101,11 +102,11 @@ for root, dirs, files in os.walk(join(dirname(__file__), "BioTK", "script")):
         if file.endswith(".py") and file != "__init__.py":
             name = splitext(file)[0]
             module = "BioTK.script.%s:main" % name
-            entry_points["console_scripts"].append("%s = %s" % 
+            entry_points["console_scripts"].append("%s = %s" %
                     (name.replace("_", "-"), module))
 """
 
-requirements = [str(item.req) for item in 
+requirements = [str(item.req) for item in
         parse_requirements("requirements.txt")]
 
 ###########################
@@ -140,8 +141,8 @@ except ImportError:
 ###################
 
 pxd = [
-    "BioTK/genome/types.pxd", 
-    "BioTK/genome/index.pxd", 
+    "BioTK/genome/types.pxd",
+    "BioTK/genome/index.pxd",
     "BioTK/io/_BBI.pxd"
 ]
 
@@ -164,8 +165,8 @@ extensions = [
 ]
 
 def pkgconfig(*packages, **kw):
-    flag_map = {'-I': 'include_dirs', 
-                '-L': 'library_dirs', 
+    flag_map = {'-I': 'include_dirs',
+                '-L': 'library_dirs',
                 '-l': 'libraries'}
     try:
         args = ["pkg-config", "--libs", "--cflags"]
@@ -185,7 +186,7 @@ def pkgconfig(*packages, **kw):
 
 try:
     libmdb = pkgconfig("libmdb")
-    extensions.append(Extension("BioTK.io.MDB", 
+    extensions.append(Extension("BioTK.io.MDB",
         ["BioTK/io/MDB.pyx"], **libmdb))
 except DependencyNotFound:
     print("* WARNING: libmdb not found.\n\tContinuing without BioTK.io.MDB.\n\tIf you wish to have MS Access support, install your platform's 'mdbtools' package.",
@@ -214,7 +215,7 @@ else:
 
 data_files = []
 for root, dirs, files in os.walk("resources"):
-    data_files.append((root, 
+    data_files.append((root,
         [os.path.join(root, f) for f in files if f!=".gitignore"]))
 
 #####################
