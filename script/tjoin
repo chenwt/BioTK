@@ -7,7 +7,12 @@ export LC_ALL=C #en_US.UTF-8
 opts=""
 sa=1
 sb=1
-while getopts j:1:2:o:a: opt; do
+while getopts j:1:2:o:a:h opt; do
+    if [ "$opt" == "h" ]; then
+        opts+=" --header"
+        continue
+    fi
+
     opts+=" -$opt $OPTARG"
     case $opt in
         1) sa="$OPTARG" ;;

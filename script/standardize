@@ -1,0 +1,12 @@
+#!/usr/bin/env python
+
+import btk
+
+import numpy
+
+@btk.matrix_map
+def standardize(label, x):
+    ma = numpy.ma.masked_invalid(x)
+    return label, (x - ma.mean()) / ma.std()
+
+standardize.run()

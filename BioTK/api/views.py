@@ -6,8 +6,8 @@ import pandas as pd
 
 import BioTK.db
 from BioTK.mmat import MMAT
+from BioTK.db.matrix import get_matrix
 
-MATRICES = {}
 db = BioTK.db.connect()
 
 def view(template_name):
@@ -53,13 +53,6 @@ def view_query(fn):
 @view("index")
 def index(request):
     return
-
-def get_matrix(taxon_id, raw=False, index="sample"):
-    key = (taxon_id, index, "raw" if raw else "normalized")
-    if key not in MATRICES:
-        path = "/home/gilesc/data/ncbi/geo/matrix/taxon/%s/%s/%s" % key
-        MATRICES[key] = MMAT(path)
-    return MATRICES[key]
 
 @view_frame
 def matrix_gene(request, taxon_id, type, gene_id):

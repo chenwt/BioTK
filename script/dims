@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+tawk 'END {
+    print NR,NF
+}'
