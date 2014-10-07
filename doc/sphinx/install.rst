@@ -3,7 +3,7 @@ Installation
 ============
 
 BioTK is primarily tested and developed on Linux, and will likely work best
-there. However, it is also possible to install on Windows using Cygwin.
+there. However, it is also possible to install on Windows using Cygwin. 
 
 Linux
 =====
@@ -13,13 +13,21 @@ Ubuntu/Debian
 
 To install on Ubuntu/Debian, execute the following commands in a shell:
 
-    sudo apt-get install -y git python3 python3-pip
+.. code-block:: bash
 
+    sudo apt-get install -y git python3 python3-pip
+    git clone git@bitbucket.org:wrenlab/BioTK.git
+    cd BioTK
+    sudo python3 setup.py install
+ 
 Arch Linux
 ----------
 
 Execute these commands:
 
+.. code-block:: bash
+
+    sudo pacman -S --needed git python python-pip
     git clone git@bitbucket.org:wrenlab/BioTK.git
     cd BioTK
     sudo python3 setup.py install
@@ -32,6 +40,8 @@ Generic Linux or Linux without superuser privileges
 
 First, clone the repository:
 
+.. code-block:: bash
+
     git clone git@bitbucket.org:wrenlab/BioTK.git
     cd BioTK
 
@@ -40,10 +50,14 @@ as well as the binary dependencies specified in the binary-dependencies.txt
 file. The steps for doing this will vary according to your distribution. Next,
 run:
 
+.. code-block:: bash
+
     pip3 install -r requirements.txt  
     sudo python3 setup.py install
 
 For a non-superuser install, run these commands instead:
+
+.. code-block:: bash
 
     pip3 install --user -r requirements.txt
     python3 setup.py install --user

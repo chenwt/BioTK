@@ -16,13 +16,22 @@ bioinformatics tasks:
   (similar to BEDTools, GenomicRanges, etc.)
 - Generic data manipulation on the command-line
 
-Tutorial
-========
+Getting Started
+===============
 
 .. toctree::
     :maxdepth: 2
 
     install
+    configuration
+
+Manual
+======
+
+.. toctree::
+    :maxdepth: 2
+
+    datasets
 
 Development information
 =======================

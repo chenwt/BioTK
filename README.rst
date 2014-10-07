@@ -2,11 +2,9 @@
 BioTK
 =====
 
-Documentation: http://BioTK.readthedocs.org/
+Documentation: http://wrenlab.org/code/BioTK/
 
-..  Build Status: http://travis-ci.org/gilesc/BioTK
-
-Issues or Pull Requests? Please use the Github mechanisms.
+Issues or Pull Requests? Please use the Bitbucket mechanisms.
 
 License
 =======
