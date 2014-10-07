@@ -1,4 +1,5 @@
 pigz
+pixz
 datamash
 parallel
 rustc
@@ -7,3 +8,5 @@ lz4
 python3
 realpath
 lockfile
+tcbmgr
+tchmgr
