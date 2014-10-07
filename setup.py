@@ -225,6 +225,9 @@ try:
 except DependencyNotFound:
     print("* WARNING: libmdb not found.\n\tContinuing without BioTK.io.MDB.\n\tIf you wish to have MS Access support, install your platform's 'mdbtools' package.",
         file=sys.stderr)
+except FileNotFoundError:
+    # pkg-config not installed
+    pass
 
 ###############################
 # Dynamically determine version
