@@ -1,6 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/env awk
 
-import sys
+BEGIN {
+    OFS="\t"
+    FS="\t"
+}
 
-for fs in zip(*[line.strip("\n").split("\t") for line in sys.stdin]):
-    print(*fs, sep="\t")
+{
+    for (i=1; i<=NF; i++) {
+        a[NR,i] = $i
+    }
+}
+    
+NF > p { p = NF }
+    
+END {
+    for (j=1; j<=p; j++) {
+        s=a[1,j]
+        for (i=2; i<=NR; i++) {
+            s=s"\t"a[i,j]
+        }
+        print s
+    }
+}

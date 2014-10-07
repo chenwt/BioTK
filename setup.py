@@ -64,7 +64,7 @@ def install_binary_dependencies():
         distro = find_distribution()
         if distro is not None:
             script = "install/%s.sh" % distro
-            sp.call(["bash", script])
+            subprocess.call(["bash", script])
             return
     print("Aborting.")
 
@@ -281,6 +281,7 @@ setup(
         "doc": requirements,
         "mdb": ["mdbread"],
     },
+    install_requires=requirements,
     ext_modules=extensions,
     entry_points=entry_points,
 

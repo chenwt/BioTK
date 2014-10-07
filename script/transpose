@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-export PATH="$PATH":"$(dirname $0)"
-
 usage() {
     cat <<EOF 1>&2
 USAGE: $0 <options>

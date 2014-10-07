@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-pkgs=(base base-devel parallel lz4 pigz)
+pkgs=(base base-devel parallel lz4 pigz cython)
 aur_pkgs=(pixz datamash tokyocabinet)
 
 # Python packages
