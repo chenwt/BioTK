@@ -1,12 +1,13 @@
-pigz
-pixz
-datamash
-parallel
-rustc
-cargo
-lz4
-python3
-realpath
-lockfile
-tcbmgr
-tchmgr
+# Required
+gzip	Compression utility
+parallel	GNU parallel
+lz4	LZ4 compression utility
+pixz	Parallel XZ/LZMA compression utility
+
+# Optional
+datamash	Data manipulation utility
+pigz	Parallel GZip compression
+tcbmgr	Tokyo Cabinet
+realpath	Find absolute paths to files
+
+#lockfile	POSIX file locking

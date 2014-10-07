@@ -37,9 +37,3 @@ pyyaml
 # Documentation
 docutils
 sphinx
-
-# Web packages
-bottle
-cherrypy
-jinja2
-git+https://github.com/gilesc/python-nvd3/

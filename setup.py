@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 import os
+import re
 import pkgutil
 import shutil
 import subprocess
@@ -14,9 +17,66 @@ from pip.req import parse_requirements
 args = sys.argv[2:]
 devnull = open(os.devnull, "w")
 
+##################################
+# Check environment / dependencies
+##################################
+
+# Change to package root directory
+os.chdir(os.path.abspath(os.path.dirname(__file__)))
+
+# Ensure Python 3.2+
+
+import platform
+from distutils.version import StrictVersion
+assert StrictVersion(platform.python_version()) > StrictVersion("3.2.0")
+
+# Check native dependencies
+
 class DependencyNotFound(Exception):
     def __init__(self, *args, **kwargs):
         super(DependencyNotFound, self).__init__(*args, **kwargs)
+
+from distutils.spawn import find_executable
+
+def read_requirements(path):
+    with open(path) as h:
+        for line in h:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                exe, name = line.split("\t")
+                yield exe, name
+
+distro_map = {
+        "Arch Linux": "archlinux"
+}
+
+def find_distribution():
+    for path in os.listdir("/etc"):
+        if path.endswith("-release"):
+            with open("/etc/" + path) as h:
+                m = re.search('NAME="(.+?)"', h.read())
+                if m is not None:
+                    return distro_map.get(m.group(1))
+
+def install_binary_dependencies():
+    print("""One or more required binary packages could not be found. Would you like the installer to attempt automatic installation? This requires superuser privileges. (y/n)""")
+    if input().lower() == "y":
+        distro = find_distribution()
+        if distro is not None:
+            script = "install/%s.sh" % distro
+            sp.call(["bash", script])
+            return
+    print("Aborting.")
+
+if not "doc" in sys.argv:
+    print("* Checking binary dependencies ...")
+
+    for exe, name in read_requirements("binary-requirements.txt"):
+        ok = find_executable(exe)
+        msg = '\t%s ("%s") ... %s' % (name, exe, "OK" if ok else "FAIL")
+        print(msg)
+        if not ok:
+            install_binary_dependencies()
 
 ################################
 # setup.py commands/entry points
@@ -33,7 +93,8 @@ try:
             super(BuildDoc, self).__init__(*args, **kwargs)
     cmdclass["doc"] = BuildDoc
 except ImportError:
-    pass
+    if "doc" in sys.argv:
+        raise SystemExit("Sphinx is required to build documentation.")
 
 try:
     from Cython.Distutils import build_ext
@@ -91,39 +152,9 @@ entry_points = {"console_scripts":
                 [
                     "mmat = BioTK.mmat:cli"
                 ]}
-"""
-        [
-            "btk = BioTK.cli:btk",
-            "transpose = BioTK.cli.standalone:transpose"
-        ]}
-
-for root, dirs, files in os.walk(join(dirname(__file__), "BioTK", "script")):
-    for file in files:
-        if file.endswith(".py") and file != "__init__.py":
-            name = splitext(file)[0]
-            module = "BioTK.script.%s:main" % name
-            entry_points["console_scripts"].append("%s = %s" %
-                    (name.replace("_", "-"), module))
-"""
 
 requirements = [str(item.req) for item in
         parse_requirements("requirements.txt")]
-
-###########################
-# Check native dependencies
-###########################
-
-from distutils.spawn import find_executable
-
-with open("binary-requirements.txt") as h:
-    for line in h:
-        req = line.strip()
-        if not req or req.startswith("#"):
-            continue
-        if not find_executable(req):
-            raise DependencyNotFound("Binary dependency %s not found in PATH. Aborting." % req)
-        else:
-            print("* Found", req, file=sys.stderr)
 
 #########################
 # Set include directories
