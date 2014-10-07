@@ -47,16 +47,18 @@ def read_requirements(path):
                 yield exe, name
 
 distro_map = {
-        "Arch Linux": "archlinux"
+        "Arch Linux": "archlinux",
+        "Ubuntu": "ubuntu"
 }
 
 def find_distribution():
-    for path in os.listdir("/etc"):
-        if path.endswith("-release"):
-            with open("/etc/" + path) as h:
-                m = re.search('NAME="(.+?)"', h.read())
-                if m is not None:
-                    return distro_map.get(m.group(1))
+    path = "/etc/os-release"
+    if not os.path.exists(path):
+        return
+    with open(path) as h:
+        m = re.search('NAME="(.+?)"', h.read())
+        if m is not None:
+            return distro_map.get(m.group(1))
 
 def install_binary_dependencies():
     print("""One or more required binary packages could not be found. Would you like the installer to attempt automatic installation? This requires superuser privileges. (y/n)""")
@@ -77,6 +79,7 @@ if not "doc" in sys.argv:
         print(msg)
         if not ok:
             install_binary_dependencies()
+            break
 
 ################################
 # setup.py commands/entry points
