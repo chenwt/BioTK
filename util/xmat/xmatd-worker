@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+DATADIR="$1"
+cd "$DATADIR"
+
+list() {
+    for m in $(ls *.xmat 2>/dev/null); do
+        echo $(basename $m .xmat)
+    done
+    for m in $(find -mindepth 2 -name "*.xmat"); do
+        p="$(dirname $m)/$(basename $m .xmat)"
+        echo ${p:2}
+    done
+}
+
+declare -a args
+read cmd
+read n
+for i in $(seq $n); do
+    read arg
+    args+=($arg)
+done
+
+xmat $cmd "${args[@]}"

@@ -1,0 +1,6 @@
+*
+
+!.gitignore
+!xmat
+!xmatd
+!xmatd-worker

@@ -50,16 +50,11 @@ class FieldReader(object):
 
 # FIXME: output series
 class MatrixReader(FieldReader):
-    def __init__(self, *args, header=True,
-            **kwargs):
-        self.header = header
-        super(MatrixReader, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(MatrixReader, self).__init__(*args, **kwargs)
 
     def __next__(self):
         fields = super(MatrixReader, self).__next__()
-        if self.header:
-            self.header = False
-            return fields
         name, *data = fields
         data = np.array(list(map(parse_float, data)))
         return name, data
@@ -71,12 +66,11 @@ def map_over_matrix(fn, handle=None):
         path_or_handle = handle
 
     handle = path_or_handle
-    header = next(handle).strip("\n")
-    print(header)
-    columns = header.split("\t")[1:]
+    #header = next(handle).strip("\n")
+    #print(header)
+    #columns = header.split("\t")[1:]
 
-    p = mp.Pool()
-    for name, rs in p.imap_unordered(fn, handle):
+    for name, rs in map(fn, handle):
         if rs is not None:
             print(name, *rs, sep="\t")
 

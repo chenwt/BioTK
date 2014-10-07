@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+tc=tcbmgr
+ext=.tcb
+
+_fix_input() {
+    awk '
+        BEGIN {
+            FS=OFS="\t"
+        }
+        {
+            for (i=2; i<=NF; i++) {
+                if ($i == "") {
+                    $i="nan"
+                }
+            }
+            print
+        }'
+}
+export -f _fix_input
+
+load() {
+    $tc create -tl -td "${path}"
+    read -r header
+    {
+        echo "$header" \
+            | awk 'BEGIN { FS=OFS="\t" } { $1="_index"; print }'
+        parallel --pipe _fix_input 
+    } | $tc importtsv -nb "${path}"
+}
+
+_print_header() {
+    echo -ne "\t"
+    $tc get -nl "${path}" _index
+}
+
+query() {
+    _print_header
+    while read pkey; do
+        echo -ne "$pkey\t"
+        $tc get -nl $path "$pkey"
+    done
+}
+
+dump() {
+    $tc list -nl "${path}" | grep -v _index | query
+}
+
+cmd="$1"
+name="$2"
+path=${name}${ext}
+shift 2
+$cmd "$@"

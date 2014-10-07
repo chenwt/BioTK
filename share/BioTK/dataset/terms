@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+read -d '' q <<EOF
+(
+    SELECT t.accession, s.value
+    FROM term t
+    INNER JOIN relation r
+    ON r.object_id=t.id
+    INNER JOIN synonym s
+    ON r.subject_id=s.id
+    INNER JOIN predicate p
+    ON r.predicate_id=p.id
+    WHERE 
+        p.value='synonym_of'
+)
+UNION
+(
+    SELECT t.accession, t.name
+    FROM term t
+)
+EOF
+
+btkdb query "$q" | sort -u

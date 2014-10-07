@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+"""
+Text-mining utilities based on BioTK.
+"""
+
+import sys
+
+import click
+
+import BioTK.text
+
+#####
+# CLI
+#####
+
+@click.group()
+def cli():
+    pass
+
+@cli.command(help="Compute a sparse postings matrix from documents and terms")
+@click.option("--case-insensitive-terms", "-i",
+              type=click.File("r"), required=True)
+@click.option("--case-sensitive-terms", "-s",
+              type=click.File("r"))
+#@click.option("--no-overlaps", "-O")
+def count(case_insensitive_terms, case_sensitive_terms=None):
+    t = BioTK.text.MixedCaseSensitivityTrie()
+    with case_insensitive_terms as h:
+        for line in h:
+            id, text = line.strip("\n").split("\t", 1)
+            t.add(text, key=id, case_sensitive=False)
+    if case_sensitive_terms is not None:
+        with case_sensitive_terms as h:
+            for line in h:
+                id,text = line.strip("\n").split("\t", 1)
+                t.add(text, key=id, case_sensitive=True)
+    t.build()
+
+    for line in sys.stdin:
+        id, text = line.strip("\n").split("\t", 1)
+        matches = set(m.key for m in t.search(text))
+        if matches:
+            print(id, *matches, sep="\t")
+
+if __name__ == "__main__":
+    cli()

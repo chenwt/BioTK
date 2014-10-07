@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 taxon="$1"
-output="$2"
+
+export LC_ALL=en_US.UTF-8
+export LC_COLLATE=en_US.UTF-8
 
 read -d '' q <<EOF
 SELECT platform.accession
@@ -11,23 +13,20 @@ ON platform.taxon_id=taxon.id
 WHERE taxon.accession='$taxon'
 EOF
 
-#accessions=$(mktemp)
-#trap 'rm -f $accessions' EXIT
-#btkdb query "$q" > $accessions
-
-mkdir -p "$output"/{raw,normalized}
+#mkdir -p "$output"/{sample,gene}
 
 {
-    #for gpl in $(btkdb query "$q"); do
-    for gpl in GPL96 GPL570; do
+    for gpl in $(btkdb query "$q"); do
         dataset matrix gene "$gpl" 2> /dev/null
     done
 }   | grep -v '^$' | {
     head -1
     grep '^GSM'
-}   | tee >(dm transpose | mmat load "$output"/raw) \
-    | dm pmap log-transform \
-    | dm pmap standardize \
-    | dm transpose \
-    | mmat load "$output"/normalized
-
+}   
+    #| tee >(mmat load "$output"/sample/raw) \
+    #| tee >(dm transpose | mmat load "$output"/gene/raw) \
+    #| dm pmap log-transform \
+    #| dm pmap standardize \
+    #| tee >(mmat load "$output"/sample/normalized) \
+    #| dm transpose \
+    #| mmat load "$output"/gene/normalized

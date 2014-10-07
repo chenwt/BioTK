@@ -1,21 +1,7 @@
 #!/usr/bin/env bash
 
-mkdir -p $HOME/.cache/parallel/
 export args="$@"
 
 read -r header
-
-fn() {
-    {
-        echo "$header"
-        cat
-    } | $args | sed 1d
-}
-export -f fn
-
 echo "$header"
-parallel \
-        --compress --tmpdir=$HOME/.cache/parallel/ \
-        --round-robin \
-        --block 10M \
-        --pipe fn
+parallel --block 10M --pipe "$@"

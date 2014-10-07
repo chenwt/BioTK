@@ -8,6 +8,7 @@ import BioTK.mmat
 from . import connect, fetch_table
 
 MATRIX_BASE = "/home/gilesc/data/ncbi/geo/matrix/taxon/"
+MATRIX_BASE = "/home/gilesc/control/GPL570/"
 MATRICES = {}
 
 def get_matrix(taxon_id,
@@ -76,8 +77,8 @@ def mean_per_tissue(taxon_id):
     m = get_matrix(taxon_id, raw=True)
     attr = fetch_table("channel_attribute")
     attr = attr.ix[attr["taxon_accession"] == \
-                   taxon_id,:]\
-        .drop_duplicates(subset=["channel_accession"])
+                   taxon_id,:]
+        #.drop_duplicates(subset=["channel_accession"])
     attr.index = attr["channel_accession"]
     tissues = attr["tissue_accession"]
     data = {}
@@ -93,11 +94,12 @@ def mean_per_tissue(taxon_id):
         ix = tissues == tissue
         accessions = list(set(m.index) & \
             set(attr.ix[ix,:]["channel_accession"]))
+        print(accessions, file=sys.stderr)
         if not accessions or len(accessions) < 25:
             continue
         print(tissue, len(accessions), file=sys.stderr)
         random.shuffle(accessions)
-        accessions = accessions[:500]
+        #accessions = accessions[:500]
 
         X = m.loc[accessions,:].to_frame()
         if False:
@@ -116,3 +118,7 @@ def mean_per_tissue(taxon_id):
     o = pd.DataFrame.from_dict(data)
     o.index.name = "Gene ID"
     return o
+
+if __name__ == "__main__":
+    mean_per_tissue("9606")\
+        .to_csv(sys.stdout, sep="\t")
