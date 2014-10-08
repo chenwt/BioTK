@@ -15,9 +15,10 @@ To install on Ubuntu/Debian, execute the following commands in a shell:
 
 .. code-block:: bash
 
-    sudo apt-get install -y git python3 python3-pip
-    git clone git@bitbucket.org:wrenlab/BioTK.git
+    sudo apt-get install -y git
+    git clone http://bitbucket.org/wrenlab/BioTK.git
     cd BioTK
+    ./install/ubuntu.sh
     sudo pip3 install -r requirements.txt
     sudo python3 setup.py install
  
@@ -28,9 +29,10 @@ Execute these commands:
 
 .. code-block:: bash
 
-    sudo pacman -S --needed git python python-pip
-    git clone git@bitbucket.org:wrenlab/BioTK.git
+    sudo pacman -S --needed git
+    git clone http://bitbucket.org/wrenlab/BioTK.git
     cd BioTK
+    ./install/archlinux.sh
     sudo pip3 install -r requirements.txt
     sudo python3 setup.py install
 
@@ -41,7 +43,7 @@ First, clone the repository:
 
 .. code-block:: bash
 
-    git clone git@bitbucket.org:wrenlab/BioTK.git
+    git clone http://bitbucket.org/wrenlab/BioTK.git
     cd BioTK
 
 You will need to ensure that you have Python version 3.2 or greater installed.
