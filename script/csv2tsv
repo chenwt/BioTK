@@ -3,7 +3,9 @@
 import csv
 import sys
 
-import btk
+# Don't throw broken pipe error at EOF
+from signal import signal, SIGPIPE, SIG_DFL
+signal(SIGPIPE,SIG_DFL)
 
 reader = csv.reader(sys.stdin)
 for row in reader:
