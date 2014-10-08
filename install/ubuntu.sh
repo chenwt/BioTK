@@ -6,7 +6,7 @@ pkgs=(
     tokyocabinet-bin libtokyocabinet-dev 
     pixz pigz
     liblz4-tool
-    cython3
+    python3-numpy python3-scipy python3-matplotlib
 )
 
 sudo apt-get install -y ${pkgs[@]}

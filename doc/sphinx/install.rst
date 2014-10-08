@@ -18,6 +18,7 @@ To install on Ubuntu/Debian, execute the following commands in a shell:
     sudo apt-get install -y git python3 python3-pip
     git clone git@bitbucket.org:wrenlab/BioTK.git
     cd BioTK
+    sudo pip3 install -r requirements.txt
     sudo python3 setup.py install
  
 Arch Linux
@@ -30,10 +31,8 @@ Execute these commands:
     sudo pacman -S --needed git python python-pip
     git clone git@bitbucket.org:wrenlab/BioTK.git
     cd BioTK
+    sudo pip3 install -r requirements.txt
     sudo python3 setup.py install
-
-You may be prompted for your superuser password or to enter other information
-during the install process.
 
 Generic Linux or Linux without superuser privileges
 ---------------------------------------------------
@@ -45,10 +44,11 @@ First, clone the repository:
     git clone git@bitbucket.org:wrenlab/BioTK.git
     cd BioTK
 
-You will need to ensure that you have Python version 3.2 or greater installed,
-as well as the binary dependencies specified in the binary-dependencies.txt
-file. The steps for doing this will vary according to your distribution. Next,
-run:
+You will need to ensure that you have Python version 3.2 or greater installed.
+Also, the binary dependencies specified in the binary-dependencies.txt must be
+installed and on your PATH.
+
+Next, run:
 
 .. code-block:: bash
 
@@ -66,3 +66,24 @@ Windows
 =======
 
 TODO
+
+Developer install
+=================
+
+A developer install will allow you to edit files in the BioTK/ directory and
+have those changes take effect immediately without having to reinstall each
+time. To do this, instead of:
+
+.. code-block:: bash
+
+    sudo python3 setup.py install
+
+run,
+
+.. code-block:: bash
+    
+    python3 setup.py develop --user
+
+In order for scripts to be detected in this kind of install,
+``$HOME/.local/bin`` must be on your ``$PATH``. (You can configure this in
+``$HOME/.bashrc`` or your shell's equivalent).
