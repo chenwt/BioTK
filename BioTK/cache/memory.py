@@ -12,9 +12,12 @@ import redis
 
 from BioTK import CONFIG
 
-CACHE = redis.StrictRedis(
-        host=CONFIG["redis.host"],
-        port=int(CONFIG["redis.port"]))
+CACHE = None
+def initialize_cache():
+    global CACHE
+    CACHE = redis.StrictRedis(
+            host=CONFIG["redis.host"],
+            port=int(CONFIG["redis.port"]))
 
 # Set to a long time on the assumption that the memory policy
 # is some variant of "volatile-*" 
@@ -31,6 +34,9 @@ def cached(fn):
     """
     @functools.wraps(fn)
     def decorator(*args, **kwargs):
+        if CACHE is None:
+            initialize_cache()
+
         kwargs_tuple = tuple(sorted(kwargs.items()))
         if not isinstance(args, collections.Hashable) \
                 or not isinstance(kwargs_tuple, collections.Hashable):

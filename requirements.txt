@@ -18,12 +18,8 @@ networkx
 nltk
 
 # Data management
-redis
-hiredis
-celery
-
-# Data management
 psycopg2
+redis
 
 # Utilities
 cement
@@ -32,8 +28,14 @@ pyparsing
 click
 lz4
 setproctitle
+
+# YAML parsing (from Python and shell)
 pyyaml
+shyaml
 
 # Documentation
 docutils
 sphinx
+
+# Experimental
+dataset

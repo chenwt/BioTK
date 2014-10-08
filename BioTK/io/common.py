@@ -1,6 +1,10 @@
 import mimetypes
 import gzip
 import bz2
+from urllib.parse import urlparse
+from collections import OrderedDict
+
+import BioTK.cache
 
 def generic_open(path, mode="rt"):
     """
@@ -19,19 +23,50 @@ def generic_open(path, mode="rt"):
     """
 
     # FIXME: detect zipped file based on magic number, not extension
-    # FIXME: enable opening zipped file in text mode
-    # FIXME: detect URLs and detect and unzip a zipped URL 
-    # FIXME: allow caching of downloads
 
     if hasattr(path, "read"):
         return path
 
+    parse = urlparse(path)
     type, compression = mimetypes.guess_type(path)
+
+    if parse.scheme in ("http", "https", "ftp"):
+        return download(path)
 
     if compression == "gzip":
         h = gzip.open(path, mode=mode)
     elif compression == "bzip2":
-        h = bz2.BZ2File(h, mode=mode)
+        h = bz2.BZ2File(path, mode=mode)
     else:
         h = open(path, mode=mode)
     return h
+
+class DelimitedFile(object):
+    def __init__(self, path_or_handle, delimiter=","):
+        self.handle = generic_open(path_or_handle)
+        self.reader = csv.reader(self.handle, delimiter=delimiter)
+
+    def __iter__(self):
+        columns = next(self.reader)
+        for fields in self.reader:
+            yield OrderedDict(zip(columns, fields))
+
+    def __enter__(self, *args, **kwargs):
+        pass
+
+    def __del__(self):
+        self.handle.close()
+
+    def __exit__(self, *args, **kwargs):
+        self.handle.close()
+
+class TSVFile(DelimitedFile):
+    DELIMITER = "\t"
+
+    def __init__(self, *args, **kwargs):
+        kwargs["delimiter"] = self.DELIMITER
+        super(DelimitedFile,self).__init__(*args, **kwargs)
+
+def download(url):
+    path = BioTK.cache.download(url)
+    return generic_open(path)

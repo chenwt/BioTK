@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source $(which BioTK.sh)
+
 tawk 'END {
     print NR,NF
 }'
