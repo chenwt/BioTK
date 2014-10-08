@@ -15,18 +15,36 @@ EOF
     exit $1
 }
 
-lines=250
+transpose-block() {
+    awk -f <(cat <<"EOF"
 
-while getopts ml: opt; do
-    case $opt in
-        m) export TMPDIR=/dev/shm ;;
-        l) lines="$OPTARG" ;;
-        h) usage 0 ;;
-    esac
-done
+BEGIN {
+    OFS="\t"
+    FS="\t"
+}
 
-wd=$(mktemp -d)
-trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
+{
+    for (i=1; i<=NF; i++) {
+        a[NR,i] = $i
+    }
+}
+    
+NF > p { p = NF }
+    
+END {
+    for (j=1; j<=p; j++) {
+        s=a[1,j]
+        for (i=2; i<=NR; i++) {
+            s=s"\t"a[i,j]
+        }
+        print s
+    }
+}
+
+EOF
+)
+
+}
 
 process() {
     lz4 -dq $1 | transpose-block | lz4 -q > ${1}.tmp
@@ -34,7 +52,28 @@ process() {
 }
 export -f process
 
-split -l $lines --filter='lz4 > $FILE' - $wd/x
-parallel process ::: $wd/x*
-lzpaste $wd/*
-rm -rf $wd
+lines=250
+IN_MEM=
+
+while getopts ml: opt; do
+    case $opt in
+        m) IN_MEM=y ;;
+        l) lines="$OPTARG" ;;
+        h) usage 0 ;;
+    esac
+done
+
+
+if [ ! -z "$IN_MEM" ]; then
+    # Transpose in RAM
+    transpose-block
+else
+    # Otherwise, store intermediate results in tempfiles
+    wd=$(mktemp -d)
+    trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
+
+    split -l $lines --filter='lz4 > $FILE' - $wd/x
+    parallel process ::: $wd/x*
+    lzpaste $wd/*
+    rm -rf $wd
+fi
