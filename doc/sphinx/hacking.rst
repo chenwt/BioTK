@@ -1,4 +1,34 @@
 =================
+BioTK Development
+=================
+
+Architecture & philosophy
+=========================
+
+The broad organizing principles of BioTK are as follows:
+
+1. Write it as a shell script if possible. If that's not practical or too complex,
+2. Then write it in Python, factoring things into reusable functions. If that is too slow,
+3. First, try parallelizing it with GNU parallel. If it's still too slow,
+4. Then write it in Cython or C++, as a last resort.
+
+In any case, user-facing functions (executables) should follow the UNIX
+philosophy, namely, each executable should:
+
+- Do one thing well
+- Be written as a "filter" (read from stdin, output to stdout)
+- The only time an executable should produce something like a "log file" is if
+  it is a daemon (e.g., a process that is going to run
+  constantly/indefinitely). Long batch jobs should print output to stdout and
+  logs/errors to stderr.
+- Sometimes programs have to take more than one input, but they should very,
+  very rarely produce more than one output (and that should be stdout).
+
+Try to avoid inducing unnecessary dependencies, but if adding a dependency will
+drastically shorten your workload, don't hesitate. Add it in the
+requirements.txt (for a Python dependency) or binary-requirements.txt (for
+native). Prefer Python dependencies to native dependencies.
+
 How to contribute
 =================
 

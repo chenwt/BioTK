@@ -59,6 +59,7 @@ extract $(list | head -1) | cut -f1 \
     | tee $probes \
     | perl -pe 'chomp if eof' \
     | tr '\n' '\t'
+echo
 
 process() {
     path="$1"

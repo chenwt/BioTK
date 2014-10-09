@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 tc=tcbmgr
-ext=.tcb
+ext=.xmat
 
 _fix_input() {
     awk '
@@ -20,6 +20,8 @@ _fix_input() {
 export -f _fix_input
 
 load() {
+    export path="$1"
+
     $tc create -tl -td "${path}"
     read -r header
     {
@@ -30,24 +32,66 @@ load() {
 }
 
 _print_header() {
+    path="$1"
     echo -ne "\t"
     $tc get -nl "${path}" _index
 }
 
+_parse_file() {
+    if [[ $1 == "-" ]]; then
+        echo "/dev/stdin"
+    else
+        echo "$1"
+    fi
+}
+export -f _parse_file
+
 query() {
-    _print_header
-    while read pkey; do
-        echo -ne "$pkey\t"
-        $tc get -nl $path "$pkey"
+    query_usage() {
+        echo "USAGE: xmat query [ -r <path> -c <path> ]"
+        echo
+        echo "  where <path> is a path to a file containing IDs, one per line,"
+        echo "  or '-' for stdin"
+    }
+
+    local OPTIND
+    while getopts r:c:h opt; do
+        case $opt in
+            r) r=$(_parse_file $OPTARG) ;;
+            c) c=$(_parse_file $OPTARG) ;;
+            h) query_usage && exit 0 ;;
+            ?) query_usage && exit 1 ;;
+        esac
     done
+    shift $((OPTIND - 1))
+    path="$1"
+    [[ -z "$path" ]] && query_usage && exit 1
+
+    {
+        _print_header $path
+
+        {
+            if [[ -z "$r" ]]; then
+                $tc list -nl "${path}" | grep -v _index
+            else
+                cat "$r"
+            fi | while read pkey; do
+                echo -ne "$pkey\t"
+                $tc get -nl $path "$pkey"
+            done 
+        }
+    } | if [[ ! -z "$c" ]]; then
+        select-columns "$c"
+    else
+        cat
+    fi
 }
 
 dump() {
-    $tc list -nl "${path}" | grep -v _index | query
+    path="$1"
+    query -r <($tc list -nl "${path}" | grep -v _index) $path
 }
 
 cmd="$1"
-name="$2"
-path=${name}${ext}
-shift 2
+shift
 $cmd "$@"

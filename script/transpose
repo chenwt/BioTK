@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source $(dirname $0)/BioTK.sh
+
 usage() {
     cat <<EOF 1>&2
 USAGE: $0 <options>
@@ -45,6 +47,7 @@ EOF
 )
 
 }
+export -f transpose-block
 
 process() {
     lz4 -dq $1 | transpose-block | lz4 -q > ${1}.tmp

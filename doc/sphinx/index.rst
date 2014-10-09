@@ -24,7 +24,22 @@ Getting Started
 
     install
     configuration
-    tutorial
+
+Tutorials
+=========
+
+BioTK contains shell utilities and Python APIs. In these tutorials, we mostly
+focus on the shell utilities. The Python APIs can be used for more custom
+tasks.
+
+.. toctree::
+    :maxdepth: 2
+
+    tutorial/geo
+    tutorial/matrix-analysis
+    tutorial/dataset
+    tutorial/text-mining
+    tutorial/genome
 
 Manual
 ======

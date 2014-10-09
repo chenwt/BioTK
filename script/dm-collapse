@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+
+import pandas as pd
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("mapping", type=argparse.FileType("r"))
+    args = p.parse_args()
+
+    mapping = {}
+    for line in args.mapping:
+        fields = line.strip("\n").split("\t")
+        if len(fields) == 2:
+            mapping[fields[0]] = fields[1]
+
+    def max_mean(X):
+        mu = X.mean(axis=0)
+        mu.sort(ascending=False)
+        return X.ix[:,mu.index[0]]
+
+    ix = None
+    for i,X in enumerate(pd.read_table(sys.stdin, 
+            chunksize=100,
+            sep="\t", header=0, index_col=0)):
+        X.index = list(map(str, X.index))
+        X.columns = list(map(str, X.columns))
+        Xg = X.groupby(mapping, axis=1).apply(max_mean)
+
+        if ix is not None:
+            assert (Xg.columns == ix).all()
+        ix = Xg.columns
+
+        Xg.to_csv(sys.stdout, 
+                sep="\t", header=(i==0),
+                float_format="%0.3f")

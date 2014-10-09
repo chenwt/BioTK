@@ -3,6 +3,7 @@ gzip	Compression utility
 parallel	GNU parallel
 lz4	LZ4 compression utility
 pixz	Parallel XZ/LZMA compression utility
+dig	DNS lookup
 
 # Optional
 datamash	Data manipulation utility

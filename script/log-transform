@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+
+import pandas as pd
+import numpy as np
+
+from signal import signal, SIGPIPE, SIG_DFL
+signal(SIGPIPE, SIG_DFL)
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--base", "-b", type=float, default=2,
+            help="Logarithm base (default 2)")
+    p.add_argument("--range", "-r", type=float, 
+            help="For each row, iff (max-min) is greater than this value, then the row will be log-transformed. If this parameter is omitted, all rows will be transformed.")
+    p.add_argument("--shift", "-s", action="store_true",
+            help="Before transforming, shift values in each row so that the minimum is equal to 1 (prevents problems with negative or zero values).")
+    args = p.parse_args()
+
+    # A negative value (no range specified) will
+    # apply log2 to everything
+    r = args.range or -1
+
+    # multiply by this to change logarithm base from e to args.base
+    factor = 1 / np.log(args.base)
+
+    def log_transform(x):
+        if args.shift:
+            x -= x.min() + 1
+        if x.max() - x.min() > r:
+            return x.apply(np.log) * factor
+        return x
+
+    chunks = pd.read_table(sys.stdin, sep="\t", 
+            header=0, index_col=0, chunksize=10)
+    for i,X in enumerate(chunks):
+        X = X.apply(log_transform, axis=0)
+        X.to_csv(sys.stdout, sep="\t", header=(i==0),
+                float_format="%0.3f")

@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+
+import pandas as pd
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("-n", default=20, type=int, 
+            help="Number of top correlated columns to print.")
+    p.add_argument("--all", "-a", action="store_true",
+            help="Print entire correlation matrix")
+    p.add_argument("--significant-digits", "-d", type=int, default=2)
+    # --method: pearson/spearman/kendall
+    args = p.parse_args()
+    float_format = "%0." + str(args.significant_digits) + "f"
+
+    X = pd.read_table(sys.stdin, header=0, index_col=0, sep="\t")
+    C = X.corr()
+
+    if args.all:
+        C.to_csv(sys.stdout, sep="\t", float_format=float_format)
+    else:
+        n = min(args.n, len(C.index)-1)
+        for j in C.index:
+            x = C.ix[j,:]
+            x.sort()
+            print(j,*x[::-1].index[:n],sep="\t")
