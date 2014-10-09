@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+shopt -s nullglob
+
+usage() {
+    cat <<EOF 1>&2
+Extract an expression matrix from a GEO MiniML archive.
+
+USAGE: $0 <options> archive-path
+
+options:
+  -v : verbose output
+  -h : show this help
+EOF
+    exit 1
+}
+
+export probes=$(mktemp -p $CACHE)
+trap 'rm -rf $probes' EXIT
+
+verbose=
+while getopts ncvh opt; do
+    case $opt in
+        v) verbose=y ;;
+        h) usage ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+[[ $# != 1 ]] && usage
+export archive="$1"
+export verbose
+
+# Test if valid PIXZ archive
+pixz -l ${archive} &> /dev/null || {
+    echo "ERROR: '${archive}' is not a valid pixz-compressed TAR archive!"
+    exit 1
+} 1>&2
+
+# Detect accession
+accession=$(pixz -l ${archive} \
+    | egrep -m 1 '*_family.xml' \
+    | sed 's/_family.xml$//')
+echo "* Processing $accession" 1>&2
+
+extract() {
+    pixz -x "$@" -i ${archive} | tar -Oxf -
+}
+export -f extract
+
+list() {
+    pixz -l ${archive} | grep '^GSM' | grep -P '.txt$'
+}
+
+# Extract probes
+echo -ne '\t'
+extract $(list | head -1) | cut -f1 \
+    | sort -k1b,1 -u \
+    | tee $probes \
+    | perl -pe 'chomp if eof' \
+    | tr '\n' '\t'
+
+process() {
+    path="$1"
+    gsm=$(echo $path \
+        | sed 's/-tbl//' \
+        | sed 's/.txt$//')
+    echo -ne "$gsm\t"
+    extract $path \
+        | cut -f1-2 \
+        | tawk '$2 !~ /[^0-9.\-Ee]/' \
+        | sort -k1b,1 \
+        | join -o 1.2 -t '	' -a 2 - $probes \
+        | awk 'NF == 0 { print "nan" } NF == 1 { print $1 }' \
+        | tr '\n' '\t' \
+        | sed 's/\t$//'
+    echo
+}
+export -f process
+
+# Extract data
+list | parallel --no-notice process

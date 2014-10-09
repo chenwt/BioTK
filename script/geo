@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# Perform operations on GEO data and query GEOmetadb
+
+source $(dirname $0)/BioTK.sh
+
+cmd="$1"
+
+which geo-"$cmd" &> /dev/null || {
+
+    cat 1>&2 <<EOF
+geo - Fetch and manipulate data from NCBI GEO
+
+Available subcommands:
+
+    fetch - Download and compress MiniML data
+    extract - Extract a matrix from a MiniML archive
+EOF
+    exit 0
+}
+
+shift
+geo-${cmd} "$@"

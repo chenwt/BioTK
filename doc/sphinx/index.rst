@@ -24,6 +24,7 @@ Getting Started
 
     install
     configuration
+    tutorial
 
 Manual
 ======

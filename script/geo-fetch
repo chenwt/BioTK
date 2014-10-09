@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF 1>&2
+Download, reorder, and LZMA compress GEO platform data in MiniML format.
+
+USAGE: $(basename $0) [-o outdir] GPL1234 GPL4567 ...
+EOF
+}
+
+outdir=$(pwd)
+host=anonftp@ftp.ncbi.nlm.nih.gov
+tmpdir=$(mktemp -d -p $CACHE)
+speed=200M
+
+trap "rm -rf $tmpdir" EXIT
+
+while getopts ho: opt; do
+    case $opt in
+        o) outdir=$(realpath "$OPTARG") ;;
+        h) usage && exit 0 ;;
+        *) usage && exit 1 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [ $# == 0 ]; then
+    #sqlite3 $DATA/bioconductor/GEOmetadb.sqlite "SELECT gpl FROM gpl;"
+    usage && exit 1
+else
+    for gpl in "$@"; do
+        echo $gpl
+    done
+fi | while read accession; do
+    if [[ "$accession" == "GPL6801" ]]; then
+        continue
+    fi
+
+    if [ ${#accession} -lt 6 ]; then
+        group=GPLnnn
+    else
+        group=${accession:0:-3}nnn
+    fi
+    o="$outdir"/${accession}.miniml.tar
+    if [ -f "$o" ]; then
+        continue
+    fi
+
+    uri=/geo/platforms/${group}/${accession}/miniml/
+    wd=$tmpdir/$accession
+
+    echo "* Downloading $accession ..." 1>&2
+    aspera-copy -d $host:$uri $tmpdir || continue #&> /dev/null
+    mv $tmpdir/miniml $wd
+    echo "* Decompressing $accession data ..." 1>&2
+    for file in $wd/*.tgz; do
+        tar --use-compress-program=pigz -C $wd -xf $file
+    done
+    rm $wd/*.tgz
+    echo "* Archiving $accession ..." 1>&2
+    ( cd $wd ; tar -cf - * > "$o")
+    pixz -1 "$o"
+    echo "* Cleaning up temporary files ..." 1>&2
+    rm -rf $wd
+done

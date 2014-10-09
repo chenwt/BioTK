@@ -153,7 +153,7 @@ cmdclass["clean"] = Clean
 
 entry_points = {"console_scripts":
                 [
-                    "mmat = BioTK.mmat:cli"
+                    #"mmat = BioTK.mmat:cli"
                 ]}
 
 requirements = [str(item.req) for item in
@@ -277,6 +277,8 @@ setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics"
     ],
     license="AGPLv3+",
+
+    scripts=[os.path.join("script",x) for x in os.listdir("script")],
 
     zip_safe=False,
     packages=find_packages(),
