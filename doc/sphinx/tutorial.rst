@@ -31,16 +31,16 @@ You will see a list of available subcommands.
 Downloading MiniML files
 ------------------------
 
-We will be working with the TaqMan qRT-PCR Homo sapiens Low-Density Array 380,
-which has GEO accession ``GPL13728``, and approximately 370 available samples.
-You can download the raw expression data for this platform using the command:
+We will be working with the Affymetrix Human Genome U95A Array which has GEO
+accession ``GPL91``, and approximately 1000 available samples.  You can
+download the raw expression data for this platform using the command:
 
 .. code-block:: bash
 
-    geo fetch GPL13728
+    geo fetch GPL91
 
 This will download the data and create a file in your current directory called
-``GPL13728.miniml.tpxz``. The ``tpxz`` extension is an indexed TAR file,
+``GPL91.miniml.tpxz``. The ``tpxz`` extension is an indexed TAR file,
 created using the ``pixz`` utility. Normal TAR files only support sequential
 access, but indexed TAR files support fast random access.
 
@@ -52,7 +52,7 @@ sample accessions. This can be accomplished as follows:
 
 .. code-block:: bash
 
-    geo extract GPL13728.miniml.tpxz | gzip > GPL13728.probe.gz
+    geo extract GPL91.miniml.tpxz | gzip > GPL91.probe.gz
 
 The ``geo extract`` command extracts the data from the archive, whereas the
 remainder of the command saves the result into a compressed file. Without the
@@ -63,7 +63,7 @@ You can ensure that you got the matrix you expected by running this command:
 
 .. code-block:: bash
 
-    zcat GPL13728.probe.gz | dm view
+    zcat GPL91.probe.gz | dm view
 
 ``zcat`` decompresses the file, whereas ``dm view`` views only the first few
 rows and columns of the matrix. ``dm`` ("data manipulation"), like the ``geo``
@@ -83,7 +83,7 @@ it manually and save it to a file called ``probe2gene``:
 
 .. code-block:: bash
     
-    curl ftp://ailun.stanford.edu/ailun/annotation/geo/GPL13728.annot.gz \
+    curl ftp://ailun.stanford.edu/ailun/annotation/geo/GPL91.annot.gz \
         | gzip -cd \
         | cut -f1-2 > probe2gene
 
@@ -93,7 +93,7 @@ collapse it to genes:
 
 .. code-block:: bash
 
-    zcat GPL13728.probe.gz | dm collapse probe2gene | gzip > GPL13728.gene.raw.gz
+    zcat GPL91.probe.gz | dm collapse probe2gene | gzip > GPL91.gene.raw.gz
 
 By default, the method used to collapse is the "max mean" method. You can see
 more options by typing ``dm collapse``. Notice that this is a generic utility
@@ -103,7 +103,7 @@ Take a look at your gene matrix:
 
 .. code-block:: bash
 
-    zcat GPL13728.gene.raw.gz | dm view
+    zcat GPL91.gene.raw.gz | dm view
 
 Conditional log-transformation and normalization
 ------------------------------------------------
@@ -116,7 +116,7 @@ scale, and renormalize it.
 
 .. code-block:: bash
 
-    zcat GPL13728.gene.raw.gz | log-transform -r 100 | standardize | gzip > GPL13728.gene.nrm.gz
+    zcat GPL91.gene.raw.gz | log-transform -r 100 | standardize | gzip > GPL91.gene.nrm.gz
 
 Instead of log-transforming all data, we only log-transform rows whose range
 (max-min) is greater than 100 (``-r 100``). This is obviously a heuristic, and
@@ -151,16 +151,16 @@ you are interested in. To create one:
 
 .. code-block:: bash
 
-    zcat GPL13728.gene.nrm.gz | xmat load GPL13728.sample.xmat
+    zcat GPL91.gene.nrm.gz | xmat load GPL91.sample.xmat
 
-This will create a file called ``GPL13728.sample.xmat``. Currently, ``xmat``
+This will create a file called ``GPL91.sample.xmat``. Currently, ``xmat``
 indexes matrices by row, so querying by row is much faster than querying by
 column. If we want to have a matrix that we can use to efficiently query for
 genes, we can do the following:
 
 .. code-block:: bash
 
-    zcat GPL13728.gene.nrm.gz | transpose | xmat load GPL13728.gene.xmat
+    zcat GPL91.gene.nrm.gz | transpose | xmat load GPL91.gene.xmat
 
 Here we have introduced the self-explanatory ``transpose`` command. It can
 handle arbitrarily large matrices by storing blocks on disk to perform the
@@ -171,18 +171,18 @@ We can view the data in the xmat file:
 
 .. code-block:: bash
 
-    xmat dump GPL13728.gene.xmat | dm view
+    xmat dump GPL91.gene.xmat | dm view
 
 More interestingly, we can query it:
 
 .. code-block:: bash
     
     # pick some random rows and columns
-    xmat dump GPL13728.gene.xmat | cut -f1 | sed 1d | shuf | head > random-rows
-    xmat dump GPL13728.gene.xmat | head -1 | tr '\t' '\n' | sed 1d | shuf | head > random-columns
+    xmat dump GPL91.gene.xmat | cut -f1 | sed 1d | shuf | head > random-rows
+    xmat dump GPL91.gene.xmat | head -1 | tr '\t' '\n' | sed 1d | shuf | head > random-columns
 
     # get the submatrix containing only these rows and columns
-    xmat query GPL13728.gene.xmat -r random-rows -c random-columns
+    xmat query GPL91.gene.xmat -r random-rows -c random-columns
 
 In the future, ``xmat`` should be able to query both rows and columns with
 equal efficiency using just one matrix file, but this is not yet implemented.
