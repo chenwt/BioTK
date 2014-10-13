@@ -6,6 +6,7 @@ pkgs=(
     tokyocabinet-bin libtokyocabinet-dev 
     pixz pigz
     liblz4-tool
+    python3-pip
     python3-numpy python3-scipy python3-matplotlib
     python3-pandas python3-patsy python3-numexpr
     python3-psycopg2 
