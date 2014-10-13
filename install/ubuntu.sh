@@ -15,7 +15,10 @@ pkgs=(
 
 sudo apt-get install -y ${pkgs[@]}
 
+# Currently, can only install from HEAD in Python 3
+sudo pip3 install git+git://github.com/statsmodels/statsmodels
+
 for pkg in $(cat $(dirname $0)/../requirements.txt \
-    | grep -v '#' | grep -v '^$'); do
+    | grep -v '#' | grep -v '^$' | grep -v statsmodels); do
     sudo pip3 install $pkg
 done
