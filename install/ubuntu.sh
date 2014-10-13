@@ -7,7 +7,9 @@ pkgs=(
     pixz pigz
     liblz4-tool
     python3-numpy python3-scipy python3-matplotlib
-    python3-pandas python3-psycopg2
+    python3-pandas python3-patsy python3-numexpr
+    python3-psycopg2 
+    cython3
 )
 
 sudo apt-get install -y ${pkgs[@]}

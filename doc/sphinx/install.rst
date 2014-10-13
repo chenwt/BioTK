@@ -5,6 +5,16 @@ Installation
 BioTK is primarily tested and developed on Linux, and will likely work best
 there. However, it is also possible to install on Windows using Cygwin. 
 
+Vagrant VM
+==========
+
+The simplest option to test out BioTK is to use the prepared Vagrant VM image,
+which can work on any operating system. First, install VirtualBox and Vagrant
+from the following URLs, or using your system's package manager:
+
+- https://www.virtualbox.org/wiki/Downloads
+- http://www.vagrantup.com/downloads
+
 Linux
 =====
 
