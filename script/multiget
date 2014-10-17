@@ -3,15 +3,42 @@
 # Download multiple URLs simultaneously
 
 # TODO: Use aria2c if available, and/or other methods for detecting optimal number of concurrent connections
-#   Probably the #connections should be per server 
+# TODO: Detect URLs that can use Aspera, and use that when available (one at a time)
 
-N_JOBS=8
 
-outdir="$1"
-[ -z "$outdir" ] && {
-    outdir=$(pwd)
+usage() {
+    cat <<EOF
+Download multiple URLs simultaneously.
+
+USAGE: cat urls | multiget [ -P <prefix> ] 
+
+Options:
+    -j : Number of simultaneous downloads PER HOST SERVER.
+    -P : Directory to output downloaded files.
+EOF
+    exit $1
 }
 
-while read url; do 
-    sem --id multiget -j $N_JOBS wget -P $(outdir) $url
+get_host() {
+    python <(cat <<EOF 
+from urllib.parse import urlparse
+url = urlparse('$1')
+print(url.netloc if url.netloc else url.path)
+EOF
+)
+}
+
+outdir=$(pwd)
+n_jobs=4
+while getopt P:j: opt; do
+    case $opt in
+        P) outdir="$OPTARG" ;;
+        j) n_jobs="$OPTARG" ;;
+        ?) usage 1 ;;
+    esac
+done
+
+while read url; do
+    id="multiget-$(get_host $url)" 
+    sem --id $id -j $n_jobs wget -P $(outdir) $url
 done
