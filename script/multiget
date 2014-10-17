@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# Download multiple URLs simultaneously
+
+# TODO: Use aria2c if available, and/or other methods for detecting optimal number of concurrent connections
+#   Probably the #connections should be per server 
+
+N_JOBS=8
+
+outdir="$1"
+[ -z "$outdir" ] && {
+    outdir=$(pwd)
+}
+
+while read url; do 
+    sem --id multiget -j $N_JOBS wget -P $(outdir) $url
+done
