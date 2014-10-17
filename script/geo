@@ -13,6 +13,7 @@ geo - Fetch and manipulate data from NCBI GEO
 
 Available subcommands:
 
+    build-db - Download and build all GEO data matrices
     fetch - Download and compress MiniML data
     extract - Extract a matrix from a MiniML archive
 EOF

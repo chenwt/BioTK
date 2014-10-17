@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+
+# Pipeline for extracting data from all GEO accessions.
+
+# For each step in the process, if that step fails,
+# create a zero-size file with the same name as the output.
+
+# Such files will prevent future attempts, and the pipeline will
+# stop at that step.
+
+# (Can this be rewritten in a more "monadic" format using tee?)
+
+source $(dirname $0)/BioTK.sh
+
+[ $# != 1 -o "${1}x" == "-hx" ] && {
+    cat <<EOF
+Download and process all GEO matrices.
+
+USAGE: geo build-db <path/to/db/directory>
+
+Known limitations:
+- Only processes accessions with mappings in AILUN
+EOF
+    test "$1" == "-h"
+    exit $?
+} 1>&2
+
+base="$1"
+mkdir -p "$base"
+cd "$base"
+mkdir -p map matrix/probe matrix/gene miniml
+
+[ ! -f map/done ] && {
+    echo "* Downloading AILUN mappings ..." 1>&2
+    base_url=ftp://ailun.stanford.edu/ailun/annotation/geo/
+
+    [ ! -f map/list ] && {
+        for item in $(curl -l $base_url); do
+            echo $base_url/$item
+        done > map/list
+    }
+    multiget -P map < map/list &> /dev/null
+    touch done
+}
+
+if [ ! -f GEOmetadb.sqlite ]; then
+    echo "* Downloading GEOmetadb ..." 1>&2
+    curl http://gbnci.abcc.ncifcrf.gov/geo/GEOmetadb.sqlite.gz \
+        | gzip -cd > GEOmetadb.sqlite
+fi
+
+for map in map/*.annot.gz; do
+    accession=$(basename $map .annot.gz)
+    archive=miniml/${accession}.miniml.tpxz
+
+    # Attempt to download archive
+    if [ ! -f "$archive" ]; then
+        geo fetch -o miniml ${accession}
+    fi
+
+    # If it fails, create a zero-size file to prevent future attempts
+    if [ ! -f "$archive" ]; then
+        touch $archive
+        break
+    fi
+    
+    # Probe-level data
+    probe=matrix/probe/${accession}.gz
+    if [ -s "$archive" -a ! -f $probe ]; then
+        geo extract $archive | gzip > $probe || {
+            rm -f $probe
+            touch $probe
+        }
+    fi
+
+    # Gene-level data
+    gene=matrix/gene/${accession}.gz
+    if [ -s "$probe" -a ! -f $gene ]; then
+        zcat $probe \
+            | dm collapse <(zcat $map | cut -f1-2) \
+            | gzip > $gene || {
+                rm -f $gene
+                touch $gene
+            }
+    fi
+done
+
+if [ ! -d gene-list ]; then
+    echo "* Indexing gene-taxon mappings ..." 1>&2
+    mkdir -p gene-list
+    url=ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz
+    cache_download $url \
+        | gzip -cd | sed 1d | cut -f1-2 | grep -v '-' \
+        | sort -S 2G -nk2 \
+        | awk '{ print $2 >> "gene-list/"$1 }'
+    gzip gene-list/*
+fi
+exit 0 
+
+cat <<EOF |
+Homo sapiens	9606
+EOF
+join -j1 -t'	' - \
+    <(sqlite3 -separator '	' \
+        GEOmetadb.sqlite 'SELECT organism,gpl FROM gpl' \
+        | sort -t'	' -k1b,1) \
+    | cut -f2-3 \
+    | head \
+    | while read -a line; do
+    accession=${line[1]}
+    taxon_id=${line[2]}
+    echo $accession
+done

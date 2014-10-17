@@ -79,5 +79,5 @@ process() {
 }
 export -f process
 
-# Extract data
-list | parallel --no-notice process
+# Extract data, halt immediately if any subprocesses fail
+list | parallel --halt 2 --no-notice process

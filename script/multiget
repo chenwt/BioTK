@@ -13,7 +13,7 @@ Download multiple URLs simultaneously.
 USAGE: cat urls | multiget [ -P <prefix> ] 
 
 Options:
-    -j : Number of simultaneous downloads PER HOST SERVER.
+    -j : Number of simultaneous downloads.
     -P : Directory to output downloaded files.
 EOF
     exit $1
@@ -30,7 +30,7 @@ EOF
 
 outdir=$(pwd)
 n_jobs=4
-while getopt P:j: opt; do
+while getopts P:j: opt; do
     case $opt in
         P) outdir="$OPTARG" ;;
         j) n_jobs="$OPTARG" ;;
@@ -39,6 +39,6 @@ while getopt P:j: opt; do
 done
 
 while read url; do
-    id="multiget-$(get_host $url)" 
-    sem --id $id -j $n_jobs wget -P $(outdir) $url
+    sem --id multiget -j $n_jobs wget -nc -P $outdir $url
 done
+sem --wait --id multiget
