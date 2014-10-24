@@ -6,11 +6,10 @@ from cpython cimport bool
 __all__ = ["Trie", "MixedCaseSensitivityTrie"]
 
 def longest_nonoverlapping_matches(matches):
-    matches = matches or []
     out = []
     cdef Match m1, m2
     cdef bool ok
-    matches.sort(key=len).reverse()
+    matches = sorted(matches, key=len, reverse=True)
     for m1 in matches:
         ok = True
         for m2 in out:
