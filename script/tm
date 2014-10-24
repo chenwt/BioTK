@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Text-mining tools
+
+source $(dirname $0)/BioTK.sh
+
+cmd="$1"
+
+which tm-"$cmd" &> /dev/null || {
+
+    cat 1>&2 <<EOF
+tm - Text mining tools
+
+Available subcommands:
+
+    match - Match terms from a term map in text records
+EOF
+    exit 0
+}
+
+shift
+tm-${cmd} "$@"

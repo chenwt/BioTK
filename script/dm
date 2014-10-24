@@ -16,6 +16,7 @@ Available subcommands:
     collapse - collapse a matrix using an identifier map
     correlate - correlate columns in a matrix
     view - view the first few rows and columns
+    union - append two or more matrices taking the union of columns
 EOF
     exit 0
 }

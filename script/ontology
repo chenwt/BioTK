@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+source $(dirname $0)/BioTK.sh
+
+NS_OWL="http://www.w3.org/2002/07/owl#"
+NS_RDF="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+
+xml-sel() {
+    xml sel \
+        -N owl="$NS_OWL" \
+        -N rdf="$NS_RDF" "$@"
+}
+
+format() {
+    tr '\t' ' ' | tr '\n' '\t' | sed 's/\t\t/\n/g'
+}
+
+ensure-two-columns() {
+    awk 'BEGIN { FS=OFS="\t" } $2 != "" { print }'
+}
+
+get-ontology-names-and-synonyms() {
+   cache_download "$url" \
+        | xml-sel \
+            -T -t -m '//owl:Class' \
+            -v "oboInOwl:id" -n \
+            -v "rdfs:label" -n \
+            -v "oboInOwl:hasRelatedSynonym" -n \
+        | format
+}
+
+ontology-names() {
+    get-ontology-names-and-synonyms \
+        | cut -f1-2 \
+        | sort -u \
+        | ensure-two-columns
+}
+
+ontology-synonyms() {
+    get-ontology-names-and-synonyms \
+        | awk '
+            BEGIN { OFS=FS="\t" }
+            { 
+                for (i=3; i<=NF; i++) {
+                    printf "%s\t%s\n", $1, $i
+                }
+            }' \
+        | ensure-two-columns
+}
+
+# TODO: implement
+
+#ontology-relations() { 
+#    cache_download "$url" \
+#        | xml-sel -T -t -m "//owl:Class" \
+#            -v oboInOwl:id -n \
+#            -m "rdfs:subClassOf" -v "rdf:resource" -n
+#}
+
+usage() {
+    cat 1>&2 <<EOF
+ontology - Ontology manipulation tools
+
+Available subcommands:
+
+    names - List IDs and names for each term in an ontology
+    synonyms - List IDs and synonyms for each term in an ontology
+EOF
+    exit 0
+}
+
+cmd="$1"
+ontology=$(echo $2 | tr '[A-Z]' '[a-z]')
+url="http://www.berkeleybop.org/ontologies/${ontology}.owl"
+ 
+ontology-${cmd} "$@" 2> /dev/null || usage

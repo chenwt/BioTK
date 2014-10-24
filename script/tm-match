@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+
+import nltk
+
+from BioTK.text.AhoCorasick import MixedCaseSensitivityTrie
+
+# Input format (on stdin):
+# - Records line-delimited
+# - Fields tab-delimited; first field is the row ID,
+#   and subsequent fields are text fields to be matched
+
+# Output format:
+# - Records line-delimited
+# - First field = row ID
+# - Subsequent tab-delimited fields mimic input fields.
+#   Each input field is split into sentences, and each sentence's output
+#   is separated by the ASCII group delimiter (\29). Within each
+#   group/sentence, the list of matched term IDs is separated by the
+#   ASCII unit delimiter (\31).
+
+TOKENIZER_PATH = "tokenizers/punkt/english.pickle"
+tokenizer = None
+
+def split_sentences(text):
+    global tokenizer
+    if tokenizer is None:
+        tokenizer = nltk.data.load(TOKENIZER_PATH)
+    return tokenizer.tokenize(text.strip())
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--case-sensitive-map", "-s",
+                   type=argparse.FileType("r"))
+    p.add_argument("--case-insensitive-map", "-i",
+                   type=argparse.FileType("r"))
+    p.add_argument("--print-all", "-a",
+                   action="store_true",
+                   help="Print records with no matches.")
+    args = p.parse_args()
+
+    if not (args.case_sensitive_map or args.case_insensitive_map):
+        raise Exception("Must supply at least one of: case_sensitive_map (-s), case_insensitive_map (-i)")
+
+    # Build trie
+    trie = MixedCaseSensitivityTrie()
+    if args.case_sensitive_map:
+        with args.case_sensitive_map as h:
+            for line in h:
+                key, text = line.strip("\n").split("\t", 1)
+                trie.add(text, key=key, case_sensitive=True)
+    if args.case_insensitive_map:
+        with args.case_insensitive_map as h:
+            for line in h:
+                key, text = line.strip("\n").split("\t", 1)
+                trie.add(text, key=key, case_sensitive=False)
+    trie.build()
+
+    for line in sys.stdin:
+        # Search text
+        found = False
+        row_id, *fields = line.strip("\n").split("\t")
+        output = []
+        for field in fields:
+            o = []
+            sentences = split_sentences(field)
+            for text in sentences:
+                matches = trie.search(text)
+                if matches:
+                    found = True
+                    matches = [m.key for m in matches]
+                    o.append("\31".join(matches))
+                else:
+                    o.append("")
+            output.append("\29".join(o))
+
+        # Print results
+        if found or args.print_all:
+            print(row_id, end="\t")
+            print(*output, sep="\t")
