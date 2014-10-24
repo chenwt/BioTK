@@ -16,6 +16,7 @@ Available subcommands:
     build-db - Download and build all GEO data matrices
     fetch - Download and compress MiniML data
     extract - Extract a matrix from a MiniML archive
+    label - Extract labels from GEO metadata
 EOF
     exit 0
 }

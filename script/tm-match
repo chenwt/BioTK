@@ -17,9 +17,9 @@ from BioTK.text.AhoCorasick import MixedCaseSensitivityTrie
 # - First field = row ID
 # - Subsequent tab-delimited fields mimic input fields.
 #   Each input field is split into sentences, and each sentence's output
-#   is separated by the ASCII group delimiter (\29). Within each
+#   is separated by tabs. Within each
 #   group/sentence, the list of matched term IDs is separated by the
-#   ASCII unit delimiter (\31).
+#   pipe character (|).
 
 TOKENIZER_PATH = "tokenizers/punkt/english.pickle"
 tokenizer = None
@@ -36,6 +36,9 @@ if __name__ == "__main__":
                    type=argparse.FileType("r"))
     p.add_argument("--case-insensitive-map", "-i",
                    type=argparse.FileType("r"))
+    p.add_argument("--no-overlaps", "-o",
+                   action="store_true",
+                   help="Only output the longest non-overlapping terms.")
     p.add_argument("--print-all", "-a",
                    action="store_true",
                    help="Print records with no matches.")
@@ -45,7 +48,7 @@ if __name__ == "__main__":
         raise Exception("Must supply at least one of: case_sensitive_map (-s), case_insensitive_map (-i)")
 
     # Build trie
-    trie = MixedCaseSensitivityTrie()
+    trie = MixedCaseSensitivityTrie(allow_overlaps=(not args.no_overlaps))
     if args.case_sensitive_map:
         with args.case_sensitive_map as h:
             for line in h:
@@ -71,10 +74,10 @@ if __name__ == "__main__":
                 if matches:
                     found = True
                     matches = [m.key for m in matches]
-                    o.append("\31".join(matches))
+                    o.append(" ".join(matches))
                 else:
                     o.append("")
-            output.append("\29".join(o))
+            output.append("|".join(o))
 
         # Print results
         if found or args.print_all:

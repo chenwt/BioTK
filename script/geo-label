@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+source $(dirname $0)/BioTK.sh
+
+url="http://gbnci.abcc.ncifcrf.gov/geo/GEOmetadb.sqlite.gz"
+
+db="$CACHE/GEOmetadb.sqlite"
+if [ ! -f "$db" ]; then
+    curl "$url" | gzip -cd > "$db"
+fi
+
+_geo_text() {
+    for i in $(seq 2); do
+        sqlite3 -csv "$db" \
+            "
+            SELECT
+                gsm || '-$i' AS key,
+                title,
+                description,
+                source_name_ch$i,
+                characteristics_ch$i
+            FROM gsm
+            WHERE channel_count>=$i"
+    done \
+        | csv2tsv
+}
+
+tissue() {
+    _geo_text \
+       | tm match -o \
+            -i <( (ontology names BTO \
+                    && ontology synonyms BTO) \
+                    | sort -u ) \
+        | tr '[| ]' '\t' \
+        | awk '
+            BEGIN { FS=OFS="\t" }
+            {
+                delete a
+                for (i=2; i<=NF; i++) {
+                    if ($i != "") {
+                        a[$i] = 1
+                    }
+                }
+                for (k in a) {
+                    printf "%s\t%s\n", $1, k
+                }
+            }'
+}
+
+age() {
+    _geo_text | geo-label-age
+}
+
+usage() {
+    {
+        cat <<EOF
+USAGE: geo label [tissue]
+EOF
+    } 1>&2
+    exit 0
+}
+
+[[ $# != 1 ]] || [[ $1 == "-h" ]] && usage
+
+"$@"

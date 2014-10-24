@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+
+import re
+import sys
+
+def group_if_match(pattern, group, text):
+    m = re.search(pattern, text)
+    if m:
+        return m.group(group)
+
+PATTERNS = {
+    "age": "[^\w]age( *\((?P<age_unit1>[a-z]*)\))?:\
+[ \t]*(?P<age>\d+[\.0-9]*)(( *\- *| (to|or) )\
+(?P<age_end>\d+[\.\d]*))?([ \t]*(?P<age_unit2>[a-z]+))?",
+    "age_unit": "(age\s*unit[s]*|unit[s]* of age): (?P<age_unit>[a-z])",
+}
+PATTERNS = dict((k, re.compile(v)) for k,v in PATTERNS.items())
+
+# A common additional unit is "dpc", which refers to embryos.
+# Currently ignored.
+# Some samples are labeled with something like "11 and 14 weeks".
+# I have no idea what this means, so it's ignored.
+TIME_CONVERSION = {
+        "year": 12,
+        "y": 12,
+        "yr": 12,
+        "month": 1,
+        "moth": 1, # yes...
+        "mo": 1,
+        "m": 1,
+        "week": 1 / 4.5,
+        "wek": 1 / 4.5, # ...
+        "wk": 1 / 4.5,
+        "w": 1 / 4.5,
+        "day": 1 / 30,
+        "d": 1 / 30,
+        "hour": 1 / (24 * 30),
+        "hr": 1 / (24 * 30),
+        "h": 1 / (24 * 30)
+}
+
+if __name__ == "__main__":
+    for line in sys.stdin:
+        key, text = line.strip("\n").split("\t", 1)
+        text = text.strip()
+        if not text:
+            continue
+
+        #default_unit = "year" if taxon_id == 9606 else None
+        m = re.search(PATTERNS["age"], text)
+        if m is None:
+            continue
+        age = float(m.group("age"))
+        age_end = m.group("age_end")
+        if age_end:
+            #if not use_age_range:
+            #    continue
+            age = (age + float(age_end)) / 2
+
+        unit = group_if_match(PATTERNS["age_unit"],
+                "age_unit", text) \
+                or m.group("age_unit2") \
+                or m.group("age_unit1")
+                #or default_unit
+        if not unit:
+            continue
+        unit = unit.rstrip("s")
+        if not unit in TIME_CONVERSION:
+            continue
+        conversion_factor = TIME_CONVERSION[unit]
+        print(key, age * conversion_factor, sep="\t")
