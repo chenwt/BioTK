@@ -1,11 +1,12 @@
 from cpython cimport bool
 
-# TODO: possibly use a STL map and pointers 
+# TODO: possibly use a STL map and pointers
 #   to get better performance for searches?
 
 __all__ = ["Trie", "MixedCaseSensitivityTrie"]
 
 def longest_nonoverlapping_matches(matches):
+    matches = matches or []
     out = []
     cdef Match m1, m2
     cdef bool ok
@@ -82,8 +83,8 @@ cdef class Trie:
         bool built, case_sensitive, allow_overlaps
         str boundary_characters
 
-    def __init__(self, 
-            case_sensitive=True, 
+    def __init__(self,
+            case_sensitive=True,
             allow_overlaps=True,
             boundary_characters=""):
         """
@@ -97,7 +98,7 @@ cdef class Trie:
             Whether to allow overlapping matches or not.
             If not, the longest nonoverlapping matches are returned.
         boundary_characters : str, optional
-            If provided, matches are required to be bounded on both sides 
+            If provided, matches are required to be bounded on both sides
             by one of the given characters, or by the query string beginning
             or end.
         """
@@ -156,10 +157,10 @@ cdef class Trie:
 
 class MixedCaseSensitivityTrie(object):
     def __init__(self, allow_overlaps=True, boundary_characters=""):
-        self._cs = Trie(case_sensitive=True, 
+        self._cs = Trie(case_sensitive=True,
                 boundary_characters=boundary_characters,
                 allow_overlaps=True)
-        self._ci = Trie(case_sensitive=False, 
+        self._ci = Trie(case_sensitive=False,
                 boundary_characters=boundary_characters,
                 allow_overlaps=True)
         self.allow_overlaps = allow_overlaps
@@ -167,7 +168,7 @@ class MixedCaseSensitivityTrie(object):
     def build(self):
         self._cs.build()
         self._ci.build()
-    
+
     def add(self, str text, bool case_sensitive=False, object key=None):
         trie = self._cs if case_sensitive else self._ci
         trie.add(text, key=key)
