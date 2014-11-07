@@ -12,7 +12,7 @@ Options:
   -m : perform the entire transpose in RAM
   -l <count> : number of lines to transpose at a time;
     a larger number requires more RAM
-    (default: 250)
+    (default: 500)
 EOF
     exit $1
 }
@@ -55,7 +55,7 @@ process() {
 }
 export -f process
 
-lines=250
+lines=500
 IN_MEM=
 
 while getopts ml: opt; do

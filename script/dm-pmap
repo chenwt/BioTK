@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+NCPU=$(grep -c processor /proc/cpuinfo)
+BLOCK_SIZE=10M
+
+export args="$@"
+IFS=$'\n' read -r header
+
+fn() {
+    "$args" | sed 1d
+}
+export -f fn
+
+echo "$header"
+{
+    echo "$header"
+    cat
+} | parallel --pipe --header 1 -j"$NCPU" --block "$BLOCK_SIZE" fn

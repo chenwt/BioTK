@@ -6,19 +6,25 @@ from collections import OrderedDict
 
 import BioTK.cache
 
+def as_float(x):
+    try:
+        return float(x)
+    except ValueError:
+        return np.nan
+
 def generic_open(path, mode="rt"):
     """
-    Open a file path, bzip2- or gzip-compressed file path, 
+    Open a file path, bzip2- or gzip-compressed file path,
     or URL in the specified mode.
 
     Not all path types support all modes. For example, a URL is not
-    considered to be writable. 
-    
+    considered to be writable.
+
     :param path: Path
     :type path: str
     :throws IOError: If the file cannot be opened in the given mode
     :throws FileNotFoundError: If the file cannot be found
-    :rtype: :py:class:`io.IOBase` or :py:class:`io.TextIOBase`, 
+    :rtype: :py:class:`io.IOBase` or :py:class:`io.TextIOBase`,
       depending on the mode
     """
 

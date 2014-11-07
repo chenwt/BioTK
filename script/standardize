@@ -2,21 +2,10 @@
 
 import sys
 
-import pandas as pd
-
-from signal import signal, SIGPIPE, SIG_DFL
-signal(SIGPIPE, SIG_DFL)
+import BioTK.io
+from BioTK.matrix.preprocess import standardize
 
 if __name__ == "__main__":
-    chunks = pd.read_table(sys.stdin, sep="\t", 
-            header=0, index_col=0, chunksize=10)
-
-    def standardize(x):
-        return (x - x.mean()) / x.std()
-
-    for i,X in enumerate(chunks):
-        std = X.std(axis=1)
-        X = X.ix[std > 0,:]\
-                .apply(standardize, axis=1)
-        X.to_csv(sys.stdout, sep="\t", header=(i==0),
-                float_format="%0.3f")
+    BioTK.io.read_matrix(sys.stdin)\
+        .apply(standardize)\
+        .dump()

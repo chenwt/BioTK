@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source $(dirname $0)/BioTK.sh
+
 shopt -s nullglob
 
 usage() {
@@ -15,7 +17,7 @@ EOF
     exit 1
 }
 
-export probes=$(mktemp -p $CACHE)
+export probes=$(mktemp -p $BTK_CACHE)
 trap 'rm -rf $probes' EXIT
 
 verbose=

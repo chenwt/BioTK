@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+
+# For each row in a matrix on stdin, do the following:
+# 1. For each factor, standardize the associated data separately.
+# 2. Re-standardize the whole row.
+
+# The factors are provided in key-value format as an argument.
+
+import argparse
+import sys
+
+from BioTK.io import read_factor, read_matrix
+
+def standardize(x):
+    if len(set(x)) == 1:
+        return x
+    else:
+        return (x - x.mean()) / x.std()
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("--method", "-m", choices=["standardize"],
+                   default="standardize")
+    p.add_argument("factors", type=argparse.FileType("r"))
+    args = p.parse_args()
+
+    method = globals()[args.method]
+
+    vector = read_factor(args.factors)
+    matrix = read_matrix(sys.stdin)
+    for i,row in enumerate(matrix):
+        if i == 0:
+            print("", *row.index, sep="\t")
+        new = row.groupby(vector).transform(method)
+        assert (row.index == new.index).all()
+        print(row.name, *new, sep="\t")

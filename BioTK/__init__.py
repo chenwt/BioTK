@@ -11,3 +11,7 @@ from .util import ResourceLookup
 resource = ResourceLookup("BioTK")
 
 from BioTK.config import *
+
+# Don't throw broken pipe error at EOF
+from signal import signal, SIGPIPE, SIG_DFL
+signal(SIGPIPE,SIG_DFL)

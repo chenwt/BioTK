@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source $(dirname $0)/BioTK.sh
+
 usage() {
     cat <<EOF 1>&2
 Download, reorder, and LZMA compress GEO platform data in MiniML format.
@@ -10,7 +12,7 @@ EOF
 
 outdir=$(pwd)
 host=anonftp@ftp.ncbi.nlm.nih.gov
-tmpdir=$(mktemp -d -p $CACHE)
+tmpdir=$(mktemp -d -p $BTK_CACHE)
 speed=200M
 
 trap "rm -rf $tmpdir" EXIT

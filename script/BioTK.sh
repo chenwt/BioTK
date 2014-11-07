@@ -1,66 +1,47 @@
 #!/usr/bin/env bash
 
+# Basic sanity checks
+
+[ "$(whoami)" == "root" ] && {
+    echo "FATAL: BioTK cannot be run as root." 1>&2
+    exit 1
+}
+
+export HOME="${HOME:=/home/$(whoami)}"
+[ ! -d "$HOME" ] || [ ! -w "$HOME" ] && {
+    echo "FATAL: \$HOME environment variable not set, directory doesn't exist, or user doesn't have write permissions. (\$HOME was detected as: '$HOME'" 1>&2
+    exit 1
+}
+
 ###############
 # Configuration
 ###############
 
-log() {
-    local OPTIND
-    tag=BioTK
-    while getopts :t: opt; do
-        case $opt in
-            t) tag="$OPTARG" ;;
-            *) opts+="-$opt $OPTARG" ;;
-        esac
-    done
-    which logger 2> /dev/null && {
-        logger "$@"
-    }
-}
-export -f log
+export XDG_DATA_HOME="${XDG_DATA_HOME:=$HOME/.local/share}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:=$HOME/.config}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:=$HOME/.cache}"
 
-cfg() {
-    # Locate the BioTK configuration file and query it for the given key
-
-    paths=(
-        BioTK.yml
-        $HOME/.BioTK.yml
-        $HOME/.config/BioTK/BioTK.yml
-        /opt/BioTK/BioTK.yml
-        /etc/BioTK/BioTK.yml
-    )
-
-    for path in ${paths[@]}; do
-        if [ -f $path ]; then
-            v="$(shyaml get-value "$1" < $path)"
-            if [[ ! -z "$v" ]]; then
-                echo "$v"
-                exit 0
-            fi
-        fi
-    done 
-
-    # Try the defaults last because it takes time to load the Python interpreter
-    v=$(shyaml get-value "$1" < \
-        $(python -c \
-            'import BioTK; print(BioTK.resource.path("cfg/default.yml"))'))
-    if [[ ! -z "$v" ]]; then
-        echo "$v"
-    else 
-        exit 1
-    fi
-}
-export -f cfg
-
-export DATA="$(eval echo $(cfg data.root))"
-export CACHE="$(eval echo $(cfg cache.root))"
-mkdir -p "$CACHE" "$DATA"
+export BTK_DATA="${BTK_DATA:=$XDG_DATA_HOME/BioTK}"
+export BTK_CACHE="${BTK_CACHE:=$XDG_CACHE_HOME/BioTK}"
+mkdir -p "$BTK_DATA" "$BTK_CACHE"
 
 on_intranet() {
     host=wren.omrf.hsc.net.ou.edu
     test ! -z "$(dig +short $host)"
 }
 export -f on_intranet
+
+#########
+# Logging
+#########
+
+btk_log() {
+    if which logger &> /dev/null; then
+        logger -t BioTK -s "$@"
+    else
+        echo "*" "$@" 1>&2
+    fi
+}
 
 ###################
 # Utility functions
@@ -95,12 +76,17 @@ lzpaste() {
 }
 export -f lzpaste
 
+mkdir_cd() {
+    mkdir -p "$1"
+    cd "$1"
+}
+
 #########
 # Caching
 #########
 
-cache_download() {
-    cache="$CACHE"/download
+_cache_download() {
+    cache="$BTK_CACHE"/download
     mkdir -p "$cache"
     url="$1"
     name="$(echo "$url" | base64)"
@@ -109,9 +95,14 @@ cache_download() {
         if which aria2c &> /dev/null; then
             aria2c -d "$cache" -o "$name" "$url"
         else
-            curl -o "$path" "$url"
+            curl -s -o "$path" "$url"
         fi
     fi &> /dev/null
+    echo "$path"
+}
+
+cache_download() {
+    path="$(_cache_download "$1")"
     cat "$path"
 }
 export -f cache_download
@@ -119,7 +110,7 @@ export -f cache_download
 memoize() {
     # Given a function (name), and optionally arguments,
     # execute the function and cache the result as a file.
-    cache="$CACHE/memoize"
+    cache="$BTK_CACHE/memoize"
     mkdir -p "$cache"
     path="$cache/$(echo "$@" | base64)"
     if [ ! -f "$path" ]; then
@@ -129,3 +120,16 @@ memoize() {
     fi
 }
 export -f memoize
+
+#############################
+# Download essential datasets
+#############################
+
+btk_require_data() {
+    # NCBI data
+    ncbi_ftp=ftp://ftp.ncbi.nlm.nih.gov/
+    _cache_download $ncbi_ftp/gene/DATA/gene_info.gz
+}
+export -f btk_require_data
+
+#make -s -C "$BTK_DATA" -f "$(dirname $0)/BioTK.make" all

@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+
+# Correlate the rows of a matrix with an input vector
+# (in tab-delimited key-value format).
+
+import sys
+import argparse
+
+import numpy as np
+import pandas as pd
+from scipy.stats import pearsonr
+
+from BioTK.io import read_matrix, read_vector
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser()
+    p.add_argument("vector",
+                   type=argparse.FileType("r"))
+    p.add_argument("--verbose", "-v", action="store_true")
+    args = p.parse_args()
+
+    vector = read_vector(args.vector)
+    matrix = read_matrix(sys.stdin)
+
+    print("", "N", "Correlation", "-log10(P-Value)",
+          sep="\t")
+    for row in matrix:
+        q, v = row.dropna().align(vector.dropna(),
+                                  join="inner")
+        n = len(q)
+        if n < 10:
+            if args.verbose:
+                print("Skipping", row.name, "(not enough data)",
+                    file=sys.stderr)
+            continue
+        r,p = pearsonr(q,v)
+        p = - np.log10(p)
+        print(row.name, n, r, p, sep="\t")

@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+# FIXME: merge collapse into groupby
+
+###################
+# Utility functions
+###################
+
+run-ignore-header() {
+    IFS='' read header
+    echo "$header"
+    "$@"
+}
+
+##############
+# Entry points
+##############
+
+dt-view() {
+    head | cut -f1-5
+}
+
+dt-sort() {
+    run-ignore-header sort -S 2G -t'	' "$@"
+}
+
+##########
+# Main CLI
+##########
+
+declare -A commands
+commands=(
+    [view]="View the first few rows and columns of the table"
+    [sort]="Sort a tabular dataset, excluding the header"
+
+    [correlate]="Produce the pairwise correlation matrix of columns"
+    [corrwith]="Correlate each row in a matrix with a vector"
+    [dot]="Take the dot product of matrices or vectors"
+
+    [groupby]="Apply a function to sub-groups in each row of a matrix"
+    [collapse]="Collapse a matrix using a mapping of row IDs"
+    [union]="SQL-like union of multiple sets of tabular data"
+
+    [random]="Generate a random vector or matrix"
+
+    [pickle]="Serialize a tab-delimited matrix"
+    [unpickle]="Convert a serialized matrix to tab-delimited format"
+)
+
+usage() {
+    {
+        cat <<EOF
+dt - tools for manipulating tabular data
+USAGE: dt <cmd> [args] < input
+
+commands:
+EOF
+        for key in "${!commands[@]}"; do
+            echo -e "\t${key} - ${commands[$key]}"
+        done
+        exit 0
+    }
+}
+
+cmd="$1"
+description="${commands[$cmd]}"
+shift
+
+if [ -z "$description" ]; then
+    usage
+fi 1>&2
+
+# TODO: add individual helps for commands
+
+dt-$cmd "$@"

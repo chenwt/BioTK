@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+taxon_id="$1"
+outdir="$2"
+
+matrix=$HOME/data/ncbi/geo/matrix/taxon/normalized/${taxon_id}.xmat

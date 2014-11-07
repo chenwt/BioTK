@@ -76,8 +76,10 @@ query() {
             else
                 cat "$r"
             fi | while read pkey; do
-                echo -ne "$pkey\t"
-                $tc get -nl $path "$pkey"
+                $tc get -nl "$path" "$pkey" 2> /dev/null | IFS='' read -r value
+                if [ ! -z "$value" ]; then
+                    echo -e "$pkey\t$value"
+                fi
             done 
         }
     } | if [[ ! -z "$c" ]]; then

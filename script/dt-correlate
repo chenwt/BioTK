@@ -7,16 +7,16 @@ import pandas as pd
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("-n", default=20, type=int, 
+    p.add_argument("-n", default=20, type=int,
             help="Number of top correlated columns to print.")
     p.add_argument("--all", "-a", action="store_true",
             help="Print entire correlation matrix")
-    p.add_argument("--significant-digits", "-d", type=int, default=2)
+    p.add_argument("--significant-digits", "-d", type=int, default=3)
     # --method: pearson/spearman/kendall
     args = p.parse_args()
     float_format = "%0." + str(args.significant_digits) + "f"
 
-    X = pd.read_table(sys.stdin, header=0, index_col=0, sep="\t")
+    X = pd.read_table(sys.stdin, index_col=0, sep="\t")
     C = X.corr()
 
     if args.all:

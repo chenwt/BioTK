@@ -12,11 +12,13 @@
 
 source $(dirname $0)/BioTK.sh
 
-[ $# != 1 -o "${1}x" == "-hx" ] && {
-    cat <<EOF
+[ $# != 0 ] && {
+    cat <<"EOF"
 Download and process all GEO matrices.
 
-USAGE: geo build-db <path/to/db/directory>
+USAGE: geo build-db
+
+Creates database in $BTK_DATA/ncbi/geo/.
 
 Known limitations:
 - Only processes accessions with mappings in AILUN
@@ -25,31 +27,15 @@ EOF
     exit $?
 } 1>&2
 
-base="$1"
+btk_require_data
+
+base="$BTK_DATA/ncbi/geo"
 mkdir -p "$base"
 cd "$base"
 mkdir -p map matrix/probe matrix/gene miniml
 
-[ ! -f map/done ] && {
-    echo "* Downloading AILUN mappings ..." 1>&2
-    base_url=ftp://ailun.stanford.edu/ailun/annotation/geo/
-
-    [ ! -f map/list ] && {
-        for item in $(curl -l $base_url); do
-            echo $base_url/$item
-        done > map/list
-    }
-    multiget -P map < map/list &> /dev/null
-    touch done
-}
-
-if [ ! -f GEOmetadb.sqlite ]; then
-    echo "* Downloading GEOmetadb ..." 1>&2
-    curl http://gbnci.abcc.ncifcrf.gov/geo/GEOmetadb.sqlite.gz \
-        | gzip -cd > GEOmetadb.sqlite
-fi
-
-for map in map/*.annot.gz; do
+process-geo-accession() {
+    map="$1"
     accession=$(basename $map .annot.gz)
     archive=miniml/${accession}.miniml.tpxz
 
@@ -83,31 +69,38 @@ for map in map/*.annot.gz; do
                 touch $gene
             }
     fi
-done
+}
+export -f process-geo-accession
 
-if [ ! -d gene-list ]; then
-    echo "* Indexing gene-taxon mappings ..." 1>&2
-    mkdir -p gene-list
-    url=ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz
-    cache_download $url \
-        | gzip -cd | sed 1d | cut -f1-2 | grep -v '-' \
-        | sort -S 2G -nk2 \
-        | awk '{ print $2 >> "gene-list/"$1 }'
-    gzip gene-list/*
-fi
-exit 0 
+make-gene-matrices() {
+    for map in map/*.annot.gz; do
+        echo "* Queueing $(basename $map .annot.gz)"
+        sem -j8 --id process-geo process-geo-accession $map
+    done
+    sem --id process-geo --wait
+}
 
-cat <<EOF |
-Homo sapiens	9606
-EOF
-join -j1 -t'	' - \
-    <(sqlite3 -separator '	' \
-        GEOmetadb.sqlite 'SELECT organism,gpl FROM gpl' \
-        | sort -t'	' -k1b,1) \
-    | cut -f2-3 \
-    | head \
-    | while read -a line; do
-    accession=${line[1]}
-    taxon_id=${line[2]}
-    echo $accession
-done
+_() {
+    if [ ! -d gene-list ]; then
+        echo "* Indexing gene-taxon mappings ..." 1>&2
+        mkdir -p gene-list
+        url=ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz
+        cache_download $url \
+            | gzip -cd | sed 1d | cut -f1-2 | grep -v '-' \
+            | sort -S 2G -nk2 \
+            | awk '{ print $2 >> "gene-list/"$1 }'
+        gzip gene-list/*
+    fi
+}
+
+gene-matrices-for-taxon-name() {
+    for gpl in $(sqlite3 GEOmetadb.sqlite \
+        "SELECT gpl FROM gpl WHERE organism='$1'"); do
+        matrix=matrix/gene/${gpl}.gz
+        if [[ -s $matrix ]]; then
+            echo $matrix
+        fi
+    done
+}
+
+dm union $(gene-matrices-for-taxon-name "Rattus norvegicus")

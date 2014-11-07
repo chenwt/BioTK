@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF
+USAGE: dapply -i <input-dir> -o <output-dir> command ...
+
+For each file in an input directory, apply the command 
+with the input file as stdin, and save the result
+in an output directory with the same name as the input file.
+
+Is *not* recursive; ignores directories.
+
+For more complex constructions, see xargs or GNU parallel.
+
+Required parameters:
+    -i : path to the input directory
+    -o : path to the output directory
+
+Optional parameters:
+    -v : Verbosely print the name of each input file
+         as it is being processed
+    -p <int> : Run command in parallel with the provided
+         number of concurrent processes. If "all" is
+         specified instead of a number, use the number
+         of processors on the system.
+    -h : Show this help
+EOF
+    exit 0
+}
+
+while getopts p:i:o:hv opt; do
+    case $opt in
+        i) input="$OPTARG" ;;
+        o) output="$OPTARG" ;;
+        h) usage ;;
+        v) verbose=y ;;
+        p) parallel="$OPTARG" ;;
+        ?) usage ;;
+    esac
+done
+
+[ -z "$input" ] || [ -z "$output" ] && usage
+
+if [ "$parallel" == "all" ]; then
+    parallel=$(grep -c processor /proc/cpuinfo)
+fi
+
+shift $((OPTIND - 1))
+mkdir -p "$output"
+
+trap exit SIGINT SIGTERM
+
+nchildren() {
+    echo $(($(ps --no-headers -o pid --ppid=$$ | wc -w) - 1))
+}
+
+for i in "$input"/*; do
+    if [ -f "$i" ]; then
+        name=$(basename $i)
+        if [ ! -z "$verbose" ]; then
+            echo "$name" 1>&2
+        fi
+        o="$output"/"$name"
+        if [ ! -z "$parallel" ]; then
+            while [ $(nchildren) -eq "$parallel" ]; do
+                sleep 0.1
+            done
+            "$@" < "$i" > "$o" &
+        else
+            "$@" < "$i" > "$o"
+        fi
+    fi
+done

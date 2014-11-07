@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+
+import sys
+import argparse
+
+import pandas as pd
+
+from BioTK.matrix.preprocess import standardize
+
+p = argparse.ArgumentParser()
+p.add_argument("--tx", action="store_true",
+               help="Transpose X before taking the dot product")
+p.add_argument("--ty", action="store_true",
+               help="Transpose Y before taking the dot product")
+p.add_argument("--sx", action="store_true",
+               help="X is in sparse format")
+p.add_argument("--sy", action="store_true",
+               help="Y is in sparse format")
+p.add_argument("--correlate", action="store_true",
+               help="Output the correlation matrix")
+p.add_argument("X", type=argparse.FileType("r"))
+p.add_argument("Y", type=argparse.FileType("r"),
+               nargs="?")
+args = p.parse_args()
+
+def read_table(handle, sparse=False):
+    if sparse:
+        M = pd.read_table(handle, sep="\t")\
+            .ix[:,:3].drop_duplicates()
+        return M.pivot(values=M.columns[2],
+                       index=M.columns[0],
+                       columns=M.columns[1],
+                       fill_value=0)
+    else:
+        return pd.read_table(handle, index_col=0, sep="\t")
+
+X = read_table(args.X, sparse=args.sx)
+if args.Y is not None:
+    Y = read_table(args.Y, sparse=args.sy)
+else:
+    Y = X
+
+if args.tx:
+    X = X.T
+if args.ty:
+    Y = Y.T
+
+X,Y = X.T.align(Y, join="inner", axis=0)
+
+if args.correlate:
+    n = len(X.columns)
+    O = standardize(X).T.dot(standardize(Y)) / (n - 1)
+else:
+    Y = Y.T
+    O = X.dot(Y)
+
+O.to_csv(sys.stdout, sep="\t", float_format="%0.3f")
