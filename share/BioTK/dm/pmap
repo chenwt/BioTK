@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-export args="$@"
-
-read -r header
-echo "$header"
-parallel --block 10M --pipe "$@"

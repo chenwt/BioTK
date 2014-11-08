@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-tawk -vc="$1" '!($c in a) { a[$c] = 0; print; }'

@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-btkdb query "SELECT gene.accession \
-    FROM gene \
-    INNER JOIN taxon \
-    ON taxon.id=gene.taxon_id \
-    WHERE taxon.accession='$1'" \
-    | sort

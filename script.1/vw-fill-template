@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-# currently assumes template is lz4'd
-
-tmpl="$1"
-awk '$1' | awk '$2' | sort -k1b,1 | join -o '1.2 2.2' -t $'\t' - <(lz4 -dq $tmpl) | sed 's/\t/ | /'

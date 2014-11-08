@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-# Refresh materialized views
-
-cat <<EOF |
-REFRESH MATERIALIZED VIEW relation_closure;
-EOF
-btkdb execute

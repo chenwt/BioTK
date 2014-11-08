@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# vim: set ft=sh :
-
-tabsort -nk1,1 < $BTK_DATA/ncbi/taxonomy/id2name \
-    | tabsort -u -k2,2

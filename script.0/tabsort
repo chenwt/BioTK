@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-source $(dirname $0)/../etc/profile.d/BioTK.sh
-
-/usr/bin/sort --compress-program=gzip --parallel=$((NCPU / 4)) \
-    -S $BUFFER_SIZE -t'	' "$@"

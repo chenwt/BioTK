@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-# Data manipulation (dm) tool
-# Common UNIX utilities with preset settings to handle 
-#   tab-delimited data with headers 
-
-btk dm "$@"

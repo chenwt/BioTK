@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-{
-    head -1
-    tabsort "$@"
-}

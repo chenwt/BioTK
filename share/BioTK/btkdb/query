@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-echo "COPY ($1) TO STDOUT WITH (FORMAT CSV)" \
-    | btkdb execute \
-    | csv2tsv

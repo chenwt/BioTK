@@ -1,9 +1,0 @@
-#!/usr/bin/env python
-
-import psycopg2
-
-from BioTK.db import connect
-from BioTK import LOG
-
-   
-

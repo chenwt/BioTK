@@ -40,6 +40,7 @@ commands=(
     [groupby]="Apply a function to sub-groups in each row of a matrix"
     [collapse]="Collapse a matrix using a mapping of row IDs"
     [union]="SQL-like union of multiple sets of tabular data"
+    [split]="Split a table into files based on a column and mapping"
 
     [random]="Generate a random vector or matrix"
 
