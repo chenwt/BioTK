@@ -4,6 +4,8 @@ import bz2
 from urllib.parse import urlparse
 from collections import OrderedDict
 
+import numpy as np
+
 import BioTK.cache
 
 def as_float(x):

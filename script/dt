@@ -42,6 +42,8 @@ commands=(
     [union]="SQL-like union of multiple sets of tabular data"
     [split]="Split a table into files based on a column and mapping"
 
+    [summary]="Print summary statistics for each row"
+
     [random]="Generate a random vector or matrix"
 
     [pickle]="Serialize a tab-delimited matrix"
@@ -59,16 +61,16 @@ EOF
         for key in "${!commands[@]}"; do
             echo -e "\t${key} - ${commands[$key]}"
         done
-        exit 0
     }
 }
 
 cmd="$1"
-description="${commands[$cmd]}"
+description="${commands[$cmd]}" 
 shift
 
 if [ -z "$description" ]; then
     usage
+    exit 0
 fi 1>&2
 
 # TODO: add individual helps for commands

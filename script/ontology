@@ -12,7 +12,18 @@ xml-sel() {
 }
 
 format() {
-    tr '\t' ' ' | tr '\n' '\t' | sed 's/\t\t/\n/g'
+    #tr '\t' ' ' | tr '\n' '\t' | sed 's/\t\t/\n/g'
+    grep -v '^$' \
+        | tr '\n' '\t' \
+        | tawk '{
+            for (i=1; i<NF; i++) {
+                if ($i ~ /^BTO/) {
+                    printf "\n%s",$i
+                } else {
+                    printf "\t%s",$i
+                }
+            }
+        }' | sed 1d
 }
 
 ensure-two-columns() {
@@ -38,11 +49,10 @@ ontology-names() {
 
 ontology-synonyms() {
     get-ontology-names-and-synonyms \
-        | awk '
-            BEGIN { OFS=FS="\t" }
+        | tawk '
             { 
                 for (i=3; i<=NF; i++) {
-                    printf "%s\t%s\n", $1, $i
+                    print $1,$i
                 }
             }' \
         | ensure-two-columns
@@ -50,12 +60,15 @@ ontology-synonyms() {
 
 # TODO: implement
 
-#ontology-relations() { 
-#    cache_download "$url" \
-#        | xml-sel -T -t -m "//owl:Class" \
-#            -v oboInOwl:id -n \
-#            -m "rdfs:subClassOf" -v "rdf:resource" -n
-#}
+ontology-relations() { 
+    cache_download "$url" \
+        | xml-sel -T -t -m "//owl:Class" \
+            -n -v oboInOwl:id \
+            -m "rdfs:subClassOf" \
+                -v "concat('	', substring(@rdf:resource,32))" \
+        | sed '1d;s/\t$//' | tr '_' ':' 
+    echo
+}
 
 usage() {
     cat 1>&2 <<EOF
@@ -73,4 +86,5 @@ cmd="$1"
 ontology=$(echo $2 | tr '[A-Z]' '[a-z]')
 url="http://www.berkeleybop.org/ontologies/${ontology}.owl"
  
-ontology-${cmd} "$@" 2> /dev/null || usage
+#ontology-${cmd} "$@" 2> /dev/null || usage
+ontology-${cmd} "$@" 
