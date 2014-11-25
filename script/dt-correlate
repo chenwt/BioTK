@@ -3,6 +3,7 @@
 import argparse
 import sys
 
+import numpy as np
 import pandas as pd
 
 if __name__ == "__main__":
@@ -17,13 +18,37 @@ if __name__ == "__main__":
     float_format = "%0." + str(args.significant_digits) + "f"
 
     X = pd.read_table(sys.stdin, index_col=0, sep="\t")
-    C = X.corr()
+    for c in X.columns:
+        X[c] = (X[c] - X[c].mean()) / X[c].std()
+
+    index = X.index
+    columns = X.columns
+    nc = len(columns)
+    nr = len(index)
+    X = np.array(X)
+    mask = ~np.isnan(X)
 
     if args.all:
-        C.to_csv(sys.stdout, sep="\t", float_format=float_format)
-    else:
-        n = min(args.n, len(C.index)-1)
-        for j in C.index:
-            x = C.ix[j,:]
-            x.sort()
-            print(j,*x[::-1].index[:n],sep="\t")
+        print("", *columns, sep="\t")
+
+    n = min(args.n, nr - 1)
+    for j,c in enumerate(columns):
+        cor = np.zeros(nc)
+        cor[:] = np.nan
+        for jj in range(nc):
+            ix = mask[:,j] & mask[:,jj]
+            if ix.sum() < 2:
+                continue
+            cor[jj] = np.dot(X[ix,j],X[ix,jj]) / (ix.sum() - 1)
+        # FIXME: this is a hack meaning the correlation values will not be exactly right
+        # really the standardization should be done with each individual mask 
+        # but that would be much slower and probably not much more accurate
+        cor = np.maximum(np.minimum(1, cor), -1)
+        if args.all:
+            print(c, *[float_format % x for x in cor], sep="\t")
+        else:
+            cor = pd.Series(cor, index=columns)
+            cor[c] = 100
+            cor = cor.dropna()
+            cor.sort(ascending=False)
+            print(c, *cor.index[:n], sep="\t")

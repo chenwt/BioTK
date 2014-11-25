@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+
+from BioTK.io.OBO import parse
+
+p = argparse.ArgumentParser(description="Parse OBO on stdin, returning terms, synonyms, or relations.")
+p.add_argument("mode", choices=["terms", "synonyms", "relations"])
+args = p.parse_args()
+
+ontology = parse(sys.stdin)
+if args.mode == "terms":
+    ontology.terms.to_csv(sys.stdout, sep="\t")
+elif args.mode == "synonyms":
+    ontology.synonyms.to_csv(sys.stdout, sep="\t")
+elif args.mode == "relations":
+    ontology.relations.to_csv(sys.stdout, sep="\t", index=False)
