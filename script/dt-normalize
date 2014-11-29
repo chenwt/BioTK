@@ -27,8 +27,8 @@ def quantile_normalize(X, thresh=10):
     assert (X_n.isnull() == X.isnull()).all().all()
     return X_n
 
-def standardize():
-    BioTK.io.read_matrix(sys.stdin)\
+def standardize(header=True):
+    BioTK.io.read_matrix(sys.stdin, header=header)\
         .apply(_standardize)\
         .dump()
 
@@ -36,13 +36,17 @@ def standardize():
 @click.option("--method", "-m", 
         type=click.Choice(["quantile", "standardize"]),
         required=True)
-def main(method):
+@click.option("--header/--no-header", "-H", 
+        default=True)
+def main(method, header):
     if method == "quantile":
-        X = pd.read_csv(sys.stdin, sep="\t", index_col=0)
+        X = pd.read_csv(sys.stdin, header=header, 
+                sep="\t", index_col=0)
         X_n = quantile_normalize(X)
-        X_n.to_csv(sys.stdout, sep="\t", float_format="%0.3f")
+        X_n.to_csv(sys.stdout, header=header,
+                sep="\t", float_format="%0.3f")
     elif method == "standardize":
-        standardize()
+        standardize(header=header)
 
 if __name__ == "__main__":
     main()

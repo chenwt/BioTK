@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+while getopts p opt; do
+    case $opt in
+        p) parallel=y ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+IFS="" read -r header
+echo "$header"
+
+if [ -z $parallel ]; then
+    "$@"
+else
+    parallel --pipe -l 1000 --block-size 5G --line-buffer "$@"
+fi

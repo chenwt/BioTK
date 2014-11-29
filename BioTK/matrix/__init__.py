@@ -7,8 +7,9 @@ import pandas as pd
 class MatrixIterator(object):
     N_JOBS = 8
 
-    def __init__(self, rows):
+    def __init__(self, rows, header=True):
         self.rows = iter(rows)
+        self.header = header
 
     def __iter__(self):
         # Override in subclass
@@ -16,10 +17,12 @@ class MatrixIterator(object):
 
     def dump(self, handle=sys.stdout, delimiter="\t", precision=3):
         rows = iter(self)
-        row = next(rows)
-        print("", *row.index, sep=delimiter, file=handle)
+        if self.header:
+            row = next(rows)
+            print("", *row.index, sep=delimiter, file=handle)
+            rows = itertools.chain([row], rows)
         fmt = "{0:0." + str(precision) + "f}"
-        for row in itertools.chain([row], rows):
+        for row in rows:
             data = list(map(fmt.format, row))
             print(row.name, *data, sep=delimiter, file=handle)
 
@@ -27,4 +30,4 @@ class MatrixIterator(object):
         def generator():
             for row in self:
                 yield fn(row, **kwargs)
-        return MatrixIterator(generator())
+        return MatrixIterator(generator(), header=self.header)

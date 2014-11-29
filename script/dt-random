@@ -1,3 +1,22 @@
 #!/usr/bin/env python3
 
-import pandas as pd
+import argparse
+import sys
+
+import numpy as np
+
+p = argparse.ArgumentParser()
+p.add_argument("--percent-missing", "-m", type=float, default=0)
+p.add_argument("nr", type=int)
+p.add_argument("nc", type=int)
+args = p.parse_args()
+
+
+print("", *list(range(args.nc)), sep="\t")
+for i in range(args.nr):
+    xs = np.random.normal(size=args.nc)
+    if args.percent_missing > 0:
+        ix = np.random.random(args.nc) < args.percent_missing
+        xs[ix] = np.nan
+    xs = ["%0.3f" % x for x in xs]
+    print(i, *xs, sep="\t")

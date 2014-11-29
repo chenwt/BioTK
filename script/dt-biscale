@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+dt wrap -p dt normalize --no-header -m standardize \
+    | transpose \
+    | dt wrap -p dt normalize --no-header -m standardize \
+    | transpose

@@ -34,6 +34,7 @@ commands=(
     [sort]="Sort a tabular dataset, excluding the header"
 
     [normalize]="Normalize a matrix using standard methods"
+    [biscale]="Standardize rows and columns of a matrix"
     [impute]="Impute missing values using Hastie's softImpute method"
 
     [correlate]="Produce the pairwise correlation matrix of columns"
@@ -49,6 +50,8 @@ commands=(
 
     [random]="Generate a random vector or matrix"
 
+    [wrap]="Wrap a command to return the matrix header unmodified, then operate on rows"
+
     [pickle]="Serialize a tab-delimited matrix"
     [unpickle]="Convert a serialized matrix to tab-delimited format"
 )
@@ -62,13 +65,15 @@ USAGE: dt <cmd> [args] < input
 commands:
 EOF
         for key in "${!commands[@]}"; do
-            echo -e "\t${key} - ${commands[$key]}"
+            echo -e " ${key} - ${commands[$key]}"
         done
     }
 }
 
 cmd="$1"
-description="${commands[$cmd]}" 
+{
+    description="${commands[$cmd]}"
+} &> /dev/null
 shift
 
 if [ -z "$description" ]; then

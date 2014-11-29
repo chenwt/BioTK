@@ -8,19 +8,20 @@ from . import as_float
 def _split_line(line, delimiter="\t"):
     return line.strip("\n").split(delimiter)
 
-def read_matrix(handle, delimiter="\t"):
-    columns = _split_line(next(handle), delimiter=delimiter)[1:]
-    columns = pd.Index(columns)
-
+def read_matrix(handle, header=True, delimiter="\t"):
+    columns = None
+    if header:
+        columns = _split_line(next(handle), delimiter=delimiter)[1:]
+        columns = pd.Index(columns)
     def generate():
         for line in handle:
             key, *data = _split_line(line, delimiter=delimiter)
-            assert len(data) == len(columns)
+            #assert len(data) == len(columns)
             data = list(map(as_float, data))
             x = pd.Series(data, index=columns)
             x.name = key
             yield x
-    return MatrixIterator(generate())
+    return MatrixIterator(generate(), header=header)
 
 def read_factor(handle, delimiter="\t"):
     data = {}

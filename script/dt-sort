@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+dt wrap sort -t$'\t' "$@"
