@@ -17,6 +17,8 @@ EOF
     exit $1
 }
 
+which transpose-block &> /dev/null || {
+
 transpose-block() {
     awk -f <(cat <<"EOF"
 
@@ -48,6 +50,7 @@ EOF
 
 }
 export -f transpose-block
+}
 
 process() {
     lz4 -dq $1 | transpose-block | lz4 -q > ${1}.tmp

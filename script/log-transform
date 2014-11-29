@@ -2,10 +2,10 @@
 
 import sys
 
-import BioTK.matrix
+from BioTK.io import read_matrix
 from BioTK.matrix.preprocess import log_transform
 
 if __name__ == "__main__":
-    BioTK.matrix.read(sys.stdin)\
+    read_matrix(sys.stdin)\
         .apply(log_transform, base=2, range=100, shift=True)\
         .dump()

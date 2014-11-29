@@ -19,14 +19,13 @@ if __name__ == "__main__":
     p.add_argument("--verbose", "-v", action="store_true")
     args = p.parse_args()
 
-    vector = read_vector(args.vector)
+    vector = read_vector(args.vector).dropna()
     matrix = read_matrix(sys.stdin)
 
     print("", "N", "Correlation", "-log10(P-Value)",
           sep="\t")
     for row in matrix:
-        q, v = row.dropna().align(vector.dropna(),
-                                  join="inner")
+        q, v = row.dropna().align(vector, join="inner")
         n = len(q)
         if n < 10:
             if args.verbose:

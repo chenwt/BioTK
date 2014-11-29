@@ -1,0 +1,30 @@
+#!/usr/bin/env Rscript
+
+header = readLines("stdin", n=1)
+cat(header)
+cat("\n")
+
+suppressMessages(
+if (!("softImpute" %in% rownames(installed.packages()))) {
+    install.packages("softImpute", 
+        repos="http://cran.us.r-project.org")
+}
+)
+suppressMessages(library(softImpute))
+
+while (1) {
+    X = tryCatch(
+        read.table("stdin", 
+            nrows=1000,
+            header=F, sep="\t", row.names=1, skip=1),
+        error=function(e) F)
+    if (!is.data.frame(X))
+        quit(save="no", status=0)
+    fit = softImpute(as.matrix(X))
+    X_n = round(complete(X, fit), 4)
+    print("hi")
+    try(
+        write.table(X_n, 
+            "/dev/stdout", quote=F, col.names=F, sep="\t"),
+        silent=T)
+}

@@ -5,4 +5,5 @@ source $(dirname $0)/BioTK.sh
 cmd="$1"
 ontology=$(echo $2 | tr '[A-Z]' '[a-z]')
 url="http://www.berkeleybop.org/ontologies/${ontology}.obo"
-cache_download "$url" | obo "$cmd"
+shift 2
+cache_download "$url" | obo $cmd $@

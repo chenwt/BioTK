@@ -33,6 +33,9 @@ commands=(
     [view]="View the first few rows and columns of the table"
     [sort]="Sort a tabular dataset, excluding the header"
 
+    [normalize]="Normalize a matrix using standard methods"
+    [impute]="Impute missing values using Hastie's softImpute method"
+
     [correlate]="Produce the pairwise correlation matrix of columns"
     [corrwith]="Correlate each row in a matrix with a vector"
     [dot]="Take the dot product of matrices or vectors"
