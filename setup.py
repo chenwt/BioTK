@@ -216,19 +216,6 @@ def pkgconfig(*packages, **kw):
         kw.setdefault(flag_map.get(token[:2]), []).append(token[2:])
     return kw
 
-# Optional extensions
-
-try:
-    libmdb = pkgconfig("libmdb")
-    extensions.append(Extension("BioTK.io.MDB",
-        ["BioTK/io/MDB.pyx"], **libmdb))
-except DependencyNotFound:
-    print("* WARNING: libmdb not found.\n\tContinuing without BioTK.io.MDB.\n\tIf you wish to have MS Access support, install your platform's 'mdbtools' package.",
-        file=sys.stderr)
-except FileNotFoundError:
-    # pkg-config not installed
-    pass
-
 ###############################
 # Dynamically determine version
 ###############################
@@ -287,7 +274,6 @@ setup(
     tests_require=requirements + ["pytest"],
     extras_require={
         "doc": requirements,
-        "mdb": ["mdbread"],
     },
     install_requires=requirements,
     ext_modules=extensions,
