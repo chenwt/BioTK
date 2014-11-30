@@ -32,6 +32,7 @@ declare -A commands
 commands=(
     [view]="View the first few rows and columns of the table"
     [sort]="Sort a tabular dataset, excluding the header"
+    [cut]="Select fields by name or position"
 
     [normalize]="Normalize a matrix using standard methods"
     [biscale]="Standardize rows and columns of a matrix"
