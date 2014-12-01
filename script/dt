@@ -33,6 +33,7 @@ commands=(
     [view]="View the first few rows and columns of the table"
     [sort]="Sort a tabular dataset, excluding the header"
     [cut]="Select fields by name or position"
+    [pivot]="Convert a sparse matrix in 3-column format to dense"
 
     [normalize]="Normalize a matrix using standard methods"
     [biscale]="Standardize rows and columns of a matrix"

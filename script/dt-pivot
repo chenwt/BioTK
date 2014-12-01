@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+tmpdir=$(mktemp -d)
+export columns=$(mktemp)
+trap 'rm -rf $tmpdir $columns' EXIT
+cd $tmpdir
+
+tawk '!($1$2 in a) { print $2,$3 >> $1 } { a[$1$2]="" }'
+cut -f1 * | sort -k1b,1 -u > $columns
+
+process() {
+    echo -ne "$1\t"
+    sort -t$'\t' -k1b,1 $1 \
+        | join -t$'\t' -j1 -a2 - $columns \
+        | tawk '{ print $2 }' \
+        | tr '\n' '\t'
+    echo
+}
+export -f process
+
+{
+    echo -ne "\t"
+    tr '\n' '\t' < $columns
+    echo
+    parallel -P150% process ::: *
+} | sed 's/\t$//'

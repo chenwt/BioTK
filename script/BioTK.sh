@@ -23,13 +23,16 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:=$HOME/.cache}"
 
 export BTK_DATA="${BTK_DATA:=$XDG_DATA_HOME/BioTK}"
 export BTK_CACHE="${BTK_CACHE:=$XDG_CACHE_HOME/BioTK}"
-mkdir -p "$BTK_DATA" "$BTK_CACHE"
+export BTK_PREFIX="$HOME/.local/BioTK/prefix/"
+mkdir -p "$BTK_DATA" "$BTK_CACHE" "$BTK_PREFIX/bin"
 
-on_intranet() {
-    host=wren.omrf.hsc.net.ou.edu
-    test ! -z "$(dig +short $host)"
-}
-export -f on_intranet
+export PATH="$BTK_PREFIX/bin":"$PATH"
+export TMPDIR="$BTK_CACHE/tmp/"
+mkdir -p $TMPDIR
+
+#######################
+# External dependencies
+#######################
 
 #########
 # Logging
@@ -46,6 +49,12 @@ btk_log() {
 ###################
 # Utility functions
 ###################
+
+on_intranet() {
+    host=wren.omrf.hsc.net.ou.edu
+    test ! -z "$(dig +short $host)"
+}
+export -f on_intranet
 
 tawk() {
     # awk, but with tabs as input/output delimiters

@@ -12,7 +12,7 @@ Options:
   -m : perform the entire transpose in RAM
   -l <count> : number of lines to transpose at a time;
     a larger number requires more RAM
-    (default: 500)
+    (default: 100)
 EOF
     exit $1
 }
@@ -58,7 +58,7 @@ process() {
 }
 export -f process
 
-lines=500
+lines=100
 IN_MEM=
 
 while getopts ml: opt; do
@@ -78,8 +78,8 @@ else
     wd=$(mktemp -d)
     trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
 
-    split -l $lines --filter='lz4 > $FILE' - $wd/x
-    parallel process ::: $wd/x*
+    split -a 5 -l $lines --filter='lz4 > $FILE' - $wd/x
+    parallel --tmpdir="$TMPDIR" -P150% process ::: $wd/x*
     lzpaste $wd/*
     rm -rf $wd
 fi

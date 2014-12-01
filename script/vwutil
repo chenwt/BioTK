@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+# Formatting and other workflow utilities for doing
+# machine learning with Vowpal Wabbit
+
+make-template() {
+    # Create a VW template from a tab-delimited matrix
+
+    # Use up to 10% of total RAM for sort buffer
+    sort_buffer=$(grep MemTotal /proc/meminfo \
+        | awk '{printf "%d", ($2 * 0.1)}')
+
+    header=$(mktemp)
+    trap 'rm -f $header' EXIT
+    IFS="" read -r line
+
+    # Remove colons and fix IDs starting with numbers 
+    # which will confuse vw
+    echo "$line" \
+        | tr '\t' '\n' \
+        | sed '1d;s/:/_/g;s/^\([0-9]\)/X\1/' > $header
+
+    while read line; do
+        key=$(echo "$line" | tr '\t' '\n' | head -1)
+        echo -ne "$key\t"
+        echo "$line" \
+            | tr '\t' '\n' \
+            | sed '1d;s/nan//g' \
+            | paste $header - \
+            | awk '$1 != "" && $2 != "" { printf "%s:%s ",$1,$2 }'
+        echo
+    done | awk 'NF > 1' #| sort -k1b,1 -c
+}
+
+fill-template() {
+    python3 <(cat <<EOF
+import sys
+from collections import defaultdict
+
+label = sys.argv[2]
+samples = set()
+
+map = defaultdict(set)
+with open(sys.argv[1]) as h:
+    for line in h:
+        k, v = line.strip("\n").split("\t")
+        if k == label:
+            samples.add(v)
+
+for line in sys.stdin:
+    key, rest = line.strip("\n").split("\t", 1)
+    cls = "1" if key in samples else "-1"
+    print(cls, "|f", rest)
+EOF
+)
+}
+
+multi-predict() {
+    # Matrix of values on stdin
+    tmpl="$1"
+    IFS="" read -r header
+}
+
+"$@"

@@ -10,9 +10,11 @@ shift $((OPTIND - 1))
 
 IFS="" read -r header
 echo "$header"
+#nc=$(echo "$header" | tr '\t' '\n' | sed 1d | wc -l)
+#nl=$((1 + (nc / 100)))
 
 if [ -z $parallel ]; then
     "$@"
 else
-    parallel --pipe -l 1000 --block-size 5G --line-buffer "$@"
+    parallel --tmpdir "$TMPDIR" -P150% --block-size 50M --pipe "$@"
 fi
