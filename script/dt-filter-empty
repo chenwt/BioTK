@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+process() {
+    awk -f <(cat <<"EOF"
+BEGIN { IFS=FS="\t" }
+{
+    for (i=2; i<=NF; i++) {
+        if (!(($i == "") || ($i == "nan") || ($i == "NaN"))) {
+            print
+            next
+        }
+    }
+}
+EOF
+)
+}
+export -f process
+
+dt wrap -p process

@@ -1,10 +1,37 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import sys
 import argparse
+from collections import Counter
+import sys
 
-import pandas as pd
+import numpy as np
 
+from BioTK.io import read_matrix, read_factor
+
+p = argparse.ArgumentParser()
+p.add_argument("--min-count", "-m", type=int, default=0,
+    help="Filter values in the factor which occur less than <min-count> times.")
+p.add_argument("factors", type=argparse.FileType("r"))
+args = p.parse_args()
+
+with args.factors as h:
+    factors = read_factor(h)
+
+if args.min_count > 0:
+    counts = Counter(factors)
+    factors = dict(((k,v) for k,v in factors.items() \
+            if counts[v] >= args.min_count))
+
+for i,row in enumerate(read_matrix(sys.stdin)):
+    collapsed = row.groupby(factors).mean()
+    if i == 0:
+        ix = list(sorted(collapsed.index))
+        print("", *ix, sep="\t")
+    print(row.name, *np.round(collapsed[ix],3), sep="\t")
+
+# Need to integrate or replace the below, collapsing by max mean:
+
+"""
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("mapping", type=argparse.FileType("r"))
@@ -15,11 +42,6 @@ if __name__ == "__main__":
         fields = line.strip("\n").split("\t")
         if len(fields) == 2:
             mapping[fields[0]] = fields[1]
-
-    def max_mean(X):
-        mu = X.mean(axis=0)
-        mu.sort(ascending=False)
-        return X.ix[:,mu.index[0]]
 
     ix = None
     for i,X in enumerate(pd.read_table(sys.stdin, 
@@ -36,3 +58,24 @@ if __name__ == "__main__":
         Xg.to_csv(sys.stdout, 
                 sep="\t", header=(i==0),
                 float_format="%0.3f")
+"""
+
+# Python is very slow for this, a bash WIP:
+
+"""
+factors=$(mktemp)
+zcat -f $1 | sort -k2b,2 > $factors
+
+IFS=""
+read -r header
+
+while read line; do
+    key=$(echo "$line" | cut -f1)
+    echo "$line" \
+        | tr '\t' '\n' -m \
+        | sed 1d \
+        | 
+done
+"""
+
+

@@ -27,8 +27,8 @@ export BTK_PREFIX="$HOME/.local/BioTK/prefix/"
 mkdir -p "$BTK_DATA" "$BTK_CACHE" "$BTK_PREFIX/bin"
 
 export PATH="$BTK_PREFIX/bin":"$PATH"
-export TMPDIR="$BTK_CACHE/tmp/"
-mkdir -p $TMPDIR
+#export TMPDIR="$BTK_CACHE/tmp/"
+#mkdir -p $TMPDIR
 
 #######################
 # External dependencies

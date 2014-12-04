@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+nr=10
+nc=5
+
+while getopts r:c: opt; do
+    case $opt in
+        r) nr=$OPTARG ;;
+        c) nc=$OPTARG ;;
+    esac
+done
+
+head -$nr | cut -f1-$nc

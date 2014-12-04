@@ -13,6 +13,8 @@ Options:
   -l <count> : number of lines to transpose at a time;
     a larger number requires more RAM
     (default: 100)
+  -n : the matrix is numeric (except for row and column labels).
+    in this case the entire transpose will be in RAM.
 EOF
     exit $1
 }
@@ -61,14 +63,22 @@ export -f process
 lines=100
 IN_MEM=
 
-while getopts ml: opt; do
+while getopts hnml: opt; do
     case $opt in
         m) IN_MEM=y ;;
         l) lines="$OPTARG" ;;
+        n) numeric=y ;;
         h) usage 0 ;;
     esac
 done
 
+
+if [ ! -z "$numeric" ]; then
+    which transpose-numeric > /dev/null && {
+        transpose-numeric
+        exit 0
+    }
+fi
 
 if [ ! -z "$IN_MEM" ]; then
     # Transpose in RAM
@@ -79,7 +89,7 @@ else
     trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
 
     split -a 5 -l $lines --filter='lz4 > $FILE' - $wd/x
-    parallel --tmpdir="$TMPDIR" -P150% process ::: $wd/x*
+    parallel -P150% process ::: $wd/x*
     lzpaste $wd/*
     rm -rf $wd
 fi

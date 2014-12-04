@@ -3,12 +3,24 @@
 # Formatting and other workflow utilities for doing
 # machine learning with Vowpal Wabbit
 
+_make-template() {
+    header="$1"
+    IFS=""
+    while read -r line; do
+        key=$(echo "$line" | tr '\t' '\n' | head -1)
+        echo -ne "$key\t"
+        echo "$line" \
+            | tr '\t' '\n' \
+            | sed '1d;s/nan//g' \
+            | paste $header - \
+            | awk '$1 != "" && $2 != "" { printf "%s:%s ",$1,$2 }'
+        echo
+    done
+}
+export -f _make-template
+
 make-template() {
     # Create a VW template from a tab-delimited matrix
-
-    # Use up to 10% of total RAM for sort buffer
-    sort_buffer=$(grep MemTotal /proc/meminfo \
-        | awk '{printf "%d", ($2 * 0.1)}')
 
     header=$(mktemp)
     trap 'rm -f $header' EXIT
@@ -19,17 +31,9 @@ make-template() {
     echo "$line" \
         | tr '\t' '\n' \
         | sed '1d;s/:/_/g;s/^\([0-9]\)/X\1/' > $header
-
-    while read line; do
-        key=$(echo "$line" | tr '\t' '\n' | head -1)
-        echo -ne "$key\t"
-        echo "$line" \
-            | tr '\t' '\n' \
-            | sed '1d;s/nan//g' \
-            | paste $header - \
-            | awk '$1 != "" && $2 != "" { printf "%s:%s ",$1,$2 }'
-        echo
-    done | awk 'NF > 1' #| sort -k1b,1 -c
+    parallel --pipe --block 5M -k _make-template $header \
+        | awk 'NF > 1' #| sort -k1b,1 -c
+    rm -f $header
 }
 
 fill-template() {
@@ -55,10 +59,48 @@ EOF
 )
 }
 
-multi-predict() {
+multi() {
     # Matrix of values on stdin
     tmpl="$1"
+    tmpdir=$(mktemp -d)
+    columns=$tmpdir/columns
+    rows=$tmpdir/rows
+    model=$tmpdir/model.vw
+    train_set=$tmpdir/train.gz
+
+    trap 'rm -rf $tmpdir' EXIT
     IFS="" read -r header
+    echo "$header" | tr '\t' '\n' | sed 1d > $columns
+
+    echo -ne "\t"
+    pigz -cd $tmpl | cut -f1 | transpose -m
+
+    export IFS=""
+    while read -r line; do
+        echo "$line" \
+            | tr '\t' '\n' \
+            | tee >(head -1 > $tmpdir/key) \
+            | sed 1d \
+            | paste $columns - \
+            | join -t$'\t' -j1 -o 1.1 1.2 2.2 - <(zcat $tmpl) \
+            | tawk '{ printf "%s\t%s | %s\n",$1,$2,$3 }' \
+            | awk '$2 != "" && $2 != "nan"' \
+                | gzip > $train_set
+        key=$(cat $tmpdir/key)
+        train_size=$(zcat $train_set | wc -l)
+        #echo $key $train_size
+        if [ $train_size -lt 5 ]; then
+            continue
+        fi
+
+        {
+            zcat $train_set | cut -f2- | vw -f $model
+            echo $key
+            pigz -cd $tmpl \
+                | tawk '{ printf "0 | %s\n",$2 } ' \
+                | vw -i $model -t -r /dev/stdout
+        } 2> /dev/null | transpose -m 
+    done
 }
 
 "$@"

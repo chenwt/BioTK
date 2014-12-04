@@ -153,7 +153,7 @@ cmdclass["clean"] = Clean
 
 entry_points = {"console_scripts":
                 [
-                    #"mmat = BioTK.mmat:cli"
+                    "mmat = BioTK.mmat:cli"
                 ]}
 
 requirements = [str(item.req) for item in

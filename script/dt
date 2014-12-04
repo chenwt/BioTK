@@ -12,18 +12,6 @@ run-ignore-header() {
     "$@"
 }
 
-##############
-# Entry points
-##############
-
-dt-view() {
-    head | cut -f1-5
-}
-
-dt-sort() {
-    run-ignore-header sort -S 2G -t'	' "$@"
-}
-
 ##########
 # Main CLI
 ##########
@@ -34,6 +22,9 @@ commands=(
     [sort]="Sort a tabular dataset, excluding the header"
     [cut]="Select fields by name or position"
     [pivot]="Convert a sparse matrix in 3-column format to dense"
+
+    [filter-empty]="Remove rows with all missing values"
+    [filter]="Remove rows with too few valid values"
 
     [normalize]="Normalize a matrix using standard methods"
     [biscale]="Standardize rows and columns of a matrix"
@@ -51,6 +42,7 @@ commands=(
     [summary]="Print summary statistics for each row"
 
     [random]="Generate a random vector or matrix"
+    [sample]="Sample rows of a matrix with a given probability"
 
     [wrap]="Wrap a command to return the matrix header unmodified, then operate on rows"
 

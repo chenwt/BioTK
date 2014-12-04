@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+process() {
+    awk -vmin=$1 -f <(cat <<"EOF"
+BEGIN { IFS=FS="\t" }
+{
+    n=0
+    for (i=2; i<=NF; i++) {
+        if (!(($i == "") || ($i == "nan") || ($i == "NaN"))) {
+            n+=1
+        }
+    }
+    if (n >= min) {
+        print
+    }
+}
+EOF
+)
+}
+export -f process
+
+min_valid=1
+while getopts m: opt; do
+    case $opt in
+        m) min_valid="$OPTARG" ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+export IFS=""
+while read line; do
+    n=$(echo "$line" \
+        | tr '\t' '\n' \
+        | sed 1d \
+        | grep -v 'nan\|^$\|NaN' \
+        | wc -l)
+    if [[ "$n" -lt "$min_valid" ]]; then
+        echo "$line"
+    fi
+done
