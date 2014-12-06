@@ -30,12 +30,6 @@ import platform
 from distutils.version import StrictVersion
 assert StrictVersion(platform.python_version()) > StrictVersion("3.2.0")
 
-# Check native dependencies
-
-class DependencyNotFound(Exception):
-    def __init__(self, *args, **kwargs):
-        super(DependencyNotFound, self).__init__(*args, **kwargs)
-
 from distutils.spawn import find_executable
 
 def read_requirements(path):
@@ -46,40 +40,13 @@ def read_requirements(path):
                 exe, name = line.split("\t")
                 yield exe, name
 
-distro_map = {
-        "Arch Linux": "archlinux",
-        "Ubuntu": "ubuntu"
-}
-
-def find_distribution():
-    path = "/etc/os-release"
-    if not os.path.exists(path):
-        return
-    with open(path) as h:
-        m = re.search('NAME="(.+?)"', h.read())
-        if m is not None:
-            return distro_map.get(m.group(1))
-
-def install_binary_dependencies():
-    print("""One or more required binary packages could not be found. Would you like the installer to attempt automatic installation? This requires superuser privileges. (y/n)""")
-    if input().lower() == "y":
-        distro = find_distribution()
-        if distro is not None:
-            script = "install/%s.sh" % distro
-            subprocess.call(["bash", script])
-            return
-    print("Aborting.")
+missing_binaries = []
 
 if not "doc" in sys.argv:
     print("* Checking binary dependencies ...")
 
     for exe, name in read_requirements("binary-requirements.txt"):
-        ok = find_executable(exe)
-        msg = '\t%s ("%s") ... %s' % (name, exe, "OK" if ok else "FAIL")
-        print(msg)
-        if not ok:
-            install_binary_dependencies()
-            break
+        find_executable(exe) or missing_binaries.append((exe, name))
 
 ################################
 # setup.py commands/entry points
@@ -282,3 +249,10 @@ setup(
     # setup.py entry points
     cmdclass=cmdclass
 )
+
+if missing_binaries:
+    print("\n\n\n","==="*20,"\nWARNING: Some executables were missing!", file=sys.stderr)
+    print("You will still be able to use the Python library but scripts may not work.", file=sys.stderr)
+    print("Missing programs:", file=sys.stderr)
+    for exe, name in missing_binaries:
+        print("*", exe, name, file=sys.stderr)
