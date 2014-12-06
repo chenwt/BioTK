@@ -50,12 +50,6 @@ btk_log() {
 # Utility functions
 ###################
 
-on_intranet() {
-    host=wren.omrf.hsc.net.ou.edu
-    test ! -z "$(dig +short $host)"
-}
-export -f on_intranet
-
 tawk() {
     # awk, but with tabs as input/output delimiters
 

@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 import sys
+from collections import defaultdict
 
 import numpy as np
 
@@ -13,21 +14,36 @@ p.add_argument("--min-count", "-m", type=int, default=0,
     help="Filter values in the factor which occur less than <min-count> times.")
 p.add_argument("factors", type=argparse.FileType("r"))
 args = p.parse_args()
+assert args.min_count >= 0
 
 with args.factors as h:
-    factors = read_factor(h)
+    factors = defaultdict(set)
+    for line in h:
+        s,g = line.rstrip("\n").split("\t")
+        factors[g].add(s)
 
-if args.min_count > 0:
-    counts = Counter(factors)
-    factors = dict(((k,v) for k,v in factors.items() \
-            if counts[v] >= args.min_count))
+factors = dict(((k,v) for k,v in factors.items() \
+        if len(v) >= args.min_count))
 
 for i,row in enumerate(read_matrix(sys.stdin)):
-    collapsed = row.groupby(factors).mean()
+    if i and i % 100 == 0:
+        print(i, file=sys.stderr)
     if i == 0:
-        ix = list(sorted(collapsed.index))
+        available = set(row.index)
+        ok = set()
+        for k,vs in factors.items():
+            vs &= available
+            if len(vs) > args.min_count:
+                factors[k] = vs
+                ok.add(k)
+        factors = dict((k,vs) for k,vs in factors.items() if k in ok) 
+        ix = list(sorted(factors.keys()))
         print("", *ix, sep="\t")
-    print(row.name, *np.round(collapsed[ix],3), sep="\t")
+        collapsed = np.empty(len(ix))
+    collapsed[:] = np.nan
+    for j,k in enumerate(ix):
+        collapsed[j] = row[factors[k]].mean() 
+    print(row.name, *np.round(collapsed,3), sep="\t")
 
 # Need to integrate or replace the below, collapsing by max mean:
 

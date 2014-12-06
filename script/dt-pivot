@@ -1,26 +1,48 @@
 #!/usr/bin/env bash
 
-tmpdir=$(mktemp -d)
+tmpdir=$(mktemp -d -p /dev/shm)
 export columns=$(mktemp)
 trap 'rm -rf $tmpdir $columns' EXIT
 cd $tmpdir
+tawk '{ print $2,$3 >> $1 }'
 
-tawk '!($1$2 in a) { print $2,$3 >> $1 } { a[$1$2]="" }'
-cut -f1 * | sort -k1b,1 -u > $columns
-
-process() {
+full-pivot-process() {
     echo -ne "$1\t"
-    sort -t$'\t' -k1b,1 $1 \
+    sort -t$'\t' -k1b,1 -u $1 \
         | join -t$'\t' -j1 -a2 - $columns \
         | tawk '{ print $2 }' \
         | tr '\n' '\t'
     echo
 }
-export -f process
+export -f full-pivot-process
 
-{
-    echo -ne "\t"
-    tr '\n' '\t' < $columns
-    echo
-    parallel -P150% process ::: *
-} | sed 's/\t$//'
+full-pivot() {
+    cut -f1 * | sort -k1b,1 -u > $columns
+    {
+        echo -ne "\t"
+        tr '\n' '\t' < $columns
+        echo
+        parallel -P150% fn ::: *
+    } | sed 's/\t$//'
+}
+
+list-pivot() {
+    ls * | while read key; do
+        echo -ne "$key\t"
+        sort -t$'\t' -k1b,1 -u $key \
+            | sed 's/\t$//' \
+            | tr '\t' ':' \
+            | sort -k1b,1 \
+            | tr '\n' '\t'
+        echo
+    done
+}
+
+cmd="full"
+while getopts l opt; do
+    case $opt in
+        l) cmd="list" ;;
+    esac
+done
+
+${cmd}-pivot

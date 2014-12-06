@@ -6,7 +6,7 @@ BEGIN { IFS=FS="\t" }
 {
     n=0
     for (i=2; i<=NF; i++) {
-        if (!(($i == "") || ($i == "nan") || ($i == "NaN"))) {
+        if (!(($i == "") || ($i == "nan"))) {
             n+=1
         }
     }
@@ -27,14 +27,4 @@ while getopts m: opt; do
 done
 shift $((OPTIND - 1))
 
-export IFS=""
-while read line; do
-    n=$(echo "$line" \
-        | tr '\t' '\n' \
-        | sed 1d \
-        | grep -v 'nan\|^$\|NaN' \
-        | wc -l)
-    if [[ "$n" -lt "$min_valid" ]]; then
-        echo "$line"
-    fi
-done
+dt wrap parallel -k --pipe process $min_valid

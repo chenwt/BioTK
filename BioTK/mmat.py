@@ -7,12 +7,17 @@ import subprocess as sp
 import sys
 import warnings
 import itertools
+import time
 
 from functools import partialmethod
 
 import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
+
+def format_message(msg):
+    return "\n".join([line.strip() for line in msg.split("\n")
+        if line.strip()])
 
 def as_float(x):
     try:
@@ -42,13 +47,14 @@ def chunks(it, size=1000):
 
 HeaderType = np.dtype([
     ("magic", np.int64),
-    ("version", np.int64),
+    ("version", np.int32),
     ("n_rows", np.int64),
     ("n_columns", np.int64),
     ("max_rows", np.int64),
     ("max_columns", np.int64),
     ("dtype_length", np.int64),
-    ("reserved", "S36")
+    ("loading_time", np.float32),
+    ("reserved", "S65")
 ])
 
 StringType = np.dtype("U100")
@@ -67,6 +73,7 @@ def fix_index(ix):
         dtype = StringType
     else:
         dtype = ix.dtype
+    assert len(ix) == len(set(ix)), "duplicate elements in row or column names are not allowed."
     return np.array(ix, dtype=dtype)
 
 class IndexedMmap(np.memmap):
@@ -152,7 +159,7 @@ class View(object):
                 index=self.index, 
                 columns=self.columns)
 
-    def correlate(self, series):
+    def corrwith(self, series):
         assert (series.index == self.columns).all()
         series_nan = np.isnan(series)
         o = np.zeros(self.shape[0])
@@ -172,8 +179,10 @@ class View(object):
     # Unlike accessing View.data directly, these mask nans
     # and return pandas.Series objects 
 
-    def reduce(self, reduce_fn, ignore_na=True, axis=0):
+    def reduce(self, reduce_fn, sample=None, 
+            ignore_na=True, axis=0):
         assert axis in (0,1)
+
         if axis == 0:
             gen = (self.data[i,:] for i in range(self.shape[0]))
             ix = self.index
@@ -191,6 +200,22 @@ class View(object):
                 o[i] = reduce_fn(x[mask])
         return pd.Series(o, index=ix)
 
+    def to_tsv(self, transpose=False, 
+            delimiter="\t",
+            file=sys.stdout):
+        # FIXME: implement index.name and columns.name
+        print(delimiter, end="", file=file)
+        if not transpose:
+            print(*self.columns, sep=delimiter, file=file)
+            for i in range(self.shape[0]):
+                print(self.index[i], *self.data[i,:], 
+                        sep=delimiter, file=file)
+        else:
+            print(*self.index, sep=delimiter, file=file)
+            for j in range(self.shape[1]):
+                print(self.columns[j], *self.data[:,j],
+                        sep=delimiter, file=file)
+
 reductions = ["sum", "mean", "std", "var"]
 for k in reductions:
     setattr(View, k, partialmethod(View.reduce, getattr(np, k)))
@@ -203,18 +228,20 @@ class MemoryMappedMatrix(View):
     The memory layout is as follows:
 
         byte 0-63: header, consisting of:
-            byte 0-3: magic number (int64 : 0x11da549e21c7ef21)
-            byte 4-7: file format version number (int64)
-            byte 8-11: number of rows (int64)
-            byte 12-15: number of columns (int64)
-            byte 16-19: maximum number of rows (int64)
-            byte 20-23: maximum number of columns (int64)
-            byte 24-27: length of pickled dtype data (int64)
-            byte 27-63: reserved for future expansion
+            byte 0-7: magic number (int64 : 0x11da549e21c7ef21)
+            byte 8-12: file format version number (int32)
+            byte 13-21: number of rows (int64)
+            byte 22-30: number of columns (int64)
+            byte 31-39: maximum number of rows (int64)
+            byte 40-48: maximum number of columns (int64)
+            byte 49-57: length of pickled dtype data (int64)
+            byte 58-62: loading time in seconds (float32)
+            byte 63-128: reserved for future expansion
 
-        byte 64-??: pickled dtype data 
-            A pickled tuple of 3 dtype objects, corresponding the the
-                dtypes of the index, columns, and data. The length of 
+        byte 129-??: pickled dtype data 
+            A pickled tuple of 3 dtype objects, 
+                corresponding the the dtypes of the 
+                index, columns, and data. The length of 
                 this byte string is specified in the header.
 
         byte ??-??: row index data of length equal to the 
@@ -235,8 +262,9 @@ class MemoryMappedMatrix(View):
             index=None, columns=None,
             index_dtype=np.int64, columns_dtype=np.int64):
         """
-        - exclusive : This object will be the exclusive owner of the 
-            memory map. This is required if you want to resize the array.
+        - exclusive : This object will be the exclusive owner 
+            of the memory map. This is required if you want 
+            to resize the array.
         """
         # FIXME: use portalock.lock(handle, LOCK_EX) if exclusive
         # (but requires to keep a handle around)
@@ -246,8 +274,14 @@ class MemoryMappedMatrix(View):
             vmem = sp.check_output("ulimit -v", shell=True).strip()
             vmem = np.inf if vmem==b"unlimited" else int(vmem)
         except Exception as e:
-            warnings.warn("Failed to determine OS virtual memory limit \
-(command 'ulimit -v' failed). If your OS is not configured with a sufficiently large virtual memory limit, mapping may fail.")
+            msg = format_message("""
+            Failed to determine OS virtual memory limit
+            (command 'ulimit -v' failed). If your OS is not 
+            configured with a sufficiently large virtual memory 
+            limit, mapping may fail. For best results,
+            set this value to unlimited in your platform's
+            equivalent of /etc/security/limits.conf""")
+            warnings.warn(msg)
             # Proceed as though we have unlimited virtual memory
             vmem = np.inf
 
@@ -296,9 +330,19 @@ class MemoryMappedMatrix(View):
                 dtype=HeaderType)
         self._header = self._header_map[0]
 
+    def describe(self, file=sys.stdout):
+        print("loading time\t%0.3f s" 
+                % self._header["loading_time"])
+        print("rows", self.shape[0], sep="\t")
+        print("columns", self.shape[1], sep="\t")
+        print("dtype", str(self.data.dtype), sep="\t")
+        print("index dtype", str(self.index.dtype), sep="\t")
+        print("columns dtype", str(self.columns.dtype), sep="\t")
+
     def refresh(self):
         self._map_header()
-        nrow, ncol = self._header["n_rows"], self._header["n_columns"]
+        nrow = self._header["n_rows"]
+        ncol = self._header["n_columns"]
 
         assert self._header["magic"] == self.MAGIC_NUMBER, \
                 "File '%s' is not a valid MemoryMappedMatrix file."
@@ -306,9 +350,10 @@ class MemoryMappedMatrix(View):
         with open(self._path, "rb") as h:
             h.seek(self.DTYPE_OFFSET)
             index_dtype, columns_dtype, dtype = \
-                    pickle.loads(h.read(self._header["dtype_length"]))
+                pickle.loads(h.read(self._header["dtype_length"]))
 
-        self._index_offset = self.DTYPE_OFFSET + self._header["dtype_length"]
+        self._index_offset = \
+            self.DTYPE_OFFSET + self._header["dtype_length"]
         index = IndexedMmap(self._path, 
                 mode="r+", offset=self._index_offset, 
                 shape=(nrow,), dtype=index_dtype)
@@ -325,11 +370,14 @@ class MemoryMappedMatrix(View):
                 mode="r+", offset=self._data_offset, 
                 shape=(nrow, ncol), dtype=dtype)
 
-        super(MemoryMappedMatrix, self).__init__(index, columns, data)
+        self.dtype = dtype
+        super(MemoryMappedMatrix, self)\
+                .__init__(index, columns, data)
 
     @property
     def max_shape(self):
-        return (self._header["max_rows"], self._header["max_columns"])
+        return (self._header["max_rows"], 
+                self._header["max_columns"])
 
     def resize(self, shape):
         assert self._exclusive
@@ -355,16 +403,13 @@ class MemoryMappedMatrix(View):
     def __del__(self):
         self.flush()
 
-    def to_tsv(self, file=sys.stdout):
-        # FIXME: implement index.name and columns.name
-        print("\t", end="", file=file)
-        print(*self.columns, sep="\t", file=file)
-        for i in range(self.shape[0]):
-            print(self.index[i], *self.data[i,:], 
-                    sep="\t", file=file)
 
     @staticmethod
     def from_file(handle, path, delimiter="\t"):
+        chunk_size = 100
+        growth_factor = 2
+        start_time = time.time()
+
         def maybe_int(items):
             try:
                 items = list(map(int, items))
@@ -373,37 +418,44 @@ class MemoryMappedMatrix(View):
             return pd.Index(items)
 
         with handle:
-            columns = maybe_int(next(handle).split(delimiter)[1:])
+            columns = maybe_int(next(handle)\
+                    .rstrip("\n").split(delimiter)[1:])
             nc = len(columns)
-            cnks = chunks(handle, 1000)
-            chunk = next(cnks)
-            index = maybe_int([line.split(delimiter)[0] for line in chunk])
+            #cnks = chunks(handle, chunk_size)
+            #chunk = next(cnks)
+            line = next(handle)
+            try:
+                int(line.split(delimiter)[0])
+                index_dtype = np.int64
+            except ValueError:
+                index_dtype = StringType
+            lines = itertools.chain([line], handle)
 
             X = MMAT(path, 
-                    shape=(len(chunk), len(columns)),
+                    shape=(100, len(columns)),
                     dtype=np.float32,
-                    max_shape=(500000,nc),
+                    max_shape=(1000000,nc),
                     exclusive=True,
-                    index=index,
+                    index_dtype=index_dtype,
                     columns=columns)
 
-            first = True
-            for chunk in cnks:
-                nr = X.shape[0]
-                na = len(chunk)
-                if first:
-                    nr = 0
-                    first = False
-                else:
-                    X.resize((nr+na, nc))
-                print(X.shape)
-                index = []
-                for i,line in enumerate(chunk):
-                    fields = line.split(delimiter)
-                    index.append(fields[0])
-                    X.data[nr+i,:] = list(map(as_float, fields[1:]))
-                sl = slice(nr, nr+na+1, 1)
-                X.index[sl] = fix_index(maybe_int(index))
+            print(X.shape)
+            index = []
+
+            nr = 0
+            for nr,line in enumerate(lines):
+                if nr + 1 > X.shape[0]:
+                    X.resize((int(X.shape[0]*growth_factor), 
+                        nc))
+                    print(X.shape, nr, nc)
+                isep = line.find(delimiter)
+                index.append(line[:isep])
+                X.data[nr,:] = np.fromstring(line[isep+1:], 
+                        sep=delimiter)
+
+            X.resize((nr+1,nc))
+            X.index[:] = fix_index(maybe_int(index))
+            X._header["loading_time"] = time.time() - start_time
             return X
 
 MMAT = MemoryMappedMatrix
@@ -427,18 +479,21 @@ def load(matrix_path, delimiter="\t"):
     """
     import sys
     X = MMAT.from_file(sys.stdin, matrix_path, delimiter=delimiter)
-    print("Successfully loaded matrix with shape:", X.shape, 
-            file=sys.stderr)
+    start = time.time()
+    e = lambda *args: print(*args, file=sys.stderr)
+    e("\nMatrix loaded:")
+    X.describe()
 
 @cli.command()
 @click.argument("matrix_path", required=True)
 @click.option("--delimiter", "-d", default="\t")
-def dump(matrix_path, delimiter="\t"):    
+@click.option("--transpose/--no-transpose", "-t", default=False)
+def dump(matrix_path, delimiter="\t", transpose=False):    
     """
     Export a matrix's data to TSV
     """
     X = MMAT(matrix_path)
-    X.to_tsv()
+    X.to_tsv(delimiter=delimiter, transpose=transpose)
 
 @cli.command()
 @click.argument("matrix_path", required=True)
@@ -447,11 +502,7 @@ def describe(matrix_path, delimiter="\t"):
     Print MMAT shape, dtype, etc
     """
     X = MMAT(matrix_path)
-    print("rows", X.shape[0], sep="\t")
-    print("columns", X.shape[1], sep="\t")
-    print("dtype", str(X.data.dtype), sep="\t")
-    print("index dtype", str(X.index.dtype), sep="\t")
-    print("columns dtype", str(X.columns.dtype), sep="\t")
+    X.describe()
 
 @cli.command()
 @click.argument("matrix_path", required=True)
@@ -463,8 +514,46 @@ def reduce(matrix_path, reduction, axis=0):
     """
     X = MMAT(matrix_path)
     fn = getattr(np, reduction)
-    X.reduce(fn, axis=axis).to_csv(sys.stdout, sep="\t", na_rep="nan")
+    X.reduce(fn, axis=axis)\
+            .to_csv(sys.stdout, sep="\t", na_rep="nan")
 
+@cli.command()
+@click.argument("matrix_path", required=True)
+@click.option("--rows", "-r", is_flag=True)
+@click.option("--columns", "-c", is_flag=True)
+def select(matrix_path, rows, columns):
+    """
+    Select rows or columns by key
+    """
+    if not rows or columns:
+        rows = True
+    assert (rows != columns), "-r and -c are mutually exclusive"
+    X = MMAT(matrix_path)
+    selection = [line.rstrip("\n") for line in sys.stdin]
+    if rows:
+        X.loc[selection,:].to_tsv()
+    else:
+        X.loc[:,selection].to_tsv()
+
+@cli.command()
+@click.argument("matrix_path", required=True)
+@click.option("--rows", "-r", is_flag=True)
+@click.option("--columns", "-c", is_flag=True)
+def keys(matrix_path, rows, columns):
+    """
+    Output row or column names
+    """
+    if not rows or columns:
+        rows = True
+    assert (rows != columns), "-r and -c are mutually exclusive"
+    X = MMAT(matrix_path)
+    if rows:
+        keys = X.index
+    else:
+        keys = X.columns
+    for k in keys:
+        print(k)
+ 
 if __name__ == "__main__":
     cli()
 

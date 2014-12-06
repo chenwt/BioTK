@@ -17,11 +17,8 @@ if [ ! -e "$ASPERA_HOME" ]; then
     version=3.4.2.90351
     os=$(uname)
     platform=$(uname -m)
-    if on_intranet; then
         url_base="http://wren.omrf.hsc.net.ou.edu"
-    else
-        url_base="http://wrenlab.org"
-    fi
+    url_base="http://wrenlab.org"
     url="${url_base}/private/BioTK/"
     url+="aspera-connect-${version}-${os}-${platform}.tgz"
     echo "Attempting to install Aspera Client..."

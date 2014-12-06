@@ -31,12 +31,14 @@ def _print_descendants_or_ancestors(fn, term):
     ontology = parse(sys.stdin)
     relations = set(ontology.relations.iloc[:,2])
     graph = ontology.to_graph(relations=relations)
-    for t in fn(graph, term):
-        name = ontology.terms["Name"][t]
-        print(t, name, sep="\t")
+    terms = [term] if term is not None else graph.nodes()
+    for t1 in terms: 
+        for t2 in fn(graph, t1):
+            #name = ontology.terms["Name"][t2]
+            print(t1, t2, sep="\t")
 
 @cli.command()
-@click.argument("term")
+@click.option("--term", "-t")
 def descendants(term):
     _print_descendants_or_ancestors(nx.ancestors, term)
 

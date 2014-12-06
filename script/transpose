@@ -72,24 +72,25 @@ while getopts hnml: opt; do
     esac
 done
 
+{
+    if [ ! -z "$numeric" ]; then
+        which transpose-numeric > /dev/null && {
+            transpose-numeric
+            exit 0
+        }
+    fi
 
-if [ ! -z "$numeric" ]; then
-    which transpose-numeric > /dev/null && {
-        transpose-numeric
-        exit 0
-    }
-fi
+    if [ ! -z "$IN_MEM" ]; then
+        # Transpose in RAM
+        transpose-block
+    else
+        # Otherwise, store intermediate results in tempfiles
+        wd=$(mktemp -d)
+        trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
 
-if [ ! -z "$IN_MEM" ]; then
-    # Transpose in RAM
-    transpose-block
-else
-    # Otherwise, store intermediate results in tempfiles
-    wd=$(mktemp -d)
-    trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
-
-    split -a 5 -l $lines --filter='lz4 > $FILE' - $wd/x
-    parallel -P150% process ::: $wd/x*
-    lzpaste $wd/*
-    rm -rf $wd
-fi
+        split -a 5 -l $lines --filter='lz4 > $FILE' - $wd/x
+        parallel -P150% process ::: $wd/x*
+        lzpaste $wd/*
+        rm -rf $wd
+    fi
+}

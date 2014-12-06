@@ -7,9 +7,10 @@ import pandas as pd
 class MatrixIterator(object):
     N_JOBS = 8
 
-    def __init__(self, rows, header=True):
+    def __init__(self, rows, columns=None, header=True):
         self.rows = iter(rows)
         self.header = header
+        self.columns = columns
 
     def __iter__(self):
         # Override in subclass

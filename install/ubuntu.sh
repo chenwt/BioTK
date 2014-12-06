@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 pkgs=(
-    realpath
     parallel
     tokyocabinet-bin libtokyocabinet-dev 
     pixz pigz

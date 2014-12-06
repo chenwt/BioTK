@@ -18,8 +18,7 @@ if __name__ == "__main__":
     float_format = "%0." + str(args.significant_digits) + "f"
 
     X = pd.read_table(sys.stdin, index_col=0, sep="\t")
-    for c in X.columns:
-        X[c] = (X[c] - X[c].mean()) / X[c].std()
+    X = (X - X.mean() / X.std())
 
     index = X.index
     columns = X.columns

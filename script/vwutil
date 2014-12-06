@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Formatting and other workflow utilities for doing
-# machine learning with Vowpal Wabbit
+# machine learning (mostly with Vowpal Wabbit)
 
 _make-template() {
     header="$1"
@@ -59,8 +59,10 @@ EOF
 )
 }
 
-multi() {
-    # Matrix of values on stdin
+mpredict() {
+    # on stdin: gold standard matrix of <label> x <sample>
+    # returns:
+    # - on stdout: matrix of predictions (<sample> x <label>)
     tmpl="$1"
     tmpdir=$(mktemp -d)
     columns=$tmpdir/columns
@@ -94,12 +96,60 @@ multi() {
         fi
 
         {
-            zcat $train_set | cut -f2- | vw -f $model
+            # training & prediction
+            zcat $train_set | cut -f2- \
+                | vw -f $model 2> /dev/null
             echo $key
             pigz -cd $tmpl \
                 | tawk '{ printf "0 | %s\n",$2 } ' \
-                | vw -i $model -t -r /dev/stdout
-        } 2> /dev/null | transpose -m 
+                | vw -i $model -t -r /dev/stdout 2> /dev/null
+        } | transpose -m 
+    done
+}
+
+evaluate() {
+    y="$1"
+    y_hat="$2"
+}
+
+mevaluate() {
+    # Inputs: $1 (gold) $2 (predictions)
+    # Both are matrices of <label> X <sample>
+
+    y=$(mktemp -d)
+    yh=$(mktemp -d)
+    y_c=$(mktemp)
+    yh_c=$(mktemp)
+    trap 'rm -rf $y $yh $y_c $yh_c' EXIT
+    zcat -f $1 \
+        | head -1000 | tawk -vd=$y -vc=$y_c \
+        'NR == 1 { for (i=2;i<=NF;i++) print $i > c } 
+         NR > 1 { for (i=2;i<=NF;i++) print $i > d"/"$1 }' 
+    zcat -f $2 \
+        | head - 1000 | tawk -vd=$yh -vc=$yh_c \
+        'NR == 1 { for (i=2;i<=NF;i++) print $i > c } 
+         NR > 1 { for (i=2;i<=NF;i++) print $i > d"/"$1 }'
+    for yhi in $yh/*; do
+        label=$(basename $yhi)
+        echo $label
+        [ -f "$y/$label" ] || continue
+        yi=$y/$label
+        join -t$'\t' <(paste $y_c $yi) <(paste $yh_c $yhi) \
+            | cut -f2-3 \
+            | dt filter -m 2
+    done
+
+    IFS=""
+    zcat -f $1 \
+        | join -t$'\t' - <(zcat -f $2 | cut -f1) \
+        | paste -d'|' - <(zcat -f $2) \
+        | sed 1d \
+    | while read line; do
+        echo "---"
+        key=$(echo "$line" | tr '\t' '\n' | head -1)
+        echo "$line" | tr '|' '\n' \
+            | tawk '{ print NF }'
+        break
     done
 }
 

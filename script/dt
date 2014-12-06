@@ -22,12 +22,17 @@ commands=(
     [sort]="Sort a tabular dataset, excluding the header"
     [cut]="Select fields by name or position"
     [pivot]="Convert a sparse matrix in 3-column format to dense"
+    [map]="Run a command on each row of a matrix"
+    [cat]="Format a matrix, returning its data unchanged"
 
     [filter-empty]="Remove rows with all missing values"
     [filter]="Remove rows with too few valid values"
 
-    [normalize]="Normalize a matrix using standard methods"
+    [log]="Log-transform rows"
+    [qnorm]="Quantile normalize a matrix"
+    [standardize]="Standardize (scale) the rows of a matrix"
     [biscale]="Standardize rows and columns of a matrix"
+
     [impute]="Impute missing values using Hastie's softImpute method"
 
     [correlate]="Produce the pairwise correlation matrix of columns"

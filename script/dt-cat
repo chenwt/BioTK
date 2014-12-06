@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+
+# "cat" a matrix, applying standard formatting to it (nans, float precision, etc)
+
+from BioTK.io import read_matrix
+from BioTK.util import identity
+
+read_matrix().apply(identity).dump()

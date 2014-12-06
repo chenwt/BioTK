@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+import io
+import sys
+from itertools import chain, islice
+import multiprocessing as mp
+
+import numpy as np
+import pandas as pd
+from scipy.interpolate import interp1d
+
+from BioTK.io import read_matrix
+
+fn = None
+mu = None
+mu_s = None
+index = None
+def quantile_normalize_init(mu_, index_):
+    global fn, mu, mu_s, index
+    mu, index = mu_, index_
+    mu_s = np.array(sorted(mu))
+    fn = interp1d(range(len(mu_s)), mu_s)
+
+def quantile_normalize(args):
+    global mu, mu_s, fn, index
+    name, x = args
+    x = x[index]
+    ix = ~np.isnan(x)
+    n = ix.sum()
+    if n > 0:
+        x_n = fn(np.argsort(x[ix]) * (len(mu) / n))
+        x[ix] = np.round(x_n, 3)
+    else:
+        x = None
+    return name, x
+
+if __name__ == "__main__":
+    threshold = 1
+    sample_size = 1000
+
+    xs = read_matrix(sys.stdin, as_array=True)
+
+    sample = list(islice(xs, sample_size))
+    X = pd.DataFrame(dict(sample), index=xs.columns).T
+    mu = X.dropna(thresh=threshold, axis=1).mean()
+    xs = chain(sample, xs)
+    index = np.array(X.columns.isin(mu.index), dtype=bool)
+
+    parallel = True
+    if parallel:
+        p = mp.Pool(initializer=quantile_normalize_init, 
+                initargs=(mu,index))
+        o = p.imap(quantile_normalize, xs)
+    else:
+        quantile_normalize_init(mu)
+        o = map(quantile_normalize, xs)
+
+    print("", *X.columns, sep="\t")
+    for i,(id,x_n) in enumerate(o):
+        if i % 1000 == 0:
+            print("qnorm:", i, file=sys.stderr)
+        if x_n is not None:
+            print(id, *x_n, sep="\t")

@@ -19,7 +19,7 @@ trap "rm -rf $tmpdir" EXIT
 
 while getopts ho: opt; do
     case $opt in
-        o) outdir=$(realpath "$OPTARG") ;;
+        o) outdir=$(readlink -f "$OPTARG") ;;
         h) usage && exit 0 ;;
         *) usage && exit 1 ;;
     esac

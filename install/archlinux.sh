@@ -4,7 +4,7 @@ pkgs=(base base-devel parallel lz4 pigz python-pip)
 aur_pkgs=(pixz datamash tokyocabinet)
 
 # Python packages
-for pkg in $(cat $(realpath $(dirname $0))/../requirements.txt | grep -v '#'); do
+for pkg in $(cat $(readlink -f $(dirname $0))/../requirements.txt | grep -v '#'); do
     pacman -Ss "^python-$pkg$" > /dev/null && pkgs+=(python-$pkg)
 done
 

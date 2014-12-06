@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 
+import argparse
 import sys
 
 from BioTK.io import read_matrix
 from BioTK.matrix.preprocess import log_transform
 
+p = argparse.ArgumentParser()
+p.add_argument("--no-header", "-H", action="store_true")
+args = p.parse_args()
+
 if __name__ == "__main__":
-    read_matrix(sys.stdin)\
+    read_matrix(sys.stdin, header=not args.no_header)\
         .apply(log_transform, base=2, range=100, shift=True)\
         .dump()

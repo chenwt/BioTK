@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+export dt_map_columns=$(mktemp)
+trap 'rm -f $columns' EXIT
+IFS="" read -r header
+echo "$header" | tr '\t' '\n' | sed 1d > $dt_map_columns
+
+IFS=""
+dt-map1() {
+    IFS="" read -r line
+    key=$(echo "$line" | tr '\t' '\n' | head -1)
+    echo "$line" \
+        | tr '\t' '\n' \
+        | sed 1d \
+        | paste $dt_map_columns - \
+        | "$@" "$key"
+}
+export -f dt-map1
+
+while getopts p opt; do
+    case $opt in
+        p) parallel=y ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "$parallel" ]; then
+    IFS=""
+    while read -r line; do
+        echo "$line" | dt-map1 "$@" 2> /dev/null || exit
+    done
+else
+    parallel -k --pipe dt-map1 "$@"
+fi

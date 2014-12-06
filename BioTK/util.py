@@ -1,5 +1,8 @@
 from os.path import abspath, dirname, join
 
+def identity(x):
+    return x
+
 class ResourceLookup(object):
 
     def __init__(self, pkgname):

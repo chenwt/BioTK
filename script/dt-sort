@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-buffer_size=10%
+buffer_size=20%
 while getopts S: opt; do
     case $opt in
         S) buffer_size=$OPTARG ;;
     esac
 done
 
-LC_COLLATE=C dt wrap sort -t$'\t' -k1b,1 -S $buffer_size $opts "$@"
+LC_COLLATE=C dt wrap \
+    sort -t$'\t' -k1b,1 --compress-program=lz4 --parallel=8 -S $buffer_size $opts "$@"

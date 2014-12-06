@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 dt wrap -p dt normalize --no-header -m standardize \
-    | dt filter-empty \
-    | transpose \
+    | dt filter \
+    | transpose -n \
     | dt wrap -p dt normalize --no-header -m standardize \
-    | dt filter-empty \
-    | transpose
+    | dt filter \
+    | transpose -n

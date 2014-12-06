@@ -1,81 +1,134 @@
 #!/usr/bin/env python3
 
-import itertools
 import sys
 
 import click
-import numpy as np
 import pandas as pd
-from sklearn.feature_selection import SelectKBest
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_auc_score
+from sklearn.cross_validation import cross_val_score
+from sklearn.preprocessing import Imputer
+
+from BioTK import mmat
 
 @click.group()
 def cli():
     pass
 
-@cli.command("impute")
-@click.option("--sample-size", "-s", type=int, default=200)
-@click.option("-k", type=int, default=2)
-def impute(sample_size, k):
+RUN_VW = """
+"""
+
+@cli.command()
+@click.argument("matrix")
+def multilabel(matrix):
     """
-    Lazy kNN imputation of missing values.
+    Perform multilabel prediction and validation.
 
-    When no neighbors are known, uses row mean instead.
-    Removes rows with no data.
+    Input:
+
+        stdin: a two or three-column sparse matrix
+           of training labels, with the following:
+             column 1: sample ID
+             column 2: label name
+             column 3 (optional): the value. 
+               for regression: any real number
+               for binary: 
+                 positive: 1
+                 negative: -1 
+                 unknown/to be predicted: 0
+               for multiclass: (not implemented)
+               
+        matrix: a MMAT format matrix where rows are 
+           samples and columns are predictors (e.g., genes)
+
+    Notes:
+    - regression or binary classification will be detected
+        by the data type in the labels file (on stdin)
     """
-    it = iter(pd.read_table(sys.stdin, sep="\t", 
-            index_col=0, chunksize=sample_size))
-    X = next(it)
-    nn = [None] * X.shape[1]
-    empty = list(range(X.shape[1]))
 
-    def nearest(X,j):
-        cors = X.corrwith(X.iloc[:,j]).dropna()
-        cors.sort(ascending=False)
-        neighbors = list(cors.index[:(k+100)])
-        if len(neighbors) == 0:
-            return None
-        return neighbors
+    Y = pd.read_csv(sys.stdin, sep="\t", header=None)
+    assert Y.shape[1] in (2,3)
+    if Y.shape[1] == 2:
+        Y["value"] = 1
 
-    def update_nearest():
-        for j in empty:
-            nn[j] = nearest(X,j)
-            if nn[j] is not None:
-                empty.remove(j)
+    generate_negative = False
+    if (Y["value"] == 1).all():
+        binary = True
+        generate_negative = True
+    elif Y.dtype == float:
+        binary = False
+    else:
+        assert False, "not implemented to provide explicit positive/negative labels"
+    assert binary
 
-    it = itertools.chain([X], it)
+    Y = Y.pivot(*Y.columns).dropna(axis=0, thresh=1)
+    if generate_negative:
+        for j in range(Y.shape[1]):
+            y = Y.iloc[:,j]
+            empty = np.nonzero(np.isnan(y))[0]
+            np.random.shuffle(empty)
+            n = (y == 1).sum()
+            for i in empty[:n]:
+                Y.iloc[i,j] = -1
 
-    print(X.index.name or "", *X.columns, sep="\t")
-    for X in it:
-        update_nearest()
-        for i in range(X.shape[0]):
-            x = X.iloc[i,:]
-            mu = x.mean()
+    Y = Y.to_sparse(fill_value=np.nan)
+    X = mmat.MMAT(matrix)
+    x_ix = set(X.index)
+    assert binary
+
+    np.random.seed(100)
+    ix = np.random.choice(X.index, size=500, replace=False)
+    mu = X.loc[ix,:].mean(axis=1).dropna()
+
+    score_fn = "roc_auc"
+
+    print("Label", "N", "AUC", "AUC SD", sep="\t", file=sys.stderr)
+    print("", *X.index, sep="\t")
+    for label in Y.columns:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        y = Y[label]
+        if binary:
+            y = y.ix[y.isin((-1,1))]
+        else:
+            # regression, todo
+            pass
+        ix = list(set(y.index) & x_ix)
+
+        x_tr = X.loc[ix,mu.index].to_frame()
+        y = y.to_dense()[ix]
+        for r in x_tr.index:
+            ix = x_tr.loc[r,:].isnull()
+            x_tr.loc[r,ix] = mu[ix]
+
+        n = len(y)
+        k = min(y.value_counts().min(), 10)
+        if n < 10 or len(set(y)) == 1 or k <= 3:
+            continue
+
+        vc = y.value_counts()
+        weights = None
+        if generate_negative:
+            weights = {1:1/vc[1],-1:1/(X.shape[1]-vc[1])}
+        y = np.array(y)
+
+        model = RandomForestClassifier(class_weight=weights)
+        scores = cross_val_score(model, x_tr, y, scoring=score_fn,
+                cv=k, njobs=-1)
+        print(label, n, scores.mean(), scores.std(), sep="\t",
+                file=sys.stderr)
+        model.fit(x_tr, y)
+        pos_ix = list(model.classes_).index(1)
+        y_hat = []
+        for i in X.index:
+            x = np.array(X.loc[i,mu.index])
             ix = np.isnan(x)
-            if (~ix).sum() == 0:
-                continue
-            if ix.sum() > 0:
-                values = []
-                for j in ix.nonzero()[0]:
-                    if j in empty:
-                        values.append(mu)
-                    else:
-                        values.append(x.loc[nn[j]].dropna()[:k].mean())
-                x.iloc[ix.nonzero()] = values
-            print(x.name, *x, sep="\t")
-
-@cli.command("fselect")
-@click.option("--features", "-f", type=int, default=100)
-@click.option("--sample", "-n", type=int, default=500)
-@click.argument("file", type=click.File("r"),
-        required=False, default=sys.stdin)
-def select_features(file, features, sample):
-    """
-    Select/output the best features in a matrix
-    """
-    handle = file
-    data = pd.read_table(handle, sep="\t", 
-            index_col=0, nrows=sample)
-    print(data.iloc[:5,:5])
+            x[ix] = mu[ix]
+            yh = model.predict_log_proba(x)[:,pos_ix]
+            y_hat.append("%0.3f" % yh)
+        print(label, *y_hat, sep="\t")
 
 if __name__ == "__main__":
     cli()
