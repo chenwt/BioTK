@@ -11,16 +11,21 @@ import pandas as pd
 from scipy.stats import pearsonr
 
 from BioTK.io import read_matrix, read_vector
+import fmio
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("vector",
                    type=argparse.FileType("r"))
     p.add_argument("--verbose", "-v", action="store_true")
+    p.add_argument("--binary", "-b", action="store_true")
     args = p.parse_args()
 
     vector = read_vector(args.vector).dropna()
-    matrix = read_matrix(sys.stdin)
+    if args.binary:
+        matrix = fmio.Reader(sys.stdin.buffer)
+    else:
+        matrix = read_matrix(sys.stdin)
 
     print("", "N", "Correlation", "-log10(P-Value)",
           sep="\t")

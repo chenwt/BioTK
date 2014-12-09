@@ -38,12 +38,12 @@ def _print_descendants_or_ancestors(fn, term):
             print(t1, t2, sep="\t")
 
 @cli.command()
-@click.option("--term", "-t")
+@click.option("--term", "-t", required=False)
 def descendants(term):
     _print_descendants_or_ancestors(nx.ancestors, term)
 
 @cli.command()
-@click.argument("term")
+@click.argument("term", "-t", required=False)
 def ancestors(term):
     _print_descendants_or_ancestors(nx.descendants, term)
 

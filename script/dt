@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# FIXME: merge collapse into groupby
+# FIXME: make a more general "groupby" to replace collapse
 
 ###################
 # Utility functions
@@ -16,70 +16,58 @@ run-ignore-header() {
 # Main CLI
 ##########
 
-declare -A commands
-commands=(
-    [view]="View the first few rows and columns of the table"
-    [sort]="Sort a tabular dataset, excluding the header"
-    [cut]="Select fields by name or position"
-    [pivot]="Convert a sparse matrix in 3-column format to dense"
-    [map]="Run a command on each row of a matrix"
-    [cat]="Format a matrix, returning its data unchanged"
-
-    [filter-empty]="Remove rows with all missing values"
-    [filter]="Remove rows with too few valid values"
-
-    [log]="Log-transform rows"
-    [qnorm]="Quantile normalize a matrix"
-    [standardize]="Standardize (scale) the rows of a matrix"
-    [biscale]="Standardize rows and columns of a matrix"
-
-    [impute]="Impute missing values using Hastie's softImpute method"
-
-    [correlate]="Produce the pairwise correlation matrix of columns"
-    [corrwith]="Correlate each row in a matrix with a vector"
-    [dot]="Take the dot product of matrices or vectors"
-
-    [groupby]="Apply a function to sub-groups in each row of a matrix"
-    [collapse]="Collapse a matrix using a mapping of row IDs"
-    [union]="SQL-like union of multiple sets of tabular data"
-    [split]="Split a table into files based on a column and mapping"
-
-    [summary]="Print summary statistics for each row"
-
-    [random]="Generate a random vector or matrix"
-    [sample]="Sample rows of a matrix with a given probability"
-
-    [wrap]="Wrap a command to return the matrix header unmodified, then operate on rows"
-
-    [pickle]="Serialize a tab-delimited matrix"
-    [unpickle]="Convert a serialized matrix to tab-delimited format"
-)
-
-usage() {
-    {
-        cat <<EOF
-dt - tools for manipulating tabular data
-USAGE: dt <cmd> [args] < input
-
-commands:
-EOF
-        for key in "${!commands[@]}"; do
-            echo -e " ${key} - ${commands[$key]}"
-        done
-    }
-}
-
-cmd="$1"
-{
-    description="${commands[$cmd]}"
-} &> /dev/null
+cmd="$(dirname $0)/dt-$1"
 shift
 
-if [ -z "$description" ]; then
-    usage
-    exit 0
-fi 1>&2
+if [[ ! -f "$cmd" ]]; then
+    cat <<EOF 1>&2
+dt - utility for operating on tab-delimited matrices or tables
+
+USAGE: dt [command] [args]
+
+General:
+ view	View the first few rows and columns of the table
+ sort	Sort a tabular dataset, excluding the header
+ cut	Select fields by name or position
+ map	Run a command on each row of a matrix
+ cat	Format a matrix, returning its data unchanged
+ filter	Remove rows with too few valid values
+ wrap	Wrap a command to return the matrix header unmodified, 
+            then operate on rows, possibly in parallel
+ pivot	Convert a sparse matrix in 3-column format to dense
+            or a "list" format
+
+Normalization and other preprocessing:
+ log			Log-transform rows
+ qnorm			Quantile normalize a matrix
+ standardize	Standardize (scale) the rows of a matrix
+ impute			Impute missing values using Hastie's 
+                    softImpute method
+
+Correlation and similarity:
+ correlate	Produce the pairwise correlation matrix of columns
+ corrwith	Correlate each row in a matrix with a vector
+ dot		Take the dot product of matrices or vectors
+
+Aggregation and grouping:
+ collapse	Collapse a matrix using a mapping of row IDs
+ union		SQL-like union of multiple sets of tabular data
+ split		Split a table into files based on a column and mapping
+
+Statistics:
+ summary	Print summary statistics for each row
+
+Sampling:
+ random	Generate a random vector or matrix
+ sample	Sample rows of a matrix with a given probability
+
+Serialization:
+ pickle	Serialize a tab-delimited matrix
+ unpickle Convert a serialized matrix to tab-delimited format
+EOF
+    exit 1
+fi
 
 # TODO: add individual helps for commands
 
-dt-$cmd "$@"
+$cmd "$@"

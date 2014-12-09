@@ -4,6 +4,7 @@ import io
 import sys
 from itertools import chain, islice
 import multiprocessing as mp
+import argparse
 
 import numpy as np
 import pandas as pd
@@ -35,10 +36,22 @@ def quantile_normalize(args):
     return name, x
 
 if __name__ == "__main__":
-    threshold = 1
-    sample_size = 1000
+    p = argparse.ArgumentParser()
+    #p.add_argument("--mean-values", "-m")
+    p.add_argument("--binary", "-b",
+            action="store_true",
+            help="Input is binary FMIO format.")
+    p.add_argument("--parallel", "-p", action="store_true")
+    args = p.parse_args()
 
-    xs = read_matrix(sys.stdin, as_array=True)
+    threshold = 1
+    sample_size = 100
+
+    if args.binary:
+        import fmio
+        xs = fmio.Reader(sys.stdin.buffer, array=True)
+    else:
+        xs = read_matrix(sys.stdin, as_array=True)
 
     sample = list(islice(xs, sample_size))
     X = pd.DataFrame(dict(sample), index=xs.columns).T
@@ -46,18 +59,25 @@ if __name__ == "__main__":
     xs = chain(sample, xs)
     index = np.array(X.columns.isin(mu.index), dtype=bool)
 
-    parallel = True
-    if parallel:
+    if args.parallel:
         p = mp.Pool(initializer=quantile_normalize_init, 
                 initargs=(mu,index))
         o = p.imap(quantile_normalize, xs)
     else:
-        quantile_normalize_init(mu)
+        quantile_normalize_init(mu, index)
         o = map(quantile_normalize, xs)
 
-    print("", *X.columns, sep="\t")
-    for i,(id,x_n) in enumerate(o):
-        if i % 1000 == 0:
-            print("qnorm:", i, file=sys.stderr)
-        if x_n is not None:
-            print(id, *x_n, sep="\t")
+    if args.binary:
+        with fmio.Writer(sys.stdout.buffer, columns=mu.index) as h:
+            for i,(id,x_n) in enumerate(o):
+                if i % 1000 == 0:
+                    print("qnorm:", i, file=sys.stderr)
+                if x_n is not None:
+                    h.put(id,x_n)
+    else:
+        print("", *mu.index, sep="\t")
+        for i,(id,x_n) in enumerate(o):
+            if i % 1000 == 0:
+                print("qnorm:", i, file=sys.stderr)
+            if x_n is not None:
+                print(id, *x_n, sep="\t")
