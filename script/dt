@@ -36,6 +36,7 @@ General:
             then operate on rows, possibly in parallel
  pivot	Convert a sparse matrix in 3-column format to dense
             or a "list" format
+ uniq   "Uniq" on a column
 
 Normalization and other preprocessing:
  log			Log-transform rows
