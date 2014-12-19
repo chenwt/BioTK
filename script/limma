@@ -1,0 +1,61 @@
+#!/usr/bin/env Rscript
+
+# Input matrix is in tab-delimited format, with genes as rows and
+# sample IDs as columns.
+# IMPORTANT: The sample IDs are assumed to be in the form "<group>[0-9]+$"
+# The groups will then be provided as contrasts.
+
+suppressMessages({
+    library(getopt)
+    library(limma)
+})
+
+spec = matrix(c(
+    "contrast", "c", 1, "character", "Formula of the contrast",
+    "matrix", "m", 2, "character", 
+        "Path to the expression matrix (default stdin)",
+    "adjust", "a", 2, "character", "MH adjustment method",
+    "normalize", "n", 0, "logical", "Normalize the matrix",
+    "rtpcr", "r", 0, "logical", 
+        "Convert input RT-PCR data using 2 ^ -X",
+    "help", "h", 0, "logical", "Show usage information"
+), byrow=T, ncol=5)
+opts = getopt(spec)
+
+if ( !is.null(opts$help) ) {
+    cat(getopt(spec, usage=TRUE));
+    q(status=1);
+}
+
+if (is.null(opts$adjust)) { opts$adjust = "BH" }
+if (is.null(opts$matrix)) { opts$matrix = "/dev/stdin" }
+
+suppressWarnings({
+    matrix.path = opts$matrix
+    contrast = opts$contrast
+
+    X = as.matrix(read.table(matrix.path))
+
+    if (!is.null(opts$rtpcr)) {
+        X = 2 ^ -X
+    }
+
+    if (!is.null(opts$normalize)) {
+        X = normalizeBetweenArrays(X)
+    }
+
+    groups = as.factor(substr(colnames(X), 1, 
+                              regexpr("[0-9]+$", colnames(X))-1))
+    design = model.matrix(~0+groups)
+    colnames(design) = levels(groups)
+    ct = makeContrasts(contrast=contrast, levels=design)
+
+    fit = lmFit(X,design)
+    fit = contrasts.fit(fit, ct)
+    fit = eBayes(fit)
+
+    o = topTable(fit, number=nrow(X), adjust=opts$adjust)
+    o = o[complete.cases(o),]
+    cat("\t")
+    write.table(round(o,3), "/dev/stdout", sep="\t", quote=F)
+})
