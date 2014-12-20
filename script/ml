@@ -11,14 +11,24 @@ from sklearn.metrics import roc_auc_score
 from sklearn.cross_validation import cross_val_score
 from sklearn.preprocessing import Imputer
 
+import fmio
 from BioTK import mmat
+from BioTK.learn import Problem
 
 @click.group()
 def cli():
     pass
 
-RUN_VW = """
-"""
+@cli.command()
+@click.argument("Y")
+@click.option("--binary", "-b", is_flag=True)
+def mkproblem(Y, binary=False):
+    assert binary
+    X = fmio.Reader(sys.stdin.buffer).to_frame()
+    with open(Y, "rb") as h:
+        Y = fmio.Reader(h).to_frame()
+    p = Problem(X,Y)
+    p.save(sys.stdout)
 
 @cli.command()
 @click.argument("matrix")

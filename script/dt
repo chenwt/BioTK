@@ -36,6 +36,8 @@ General:
             then operate on rows, possibly in parallel
  pivot	Convert a sparse matrix in 3-column format to dense
             or a "list" format
+ fill   Fill missing values with a value or a 
+        function of the row
 
 Normalization and other preprocessing:
  log			Log-transform rows

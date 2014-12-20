@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+# Fill empty or NaNs with some value or function
+
+import argparse
+import sys
+
+from BioTK.io import read_matrix
+
+p = argparse.ArgumentParser()
+g = p.add_mutually_exclusive_group(required=True)
+g.add_argument("--value", "-v", type=float)
+g.add_argument("--function", "-f", choices=["mean"])
+args = p.parse_args()
+
+if args.value is not None:
+    fn = lambda x: x.fillna(args.value)
+elif args.function is not None:
+    if args.function == "mean":
+        fn = lambda x: x.fillna(x.mean())
+
+read_matrix(sys.stdin).apply(fn).dump()

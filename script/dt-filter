@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# TODO: re-implement logic to do parallel
+# (problem is interaction w/ header/no_header)
+
 process() {
     awk -vmin=$1 -f <(cat <<"EOF"
 BEGIN { IFS=FS="\t" }
@@ -20,11 +23,30 @@ EOF
 export -f process
 
 min_valid=1
-while getopts m: opt; do
+while getopts phHm: opt; do
     case $opt in
         m) min_valid="$OPTARG" ;;
+        p) parallel=y ;;
+        H) no_header=y ;;
+        h) usage=y ;;
     esac
 done
 shift $((OPTIND - 1))
 
-dt wrap parallel -k --pipe process $min_valid
+[ ! -z "$usage" ] && {
+    cat <<EOF
+Output rows of a matrix which have a supplied number of non-empty values.
+USAGE: dt filter [options]
+
+    -H : input has no header
+    -m : minimum valid (non-empty or NaN) items in a row 
+         (default: 1)
+EOF
+    exit 0
+} 1>&2
+
+if [ ! -z "$no_header" ]; then
+    process $min_valid 
+else
+    dt wrap parallel -k --pipe process $min_valid
+fi

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# linear regression between predictors in X and each column in Y
+
+[ $# -ne 2 ] && {
+    cat <<EOF
+USAGE: dt regress X Y
+
+where X and Y are paths to two tab-delimited matrices, of which
+a subset of the row names align. Linear regression will be performed
+for each column in Y (except the first column, which contains the 
+row labels).
+
+It is assumed that neither X or Y have missing values.
+EOF
+    exit 0
+}
+
+X="$1"
+Y="$2"
+
+trap 'rm -rf $wd' EXIT
+wd=$(mktemp -d)
+
+dt align $X $Y $wd/X $wd/Y
+echo "$(wc -l $wd/X) instances."  1>&2
+sed 1d $wd/X | cut -f2- | tsv2csv > $wd/X.csv
+
+echo -e "\tIntercept\t$(head -1 $wd/X | transpose | sed 1d | transpose)"
+nc=$(head -1 $wd/Y | transpose -m | wc -l)
+for i in $(seq 2 $nc); do
+    echo -ne "$(cut -f$i $wd/Y | head -1)\t"
+    sed 1d $wd/Y | cut -f$i > $wd/y.csv
+    linear_regression -i $wd/X.csv -r $wd/y.csv -o $wd/p.csv
+    csv2tsv < $wd/p.csv
+done 

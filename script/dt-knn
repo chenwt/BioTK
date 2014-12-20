@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+k=5
+while getopts k: opt; do
+    case $opt in
+        k) k=$OPTARG ;;
+    esac
+done
+
+wd=$(mktemp -d)
+trap 'rm -rf $wd' EXIT
+
+IFS="" read -r header
+
+dt check \
+    | tee >(cut -f1 | nl -n ln -v 0 | sed 's/[[:space:]]\+/\t/g' > $wd/index) \
+    | cut -f2- \
+    | tsv2csv > $wd/in.csv
+lsh -k $k -r $wd/in.csv -d $wd/d.csv -n $wd/n.csv
+csv2tsv < $wd/n.csv | dt unpivot \
+    | tsort -k1b,1 | tjoin -o 2.2 1.2 -j1 - <(tsort -k1b,1 $wd/index) \
+    | tsort -k2b,2 | tjoin -o 1.1 2.2 -1 2 -2 1 - <(tsort -k1b,1 $wd/index)

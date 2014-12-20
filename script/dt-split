@@ -31,8 +31,8 @@ try:
             continue
         for tkey in tkeys:
             if not tkey in files:
-                path = os.path.join(args.outdir, tkey) + ".gz"
-                files[tkey] = gzip.open(path, "wt")
+                path = os.path.join(args.outdir, tkey)
+                files[tkey] = open(path, "wt")
                 files[tkey].write(header)
             files[tkey].write(line)
 finally:

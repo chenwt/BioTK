@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+
+import csv
+import sys
+
+o = csv.writer(sys.stdout)
+for line in sys.stdin:
+    o.writerow(line.rstrip("\n").split("\t"))

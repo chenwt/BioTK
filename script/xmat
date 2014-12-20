@@ -3,6 +3,16 @@
 tc=tcbmgr
 ext=.xmat
 
+usage() {
+    cat <<"EOF"
+USAGE: xmat [command]
+
+    xmat load < in.tsv
+    xmat dump x.xmat
+    xmat query -r - -c col.names < row.names
+EOF
+}
+
 _fix_input() {
     awk '
         BEGIN {
@@ -96,4 +106,8 @@ dump() {
 
 cmd="$1"
 shift
+[ -z "$cmd" ] || [ "$cmd" == "-h" ] || [ "$cmd" == "--help" ] && {
+    usage
+    exit 0
+}
 $cmd "$@"

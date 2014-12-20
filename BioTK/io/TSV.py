@@ -1,7 +1,8 @@
-__all__ = ["read_matrix", "read_factor", "read_vector"]
+__all__ = ["read_matrix", "read_factor", "read_vector", "read_sparse_matrix"]
 
 import sys
 import multiprocessing as mp
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
@@ -46,6 +47,34 @@ def read_matrix(handle=sys.stdin, as_array=False,
 
     return MatrixIterator(rows, header=header, 
             columns=columns)
+
+def read_sparse_matrix(handle, delimiter="\t"):
+    """
+    Read a sparse matrix in "COO" format and return
+    as a pandas SparseDataFrame.
+
+    The format has 2-3 columns:
+        1: row label (required)
+        2: column label (required)
+        3: value (optional; defaults to 1)
+    """
+    data = defaultdict(dict)
+    with handle:
+        for line in handle:
+            r,*c = _split_line(line, delimiter=delimiter)
+            v = as_float(c[1]) if len(c) == 2 else 1
+            c = c[0]
+            data[r][c] = v
+
+    ix = list(data.keys())
+    ss = []
+    for r in ix:
+        vs = data[r]
+        ss_ix = list(vs.keys())
+        ss.append(pd.SparseSeries([vs[k] for k in ss_ix],
+            index=ss_ix))
+
+    return pd.DataFrame(ss, index=ix).to_sparse()
 
 def read_factor(handle, delimiter="\t"):
     data = {}

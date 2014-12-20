@@ -32,7 +32,7 @@ def generic_open(path, mode="rt"):
 
     # FIXME: detect zipped file based on magic number, not extension
 
-    if hasattr(path, "read"):
+    if hasattr(path, "read") or hasattr(path, "write"):
         return path
 
     parse = urlparse(path)
@@ -48,6 +48,8 @@ def generic_open(path, mode="rt"):
     else:
         h = open(path, mode=mode)
     return h
+
+gopen = generic_open
 
 class DelimitedFile(object):
     def __init__(self, path_or_handle, delimiter=","):

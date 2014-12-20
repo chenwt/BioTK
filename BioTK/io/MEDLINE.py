@@ -23,7 +23,7 @@ import xml.etree.ElementTree as ET
 
 from collections import namedtuple
 
-from BioTK.util import ClosingMixin
+from BioTK import mixin
 from BioTK.io import generic_open
 from BioTK import CONFIG, LOG
 
@@ -33,7 +33,7 @@ Article = namedtuple("Article",
                      "id title abstract publication_date journal")
 Journal = namedtuple("Journal", "id issn name")
 
-class MedlineXMLFile(ClosingMixin):
+class MedlineXMLFile(mixin.Closing):
     # FIXME: Date parsing will probably only work if system
     #   locale is US English
 

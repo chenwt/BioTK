@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# Align matrices by rows
+
+[ $# -ne 4 ] && {
+    echo "usage: dt-align x_in y_in x_out y_out"
+}
+
+x_in="$1"
+y_in="$2"
+x_out="$3"
+y_out="$4"
+
+wd=$(mktemp -d)
+trap 'rm -rf $wd' EXIT
+
+tsort -k1b,1 $x_in > $wd/X
+tsort -k1b,1 $y_in > $wd/Y
+cut -f1 $wd/X | sed 1d | sort -k1b,1 \
+    | tjoin - <(cut -f1 $wd/Y | sed 1d | sort -k1b,1) | sort -k1b,1 > $wd/ix
+
+{
+    head -1 $wd/X
+    sed 1d $wd/X | tjoin $wd/ix - 
+} > $x_out
+{
+    head -1 $wd/Y
+    sed 1d $wd/Y | tjoin $wd/ix - 
+} > $y_out

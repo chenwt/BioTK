@@ -31,6 +31,10 @@ else:
 
 print("", "N", "Sum", "Mean", "SD", "Gini", sep="\t")
 for row in rows:
-    rs = (row.sum(), row.mean(), row.std(), gini(row))
+    try:
+        g = gini(row)
+    except AssertionError:
+        g = np.nan
+    rs = (row.sum(), row.mean(), row.std(), g)
     n = (~row.isnull()).sum()
     print(row.name, n, *["%0.3f" % x for x in rs], sep="\t")

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Check that data contains no NaN or missing values
+# TODO: check that all data is numeric
+
+error() {
+    echo "ERROR: input contains missing value or NaN" 1>&2
+    exit 1
+}
+
+IFS=""
+read -r header
+echo "$header"
+while read -r line; do
+    echo "$line" | tawk '{ for (i=1; i<=NF; i++) { if ($i == "") { exit 0 } }; exit 1}' && error
+    echo "$line" | egrep -q "[nan|NaN]" && error
+    echo "$line"
+done

@@ -1,68 +1,9 @@
 #!/usr/bin/env bash
 
-# Decimal percentage of RAM to use
-memory_target=0.5
-
-impute() {
-
-Rscript <(cat <<"EOF"
-
-suppressMessages(
-if (!("softImpute" %in% rownames(installed.packages()))) {
-    install.packages("softImpute", 
-        repos="http://cran.us.r-project.org")
-}
-)
-suppressMessages(library(softImpute))
-
-X = tryCatch(
-    read.table("stdin", 
-        na.strings=c("","nan"), header=F, sep="\t", row.names=1),
-    error=function(e) F)
-
-impute = function(X) {
-    if (!is.data.frame(X))
-        quit(save="no", status=0)
-    X = as.matrix(X)
-    X = X[!apply(X,1,function(x) all(is.na(x))),]
-    X_s = X
-    #X_s = biScale(X_s)
-    #lambda = lambda0(X_s, maxit=100)
-    rank=min(10, nrow(X_s)-1)
-    fit = softImpute(X_s, lambda=0, rank.max=rank, maxit=10)
-    X_n = round(complete(X_s, fit), 4)
-    X[,colnames(X_n)] = X_n
-}
-
-try(
-    suppressMessages(write.table(impute(X), 
-        "/dev/stdout", quote=F, col.names=F, sep="\t")),
-    silent=T)
-EOF
-) 2> /dev/null
-}
-export -f _soft_impute
-
-soft_impute() {
-    IFS="" read -r header
-    echo "$header"
-    nc=$(echo "$header" | tr '\t' '\n' | wc -l)
-    njobs=$(cat /proc/meminfo \
-        | grep MemTotal \
-        | awk -v nc=$nc -v target=$memory_target \
-        '{n=($2 * 1000 * target) / (64 * nc * nc / 2); printf "%d",n}')
-
-    if [[ ! -z $all ]]; then
-        _soft_impute
-    else
-        parallel -P75% -l 500 --pipe _soft_impute
-    fi
-}
-
-while getopts a opt; do
-    case $opt in
-        a) all=y ;;
-    esac
-done
-
-soft_impute
+wd=$(mktemp -d)
+tee $wd/x \
+    | transpose \
+    | dt fill -f mean \
+    | transpose \
+    | cut -f2- | sed 1d | tsv2csv > $wd/in.csv
+lsh -k 50 -r $wd/in.csv -d $wd/d.csv -n $wd/n.csv

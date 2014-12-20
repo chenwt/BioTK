@@ -1,47 +1,67 @@
 from .hyperparameter import *
-
-import ctypes
-import multiprocessing as mp
+from .cv import *
 
 import numpy as np
+from pandas import DataFrame, SparseSeries, Series
 
-from sklearn.cross_validation import KFold
+from BioTK.io import gopen
+from BioTK import mixin
 
-def _cross_validate(args):
-    model, tr, te, X, y = args
-    model.fit(X[tr,:], y[tr])
-    return te, model.predict(X[te,:])
+from collections import namedtuple
+PerformanceB = namedtuple("PerformanceB", ["N", "AUC"])
 
-def cross_validate(model, X, y, k=5, n_jobs=-1):
+class Problem(mixin.Pickleable):
     """
-    Run K-fold cross-validation in parallel on a supervised
-    learning classifier, returning the predictions.
-
-    Parameters
-    ----------
-    model : sklearn supervised learning estimator object,
-        implementing 'fit' and 'predict'
-    X : array-like shape of at least 2D
-    y : array-like, 1D
-    k : int, optional
-        The number of folds to use in cross-validation.
-    n_jobs : int, optional
-        The number of processors to use. If -1, use all processors.
-
-    Returns
-    -------
-    A tuple of (y, y_hat), where:
-    y_hat : an array of predictions, the same shape as y
+    A class encapsulating a training set, and possibly unlabeled samples,
+    with associated predictors.
     """
-    assert len(y.shape) == 1
 
-    # Supposedly, on Linux, X and y won't be duplicated
-    # http://stackoverflow.com/questions/10721915/shared-memory-objects-in-python-multiprocessing
-    n_jobs = mp.cpu_count() if n_jobs==-1 else n_jobs
-    kf = KFold(y.shape[0], k, shuffle=True)
-    jobs = [(model, tr, te, X, y) for (tr,te) in kf]
-    pool = mp.Pool(n_jobs)
-    y_hat = np.zeros(y.shape)
-    for te, y_hat_ in pool.imap(_cross_validate, jobs):
-        y_hat[te] = y_hat_
-    return y_hat
+    def __init__(self, X: DataFrame, y):
+        if isinstance(y, SparseSeries):
+            y = y.to_dense()
+        assert isinstance(y, Series)
+        assert X.ndim == 2
+        assert y.ndim == 1
+        self._X_tr, self._y_tr = X.align(y, axis=0, join="inner")
+        self._X_te = X.ix[~X.index.isin(y.index),:]
+
+        self.name = y.name
+        self.n_predictors = X.shape[1]
+        self.n_samples = X.shape[0]
+
+    @staticmethod
+    def random(n_samples=10, n_predictors=5, p=0.2):
+        assert n_samples > n_predictors
+        X = DataFrame(np.random.random((n_samples, n_predictors)))
+
+        Y = max(int(n_samples * p), 1) * [1]
+        Y.extend([0 for _ in range(n_samples - len(Y))])
+        np.random.shuffle(Y)
+        Y = Series(Y)
+        return Problem(X, Y)
+
+from sklearn import metrics
+
+def predict_validate(model, problem, predict_all=False):
+    """
+    predict_all : If True, use the predictor to predict values
+        for *all* samples, even those that are part of the training set.
+        If False, use the known values for training samples and
+        predicted values for non-training samples.
+    """
+    X = problem._X_tr.as_matrix()
+    y = problem._y_tr.as_matrix()
+    y_hat = cross_validate(model, X, y)
+    perf = PerformanceB(len(y), metrics.roc_auc_score(y, y_hat))
+    if not predict_all:
+        y_hat = problem._y_tr
+    else:
+        y_hat = pd.Series(y_hat, index=problem._y_tr.index)
+
+    if problem._X_te.shape[0] > 0:
+        X_te = problem._X_te.as_matrix()
+        model.fit(X,y)
+        y_hat.append(pd.Series(model.predict_log_proba(X_te), 
+            index=X_te.index))
+
+    return y_hat, perf
