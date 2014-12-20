@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# uniq on a column, ignoring the header
+
+while getopts c:h opt; do
+    case $opt in
+        c) column=$OPTARG ;;
+        h) usage=y ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+[ -z "$column" ] || [ ! -z "$usage" ] && {
+    echo "USAGE: dt uniq -c <column number>" 1>&2
+    exit 1
+}
+
+awk -vc="$column" -f <(cat <<"EOF"
+
+BEGIN { IFS=FS="\t" }
+
+NR == 1 { print }
+NR > 1 { 
+    if (!($c in a)) {
+        print
+    }
+    a[$c] = "";
+}
+
+EOF
+)

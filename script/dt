@@ -38,6 +38,7 @@ General:
             or a "list" format
  fill   Fill missing values with a value or a 
         function of the row
+ uniq   "Uniq" on a column
 
 Normalization and other preprocessing:
  log			Log-transform rows
