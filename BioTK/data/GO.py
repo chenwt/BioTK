@@ -9,11 +9,8 @@ import numpy as np
 import networkx as nx
 import pandas as pd
 
-import BioTK.io
-import BioTK.io.OBO
-
-from BioTK.cache import download
-from BioTK.ontology import Ontology
+from BioTK.io import download
+from BioTK.ontology import Ontology, parse
 
 __all__ = ["GeneOntology"]
 
@@ -31,10 +28,8 @@ def _get_annotation(taxon_id):
 
 class GeneOntology(Ontology):
     def __init__(self):
-        path = download(GO)
-        with open(path, "rt") as handle:
-            o = BioTK.io.OBO.parse(handle)
-        BioTK.io.OBO.Ontology.__init__(self, o.terms, o.synonyms, o.relations)
+        o = fetch("GO")
+        super(Ontology, self).__init__(o.terms, o.synonyms, o.relations)
 
     def annotation(self, taxon_id, recursive=False):
         A = _get_annotation(taxon_id)

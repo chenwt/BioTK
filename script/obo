@@ -6,7 +6,7 @@ import sys
 import click
 import networkx as nx
 
-from BioTK.io.OBO import parse
+from BioTK.ontology import parse
 
 @click.group()
 def cli():
@@ -14,17 +14,17 @@ def cli():
 
 @cli.command()
 def terms():
-    ontology = parse(sys.stdin)
+    ontology = parse(sys.stdin, format="obo")
     ontology.terms.to_csv(sys.stdout, sep="\t")
 
 @cli.command()
 def synonyms():
-    ontology = parse(sys.stdin)
+    ontology = parse(sys.stdin, format="obo")
     ontology.synonyms.to_csv(sys.stdout, sep="\t")
 
 @cli.command()
 def relations():
-    ontology = parse(sys.stdin)
+    ontology = parse(sys.stdin, format="obo")
     ontology.relations.to_csv(sys.stdout, sep="\t", index=False)
 
 def _print_descendants_or_ancestors(fn, term):
