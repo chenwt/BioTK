@@ -1,8 +1,10 @@
+import collections
+
 import networkx as nx
 import pandas as pd
 import numpy as np
 
-import BioTK
+import BioTK.io
 
 Term = collections.namedtuple("Term", [
     "id", "name", "synonym", "relations", "namespace"
@@ -19,6 +21,10 @@ class Ontology(object):
         self._terms = terms
         self._synonyms = synonyms
         self._relations = relations
+
+    def __repr__(self):
+        return "<Ontology with %s terms, %s synonyms, and %s relations>" \
+                % (len(self._terms), len(self._synonyms), len(self._relations))
 
     @property
     def terms(self):
@@ -148,7 +154,7 @@ def _obo_parse(handle):
         line = line.strip()
         if line in ("[Term]", "[Typedef]", "[Instance]"):
             is_term = line == "[Term]"
-            t = _make_term(attrs)
+            t = _obo_make_term(attrs)
             if t and is_term: 
                 yield t
             attrs = collections.defaultdict(list)
@@ -173,14 +179,14 @@ def _obo_parse(handle):
             elif key == "synonym":
                 value = value[1:]
                 attrs["synonym"].append(value[:value.find("\"")])
-    t = _make_term(attrs)
+    t = _obo_make_term(attrs)
     if t and is_term: 
         yield t
 
 def _obo_parse_as_data_frame(handle):
     terms, synonyms, relations = [], [], []
 
-    for t in _parse(handle):
+    for t in _obo_parse(handle):
         terms.append((t.id, t.name, t.namespace))
         for s in t.synonym:
             synonyms.append((t.id, s))
