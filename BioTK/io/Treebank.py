@@ -6,8 +6,8 @@ import tarfile
 
 from pyparsing import Word, Forward, Group, Suppress, OneOrMore
 
-from BioTK.cache import download, cached
-from BioTK.io import generic_open
+from BioTK.cache import cached
+from BioTK.io import generic_open, download
 from BioTK.text.types import Tree
 
 __all__ = ["parse", "fetch"]

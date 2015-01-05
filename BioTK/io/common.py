@@ -6,7 +6,7 @@ from collections import OrderedDict
 
 import numpy as np
 
-import BioTK.cache
+from BioTK import LOG, CACHE_DIR
 
 def as_float(x):
     try:
@@ -77,6 +77,21 @@ class TSVFile(DelimitedFile):
         kwargs["delimiter"] = self.DELIMITER
         super(DelimitedFile,self).__init__(*args, **kwargs)
 
-def download(url):
-    path = BioTK.cache.download(url)
-    return generic_open(path)
+def _download(url):
+    dest = os.path.join(CACHE_DIR.encode("utf-8"), 
+            base64.b64encode(url.encode("utf-8"))).decode("utf-8")
+    
+    if not os.path.exists(dest):
+        LOG.info("Download cache miss for URL: %s" % url)
+        urllib.request.urlretrieve(url, dest)
+    else:
+        LOG.info("Download cache hit for URL: %s" % url)
+    return dest
+
+def download(url, unzip=None, cache=True, open=True):
+    assert cache, "Disabling download cache not implemented"
+    path = _download(url)
+    if open:
+        return generic_open(path)
+    else:
+        return path
