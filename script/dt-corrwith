@@ -19,6 +19,8 @@ if __name__ == "__main__":
                    type=argparse.FileType("r"))
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--binary", "-b", action="store_true")
+    p.add_argument("--print-all", "-a", action="store_true",
+        help="Output NaN correlations.")
     args = p.parse_args()
 
     vector = read_vector(args.vector).dropna()
@@ -38,5 +40,7 @@ if __name__ == "__main__":
                     file=sys.stderr)
             continue
         r,p = pearsonr(q,v)
+        if np.isnan(r) and not args.print_all:
+            continue
         p = - np.log10(p)
         print(row.name, n, r, p, sep="\t")
