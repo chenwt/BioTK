@@ -109,3 +109,23 @@ def parse(path_or_handle, cache=True):
         except Exception as e:
             articles = []
         return iter(articles)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("medline_xml_file", nargs="+")
+    args = parser.parse_args()
+
+    for path in args.medline_xml_file:
+        with parse(path) as articles:
+            for article in articles:
+                if not article.title:
+                    continue
+                text = article.title
+                if article.abstract:
+                    text = " ".join([text, article.abstract])
+                print(article.id, text, sep="\t")
+
+
