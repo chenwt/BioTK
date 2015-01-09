@@ -1,3 +1,6 @@
+import collections
+import sqlite3
+
 import networkx as nx
 
 from BioTK.text import Trie
@@ -57,3 +60,6 @@ GENDER = {
         "fe": "M",
         "girl": "F",
 }
+
+url = "http://gbnci.abcc.ncifcrf.gov/geo/GEOmetadb.sqlite.gz"
+path = BioTK.io.download(url, unzip="gzip", open=False)

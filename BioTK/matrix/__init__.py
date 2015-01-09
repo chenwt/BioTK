@@ -4,17 +4,12 @@ import sys
 import numpy as np
 import pandas as pd
 
-class MatrixIterator(object):
-    N_JOBS = 8
-
+class MatrixIteratorBase(object):
     def __init__(self, rows, columns=None, header=True):
+        # rows must be a sequence of pandas Series
         self.rows = iter(rows)
         self.header = header
         self.columns = columns
-
-    def __iter__(self):
-        # Override in subclass
-        return self.rows
 
     def dump(self, handle=sys.stdout, delimiter="\t", precision=3):
         rows = iter(self)
@@ -32,3 +27,14 @@ class MatrixIterator(object):
             for row in self:
                 yield fn(row, **kwargs)
         return MatrixIterator(generator(), header=self.header)
+
+    def to_frame(self):
+        return pd.DataFrame(self.rows, columns=self.columns)
+
+class MatrixIterator(MatrixIteratorBase):
+    def __iter__(self):
+        # Override in subclass
+        return self
+
+    def __next__(self):
+        return next(self.rows)

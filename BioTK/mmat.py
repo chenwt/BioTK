@@ -519,9 +519,16 @@ def reduce(matrix_path, reduction, axis=0):
 
 @cli.command()
 @click.argument("matrix_path", required=True)
-@click.option("--rows", "-r", is_flag=True)
-@click.option("--columns", "-c", is_flag=True)
-def select(matrix_path, rows, columns):
+@click.option("--ignore-missing", "-i",
+        help="Don't throw an error if a label is missing, just omit it",
+        is_flag=True)
+@click.option("--rows", "-r", 
+        help="Input lines are row labels (default)",
+        is_flag=True)
+@click.option("--columns", "-c", 
+        help="Input lines are column labels",
+        is_flag=True)
+def select(matrix_path, rows, columns, ignore_missing):
     """
     Select rows or columns by key
     """
@@ -530,6 +537,9 @@ def select(matrix_path, rows, columns):
     assert (rows != columns), "-r and -c are mutually exclusive"
     X = MMAT(matrix_path)
     selection = [line.rstrip("\n") for line in sys.stdin]
+    if ignore_missing:
+        ix = set(X.index if rows else X.columns)
+        selection = [x for x in selection if x in ix]
     if rows:
         X.loc[selection,:].to_tsv()
     else:

@@ -9,7 +9,9 @@ import sys
 import gzip
 
 p = argparse.ArgumentParser()
-p.add_argument("map", type=argparse.FileType("r"))
+p.add_argument("map", 
+        help="Two-column, first column row ID, second column category",
+        type=argparse.FileType("r"))
 p.add_argument("--column", "-c", default=1, type=int)
 p.add_argument("--outdir", "-o", default=".")
 args = p.parse_args()

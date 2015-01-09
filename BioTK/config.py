@@ -23,11 +23,11 @@ with open(default_cfg_path) as h:
     CONFIG = yaml.load(h)
 
 cfg_search_paths = [
-        os.path.join(os.curdir, "BioTK.cfg"),
-        os.path.expanduser("~/.BioTK.cfg"),
-        os.path.expanduser("~/.config/BioTK/BioTK.cfg"),
-        "/etc/BioTK/BioTK.cfg",
-        "/opt/BioTK/BioTK.cfg"
+        os.path.join(os.curdir, "BioTK.yml"),
+        os.path.expanduser("~/.BioTK.yml"),
+        os.path.expanduser("~/.config/BioTK/config.yml"),
+        "/etc/BioTK/config.yml",
+        "/opt/BioTK/config.yml"
 ]
 
 user_cfg_path = None
@@ -42,9 +42,10 @@ for path in cfg_search_paths:
 # Set up logging
 ################
 
-LOG = logging.getLogger("BioTK")
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-log_formatter = logging.Formatter(log_format)
+logging.basicConfig(format=log_format)
+LOG = logging.getLogger("BioTK")
+LOG.setLevel(CONFIG["log"]["level"])
 
 # Now that logging is set up, notify the user whether custom
 # configuration was loaded that might override the defaults

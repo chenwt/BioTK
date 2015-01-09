@@ -8,7 +8,7 @@ import pandas as pd
 import tc
 import lz4
 
-from BioTK.matrix import MatrixIterator
+from BioTK.matrix import MatrixIteratorBase
 
 def as_float(x):
     try:
@@ -63,7 +63,7 @@ class Index(object):
                 key = key.decode("utf-8")[2:]
                 yield self.__getitem__(key)
 
-class MatrixStore(MatrixIterator):
+class MatrixStore(MatrixIteratorBase):
     def __init__(self, path, mode="rw", columns=None):
         self._db = tc.HDB()
         self.mode = mode

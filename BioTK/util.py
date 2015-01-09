@@ -1,4 +1,7 @@
 from os.path import abspath, dirname, join
+from collections import defaultdict
+
+import pandas as pd
 
 def identity(x):
     return x
@@ -41,3 +44,56 @@ def chunks(it, size=1000):
                 chunk = []
         if chunk:
             yield chunk
+
+class MultiMap(defaultdict):
+    def __init__(self, *args, **kwargs):
+        super(MultiMap, self).__init__(set, *args, **kwargs)
+
+    def counts(self):
+        o = {}
+        for k,vs in self.items():
+            o[k] = len(vs)
+        return o
+
+    def invert(self):
+        """
+        Invert the multimap, making keys values and values keys.
+        """
+        o = MultiMap()
+        for k,vs in self.items():
+            for v in vs:
+                o[v].add(k)
+        return o
+
+    @property
+    def T(self):
+        return self.invert()
+
+    def flatten(self, smallest=True):
+        """
+        For each value, if it has multiple keys, assign it
+        to the key that has either the smallest or largest
+        number of values (depending on the "smallest")
+        parameter, and remove it from other keys.
+        
+        Returns a plain dict of (original) values to keys.
+        """
+        counts = self.counts()
+        o = {}
+        for v,ks in self.invert().items():
+            k = sorted(ks,
+                    key=counts.get, reverse=not smallest)[0]
+            o[v] = k
+        return o
+
+    def to_frame(self, sparse=True):
+        columns = list(sorted(self.invert().keys()))
+        data = {}
+        for k,vs in self.items():
+            row = [1 if c in vs else 0 for c in columns]
+            data[k] = pd.Series(row, dtype=int,
+                    index=columns).to_sparse(fill_value=0)
+        o = pd.SparseDataFrame.from_dict(data)
+        if not sparse:
+            o = o.to_dense()
+        return o

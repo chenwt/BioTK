@@ -6,3 +6,5 @@ data:
     root: ~/data
 cache:
     root: ~/.cache/BioTK
+log:
+    level: INFO

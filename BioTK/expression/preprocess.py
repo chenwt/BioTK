@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import Imputer
+from scipy.interpolate import interp1d
 
 __all__ = ["quantile_normalize", "normalize", "collapse", "impute"]
 
@@ -15,7 +16,7 @@ def normalize(X, method="total_intensity", reference=None):
         assert X.max().max() < 100, "The total_intensity method requires log2 transformed data."
         return X.apply(lambda x: x - x.mean(), axis=0)
 
-def quantile_normalize(X, mu=None):
+def quantile_normalize(X):
     """
     Quantile normalize an expression matrix.
 
@@ -23,11 +24,30 @@ def quantile_normalize(X, mu=None):
     ----------
     X : :class:`pandas.DataFrame`
         The expression matrix to normalize, where samples are 
-        columns and probes/genes are rows.
-    mu : 1D array-like, optional
-        An existing gene expression distribution to normalize against.
-        If not provided, will use the row-wise mean of X.
+        rows and probes/genes are columns.
+
+    Note, samples and genes must have at least 3 elements
+    of non-missing data or they will be dropped. It is 
+    recommended to use stricter thresholding yourself
+    before calling this function.
     """
+    X = X.dropna(thresh=3, axis=(0,1))
+    mu = np.array(sorted(X.mean()))
+    fn = interp1d(range(len(mu)), mu)
+
+    o = []
+    for i in range(X.shape[0]):
+        x = X.iloc[i,:].copy()
+        ix = ~np.isnan(x)
+        n = ix.sum()
+        assert n > 0
+        rs = fn(np.argsort(x[ix]) * (len(mu) / n))
+        x[ix] = rs
+        o.append(x)
+    return pd.DataFrame(o, index=X.index)
+        
+
+def quantile_normalize1(X, mu=None):
     if X.isnull().sum().sum() > 0:
         raise Exception("Handling of missing values not implemented.")
     X_n = X.copy().as_matrix()

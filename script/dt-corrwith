@@ -42,5 +42,6 @@ if __name__ == "__main__":
         r,p = pearsonr(q,v)
         if np.isnan(r) and not args.print_all:
             continue
-        p = - np.log10(p)
+        r = round(r, 3)
+        p = round(- np.log10(p), 3)
         print(row.name, n, r, p, sep="\t")

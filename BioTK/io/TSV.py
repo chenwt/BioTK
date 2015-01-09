@@ -1,50 +1,57 @@
-__all__ = ["read_matrix", "read_factor", "read_vector", "read_sparse_matrix"]
+__all__ = [
+    "read_matrix", 
+    "read_factor", 
+    "read_vector", 
+    "read_multimap",
+    "read_sparse_matrix", 
+]
 
 import sys
-import multiprocessing as mp
 from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 
 from BioTK.matrix import MatrixIterator
+from BioTK.util import MultiMap
 from . import as_float
 
 def _split_line(line, delimiter="\t"):
     return line.strip("\n").split(delimiter)
 
-columns = None
-as_array = False
-delimiter = None
-def _read_matrix_item_init(columns_, as_array_, delimiter_):
-    global columns, as_array, delimiter
-    delimiter = delimiter_
-    columns = columns_
-    as_array = as_array_
+def read_matrix(handle=sys.stdin, 
+        as_array=False, 
+        eager=False,
+        header=True, 
+        delimiter="\t"):
+    """
+    Read a text delimited matrix from a handle, returning 
+    either a :class:`BioTK.matrix.MatrixIterator` 
+    (if eager=False, the default), or a :class:`pandas.DataFrame`
+    if eager=True.
+    """
 
-def _read_matrix_item(line):
-    global columns, as_array
-    key, *data = _split_line(line, delimiter=delimiter)
-    #assert len(data) == len(columns)
-    data = np.fromiter(data, np.float64)
-    if as_array:
-        return key, data
-    else:
-        x = pd.Series(data, index=columns, dtype=float)
-        x.name = key
-        return x
+    if eager is True:
+        return pd.read_table(handle, sep=delimiter, header=header)
 
-def read_matrix(handle=sys.stdin, as_array=False, 
-        header=True, delimiter="\t"):
     columns = None
     if header:
         columns = _split_line(next(handle), 
                 delimiter=delimiter)[1:]
         columns = pd.Index(columns)
-    p = mp.Pool(initializer=_read_matrix_item_init, 
-            initargs=(columns,as_array,delimiter))
-    rows = p.imap(_read_matrix_item, handle)
 
+    def read_rows():
+        for line in handle:
+            key, *data = _split_line(line, delimiter=delimiter)
+            data = np.fromiter(data, np.float64)
+            if as_array:
+                yield key, data
+            else:
+                x = pd.Series(data, index=columns, dtype=float)
+                x.name = key
+                yield x
+
+    rows = read_rows()
     return MatrixIterator(rows, header=header, 
             columns=columns)
 
@@ -99,3 +106,20 @@ def read_vector(handle, delimiter="\t"):
                 raise ValueError("Factor format can only contain two values per line")
             data[key] = as_float(value)
     return pd.Series(data)
+
+def read_multimap(handle, 
+        key_type=str, value_type=str,
+        delimiter="\t"):
+    data = MultiMap()
+    for line in handle:
+        try:
+            k,v = _split_line(line,delimiter=delimiter)
+        except:
+            raise ValueError("Multimap format can only contain two values per line")
+        try:
+            k = key_type(k)
+            v = value_type(v)
+        except:
+            raise ValueError("Line not conforming to key_type or value_type: %s" % line)
+        data[k].add(v)
+    return data

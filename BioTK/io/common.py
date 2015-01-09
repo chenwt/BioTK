@@ -1,6 +1,12 @@
-import mimetypes
-import gzip
 import bz2
+import gzip
+import mimetypes
+import os
+import tempfile
+import base64
+import urllib
+import shutil
+
 from urllib.parse import urlparse
 from collections import OrderedDict
 
@@ -77,20 +83,34 @@ class TSVFile(DelimitedFile):
         kwargs["delimiter"] = self.DELIMITER
         super(DelimitedFile,self).__init__(*args, **kwargs)
 
-def _download(url):
+def _download(url, unzip=None):
+    # FIXME: download into temporary file and copy when done 
+    # so cancelled downloads don't pollute the cache
+    assert unzip in (None, "gzip")
+    suffix = ""
+    if unzip is not None:
+        suffix = "-decompressed-" + unzip
+
     dest = os.path.join(CACHE_DIR.encode("utf-8"), 
-            base64.b64encode(url.encode("utf-8"))).decode("utf-8")
+            base64.b64encode((url+suffix).encode("utf-8"))).decode("utf-8")
     
     if not os.path.exists(dest):
         LOG.info("Download cache miss for URL: %s" % url)
         urllib.request.urlretrieve(url, dest)
+
+        if unzip is not None:
+            assert unzip=="gzip"
+            t = tempfile.NamedTemporaryFile("w")
+            subprocess.call("gzip -cd %s > %s" % (dest, t.name), shell=True)
+            shutil.move(t.name, dest)
     else:
         LOG.info("Download cache hit for URL: %s" % url)
     return dest
 
 def download(url, unzip=None, cache=True, open=True):
     assert cache, "Disabling download cache not implemented"
-    path = _download(url)
+    path = _download(url, unzip=unzip)
+
     if open:
         return generic_open(path)
     else:

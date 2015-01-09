@@ -7,10 +7,9 @@ import numpy as np
 
 p = argparse.ArgumentParser()
 p.add_argument("--percent-missing", "-m", type=float, default=0)
-p.add_argument("nr", type=int)
-p.add_argument("nc", type=int)
+p.add_argument("nr", type=int, default=5, nargs="?")
+p.add_argument("nc", type=int, default=5, nargs="?")
 args = p.parse_args()
-
 
 print("", *list(range(args.nc)), sep="\t")
 for i in range(args.nr):
