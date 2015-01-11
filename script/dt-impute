@@ -5,5 +5,8 @@ tee $wd/x \
     | transpose \
     | dt fill -f mean \
     | transpose \
-    | cut -f2- | sed 1d | tsv2csv > $wd/in.csv
-lsh -k 50 -r $wd/in.csv -d $wd/d.csv -n $wd/n.csv
+    | cut -f2- \
+    | sed 1d \
+    | tsv2csv > $wd/in.csv
+lsh -k 5 -K 5 -r $wd/in.csv -d $wd/d.csv -n $wd/n.csv
+cat $wd/n.csv

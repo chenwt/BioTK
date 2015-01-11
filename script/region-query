@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+
+import pandas as pd
+import numpy as np
+
+from BioTK.genome import Genome, Contig, GenomicRegion
+from BioTK.io.BBI import BigWigCollection
+
+p = argparse.ArgumentParser()
+p.add_argument("--genome-build", "-g")
+p.add_argument("--correlations", "-c",
+        action="store_true",
+        help="Instead of counts, output correlations between this locus and each gene.")
+p.add_argument("--strand", "-s", default=".", choices=[".","-","+"],
+        help="Run a strand-specific query")
+p.add_argument("--each-base", "-b", action="store_true",
+        help="Output a matrix of counts for each base in the region (ignored if -c is provided).")
+p.add_argument("--data-directory", "-d",
+        help="Base directory for sequencing data. See documentation for the layout of this directory.",
+        default="/data/seq/")
+p.add_argument("locus", help="Locus to be searched, in the format chrom:start-end (e.g., chr1:1-100)")
+args = p.parse_args()
+
+base = os.path.join(args.data_directory, "align")
+dir = os.path.join(base, args.genome_build)
+if not os.path.exists(dir):
+    sys.stderr.write("No data found for genome %s. Available builds:")
+    for build in os.listdir(base):
+        sys.stderr.write("- " + build)
+    sys.exit(1)
+
+def bigwig_files_for_strand(strand):
+    subdir = os.path.join(dir, strand)
+    return [os.path.join(subdir, p) for p in os.listdir(subdir) if p.endswith(".bw")]
+
+locus = GenomicRegion.parse(args.locus)
+
+files = []
+if locus.strand == ".":
+    for strand in "-+":
+        files.extend(bigwig_files_for_strand(strand))
+else:
+    files = bigwig_files_for_strand(locus.strand)
+
+bwc = BigWigCollection(files)
+
+if args.each_base:
+    loci = []
+    if (locus.end - locus.start) > 1000:
+        raise Exception("For the -b flag, the max region size is 1000.")
+
+    for start in range(locus.start, locus.end+1):
+        loci.append(GenomicRegion(locus.contig, locus.start, 
+            locus.end, strand=locus.strand, name="%s:%s" \
+                    % (locus.contig.name, str(start))))
+    X = bwc.mean(loci)
+    X.to_csv(sys.stdout, sep="\t", float_format="%0.3f")
+    sys.exit(0)
+
+mu = bwc.mean(locus)
+if not args.correlations:
+    print("Sample ID", "Mean Depth", sep="\t")
+    mu.to_csv(sys.stdout, sep="\t")
+    sys.exit(0)
+
+# I think it is reasonable to drop samples that have no data 
+# on the assumption that they may be empty or almost empty 
+# and cause a spuriously high correlation. Probably a better way is
+# to threshold or weight by the amount of data in the BigWig file.
+# Should this also be done before outputting just the means above?
+mu = mu[mu > 0]
+
+rows = []
+index = []
+columns = None
+for id in mu.index:
+    p = os.path.join(dir, str(id)+".counts")
+    if os.path.exists(p):
+        if columns is None:
+            with open(p) as h:
+                columns = [line.split("\t")[0] for line in h]
+        index.append(id)
+        with open(p) as h:
+            rows.append([float(line.split("\t")[2]) for line in h])
+
+X = pd.DataFrame(rows, index=index, columns=columns)
+X,mu = X.align(mu, axis=0, join="inner")
+X = X.apply(lambda x: (x - x.mean()) / x.std()).apply(np.log2)
+C = X.corrwith(mu).dropna().to_frame()
+C.columns = ["r"]
+C["N"] = (~X.isnull().apply(lambda x: x | mu.isnull())).sum(axis=0)
+C.to_csv(sys.stdout, sep="\t", float_format="%0.3f")

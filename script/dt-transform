@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+
+"""
+Apply this transformation to each row of the input matrix (mostly
+for RT-PCR, microarray, etc.)
+"""
+
+import argparse
+import sys
+
+import numpy as np
+
+import BioTK
+
+p = argparse.ArgumentParser()
+p.add_argument("--logarithm-base", "-b", type=float, default=np.exp(1))
+p.add_argument("--min", "-m", type=float,
+        help="Only perform the transformation when the row mean is greater than this value.")
+p.add_argument("transform", 
+        choices=["log", "pcr", "logpcr", "std"],
+        help="""
+Apply this transformation to each row (gene) of the data.
+* log : log-transform (base is provided with -b, default "e" [2.71...])
+* pcr : 2^-x
+* logpcr: ln(2^-x)
+* std: (x - mean(x)) / std(x)
+""")
+
+args = p.parse_args()
+
+if args.transform == "log":
+    k = 1 / np.log(args.logarithm_base)
+    fn = lambda x: x.apply(np.log) * k
+elif args.transform == "pcr":
+    fn = lambda x: 2 ** (- x)
+elif args.transform == "logpcr":
+    fn = lambda x: (2 ** (- x)).apply(np.log)
+elif args.transform == "std":
+    fn = lambda x: (x - x.mean()) / x.std()
+
+def filtered_fn(x):
+    if args.min is not None:
+        if x.mean() > args.min:
+            return fn(x)
+        else:
+            return x
+    else:
+        return fn(x)
+
+BioTK.io.read_matrix(sys.stdin)\
+        .apply(filtered_fn)\
+        .dump(sys.stdout)

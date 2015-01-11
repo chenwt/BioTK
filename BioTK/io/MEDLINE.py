@@ -86,14 +86,15 @@ class MedlineXMLFile(mixin.Closing):
                 yield self._parse_citation()
 
 def parse(path_or_handle, cache=True):
+    assert not cache
     if not cache:
         return MedlineXMLFile(path_or_handle)
     else:
+        path = path_or_handle if isinstance(path_or_handle, str) \
+                else path_or_handle.name
+        pkl_basename = os.path.basename(path).split(".")[0] + ".pkl.gz"
+        pkl_path = os.path.join(CONFIG["ncbi.medline.dir"], pkl_basename)
         try:
-            path = path_or_handle if isinstance(path_or_handle, str) \
-                    else path_or_handle.name
-            pkl_basename = os.path.basename(path).split(".")[0] + ".pkl.gz"
-            pkl_path = os.path.join(CONFIG["ncbi.medline.dir"], pkl_basename)
             if not os.path.exists(pkl_path):
                 LOG.info("[medline] Caching MEDLINE XML parse as %s" \
                         % pkl_basename)
@@ -119,7 +120,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     for path in args.medline_xml_file:
-        with parse(path) as articles:
+        with parse(path, cache=False) as articles:
             for article in articles:
                 if not article.title:
                     continue

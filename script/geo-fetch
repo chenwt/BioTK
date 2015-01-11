@@ -27,8 +27,7 @@ done
 shift $((OPTIND - 1))
 
 if [ $# == 0 ]; then
-    #sqlite3 $DATA/bioconductor/GEOmetadb.sqlite "SELECT gpl FROM gpl;"
-    usage && exit 1
+    geometadb q "SELECT gpl FROM gpl;"
 else
     for gpl in "$@"; do
         echo $gpl
@@ -56,7 +55,7 @@ fi | while read accession; do
     mv $tmpdir/miniml $wd
     echo "* Decompressing $accession data ..." 1>&2
     for file in $wd/*.tgz; do
-        tar --use-compress-program=pigz -C $wd -xf $file
+        tar --use-compress-program=$PIGZ_PROGRAM -C $wd -xf $file
     done
     rm $wd/*.tgz
     echo "* Archiving $accession ..." 1>&2

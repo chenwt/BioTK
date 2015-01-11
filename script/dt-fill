@@ -5,6 +5,8 @@
 import argparse
 import sys
 
+import numpy as np
+
 from BioTK.io import read_matrix
 
 p = argparse.ArgumentParser()
@@ -13,10 +15,14 @@ g.add_argument("--value", "-v", type=float)
 g.add_argument("--function", "-f", choices=["mean"])
 args = p.parse_args()
 
+def fn_mean(x):
+    xx = x.replace([np.inf, -np.inf], np.nan)
+    return x.replace(np.inf, xx.max()).replace(-np.inf, xx.min()).fillna(xx.mean())
+
 if args.value is not None:
     fn = lambda x: x.fillna(args.value)
 elif args.function is not None:
     if args.function == "mean":
-        fn = lambda x: x.fillna(x.mean())
+        fn = fn_mean
 
 read_matrix(sys.stdin).apply(fn).dump()

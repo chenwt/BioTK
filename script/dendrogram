@@ -1,0 +1,78 @@
+#!/usr/bin/env python2
+
+# Plot dendrogram from hierarchical clustering of matrix columns
+import argparse
+import sys
+
+import pandas as pd
+import numpy as np
+from scipy.cluster.hierarchy import dendrogram, linkage
+from scipy.stats import spearmanr, pearsonr
+from scipy.spatial.distance import pdist
+from matplotlib.pyplot import savefig, gcf
+
+p = argparse.ArgumentParser()
+p.add_argument("figure_path")
+p.add_argument("--max-items", "-n", type=int)
+p.add_argument("--distance-metric", "-m",
+        choices=[
+        #    "euclidean", "minkowski", "cityblock",
+        #    "seuclidean", "sqeuclidean", "cosine",
+        #    "correlation", 
+        #    "hamming", "jaccard",
+        #    "chebyshev", "canberra", "braycurtis",
+        #    "mahalanobis", "yule", "matching",
+        #    "dice", "kulsinski", "rogerstanimoto",
+        #    "russelrao", "sokalmichener",
+        #    "wminkowski"
+            "spearman", "pearson"
+            ],
+        default="pearson"
+)
+
+args = p.parse_args()
+
+metrics = {
+    "spearman": lambda x,y: (1 - spearmanr(x,y)[0]) / 2,
+    "pearson": lambda x,y: (1 - pearsonr(x,y)[0]) / 2
+}
+
+def pdist_masked(X, fn):
+    assert(X.shape[1] >= 3)
+    X = X.dropna(axis=1, thresh=3)
+    nc = X.shape[1]
+    o = []
+    for i in range(nc):
+        for j in range(nc):
+            if not (i < j):
+                continue
+            x,y = X.iloc[:,i].dropna().align(X.iloc[:,j].dropna(), join="inner")
+            distance = fn(x,y)
+            if np.isnan(distance):
+                c = j if np.isnan(x).sum() > np.isnan(y).sum() else i
+                return pdist_masked(X.drop(X.columns[c], axis=1), fn)
+            o.append(distance)
+    assert len(o) == int((nc ** 2 - nc) / 2)
+    return X.columns, o
+
+metric_fn = metrics[args.distance_metric]
+X = pd.read_csv(sys.stdin, sep="\t", index_col=0)\
+        .dropna(how="all", axis=0)\
+        .dropna(how="all", axis=1)
+
+# FIXME: make optional
+#X = X.apply(lambda x: np.sign(x) * 10 ** np.abs(x))
+X = (X - X.mean()) / X.std()
+
+if args.max_items:
+    assert args.max_items >= 3 
+    ix = list(sorted(X.columns, 
+        key=lambda c: X.loc[:,c].isnull().sum()))[::-1][:args.max_items]
+    X = X.loc[:,ix]
+
+labels, distance = pdist_masked(X, metric_fn)
+dendrogram(linkage(distance), 
+        labels=labels,
+        orientation="left")
+gcf().subplots_adjust(left=0.013 * max(map(len, labels)))
+savefig(args.figure_path)

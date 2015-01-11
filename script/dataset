@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+source $(dirname $0)/BioTK.sh
+
+AILUN_URL=ftp://ailun.stanford.edu/ailun/annotation/geo/
+
+ailun() {
+    accession="$1"
+    cache_download "$AILUN_URL/${accession}.annot.gz" \
+        | gzip -cd \
+        | cut -f1-2
+}
+
+gsm2gse() {
+    o=$BTK_CACHE/geo/gsm2gse
+    if [ ! -f $o ]; then
+        mkdir -p $(dirname $o)
+        geometadb q "
+            SELECT gsm||'-1',gse 
+                FROM gse_gsm 
+            UNION 
+            SELECT gse_gsm.gsm||'-2',gse_gsm.gse 
+                FROM gse_gsm 
+                INNER JOIN gsm ON gse_gsm.gsm=gsm.gsm 
+                WHERE gsm.channel_count>1" \
+            | sort -k1b,1 > $o
+    fi
+    cat $o
+}
+
+cmd="$(echo "$1" | tr '[A-Z]' '[a-z]')"
+shift
+"$cmd" "$@"

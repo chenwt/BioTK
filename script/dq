@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""
+Convenience functions for SQLite, and for manipulating
+tabular data streams with SQL.
+"""
+
+import argparse
+import sqlite3
+import sys
+
+import click
+import pandas as pd
+
+ALIASES = {
+        "sq": "stream_query"
+}
+
+class AliasedGroup(click.Group):
+    def get_command(self, ctx, cmd_alias):
+        rv = click.Group.get_command(self, ctx, cmd_alias)
+        if rv is not None:
+            return rv
+        cmd_name = ALIASES.get(cmd_alias)
+        if cmd_name is None:
+            return None
+        return click.Group.get_command(self, ctx, cmd_name)
+
+@click.group(cls=AliasedGroup)
+def cli():
+    pass
+
+@cli.command()
+@click.option("--table-name", "-n", default="t")
+@click.argument("query")
+def stream_query(query, table_name):
+    db = sqlite3.connect(":memory:")
+    pd.read_table(sys.stdin, index_col=0, sep="\t")\
+            .to_sql(table_name, db)
+    pd.read_sql_query(query, db)\
+            .to_csv(sys.stdout, index=False, sep="\t")
+
+if __name__ == "__main__":
+    cli()

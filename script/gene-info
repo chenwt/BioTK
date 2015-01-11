@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+
+import argparse
+import gzip
+
+from BioTK.io import download
+
+p = argparse.ArgumentParser()
+p.add_argument("--taxon-id", "-t", type=int, default=9606)
+p.add_argument("--truncate-name", "-n", action="store_true")
+args = p.parse_args()
+
+gene_url = "ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz"
+gene_path = download(gene_url, open=False)
+
+print("Gene ID", "Chromosome", "Symbol", "Name", sep="\t")
+with gzip.open(gene_path, "rt") as h:
+    for line in h:
+        fields = line.rstrip("\n").split("\t")
+        try:
+            taxon = int(fields[0])
+        except ValueError:
+            continue
+        if taxon != args.taxon_id:
+            continue
+        gene_id = int(fields[1])
+        chromosome = fields[6]
+        symbol = fields[10]
+        name = fields[11]
+
+        if args.truncate_name:
+            name_tokens = name.split(" ")
+            if len(name_tokens) > 3:
+                name = " ".join(name_tokens[:3]) + " ..."
+            elif len(name) > 30:
+                name = name[:30] + " ..."
+
+
+        print(gene_id, chromosome, symbol, name, sep="\t")

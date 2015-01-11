@@ -1,3 +1,22 @@
 #!/usr/bin/env bash
 
+source $(dirname $0)/BioTK.sh
+
+cat <<EOF > /dev/null
+ix1=1
+ix2=1
+f1="$(($# - 1))"
+f2="$(($# - 2))"
+args=()
+
+for i in $(seq $(($# - 3))); do
+    if [ "$i" == "--header" ]; then
+        header=y
+    fi
+    args+="$i"
+done
+
+join -t$'\t' "${args[@]}" "$f1" "$f2"
+EOF
+
 join -t$'\t' "$@"

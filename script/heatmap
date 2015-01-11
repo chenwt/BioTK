@@ -1,0 +1,16 @@
+#!/usr/bin/Rscript --vanilla
+
+library(gplots)
+
+X = as.matrix(read.table(file("stdin"), header=T, sep="\t", row.names=1))
+#X = t(scale(t(scale(X))))
+
+distance = function(x) { 
+    as.dist((1 - cor(t(x), method="spearman")) / 2)
+}
+path = commandArgs(trailingOnly=T)[1]
+png(path, width=3000, height=3000, pointsize=12*4.5)
+heatmap.2(X, distfun=distance, scale="row")
+dev.off()
+
+# vim: set ft=r :

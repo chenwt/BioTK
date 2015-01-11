@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+# "perf" wrapper for multilabel problems
+# input format: $1 (y) and $2 (yhat): 
+#   two-column: sample ID and target ID
+
+# FIXME: ensure IDs are unique (?)
+# FIXME: allow numeric prediction values in third column of yhat
+
+usage() {
+    cat <<EOF 1>&2
+USAGE: $0 [options] y y_hat
+
+Options:
+    
+Input format:
+    y and y_hat are in two-column TSV format. 
+    The first column is the sample ID.
+    The second column depends on the classification type:
+    - if multilabel or categorical, then it is the category ID
+    - if binary, it is a 0-1 integer
+EOF
+    exit 1
+}
+
+export tmpdir=$(mktemp -d)
+trap 'rm -rf $tmpdir' EXIT
+
+process_multilabel() {
+    file="$1"
+    id=$(basename $file)
+    n=$(awk 'END { print NR }' < $file)
+    tp=$(grep -xc "$id" < "$file")
+    recall=$(awk -v tp=$tp 'END { print tp / NR }' < "$file")
+    tpfp=$(cat "$tmpdir"/* | grep -xc "$id")
+    precision=$(awk -vtp=$tp -vtpfp=$tpfp \
+        'BEGIN { if (tpfp == 0) { print 0 } else { print tp/tpfp } }')
+
+    echo -ne "$id\t$n\t$tp\t$precision\t$recall\t"
+    {
+        for f2 in $tmpdir/*; do
+            if [ "$f2" != "$file" ]; then
+                tawk -v id="$id" '{ print 0,$1==id }' < $f2
+            fi
+        done
+        tawk -v id=$id '{ print 1,$1==id }' < $file
+    } | perf -easy | awk '{print $2}' \
+        | sed '$d' | tr '\n' '\t' \
+        | sed 's/\t$//'
+    echo
+}
+export -f process_multilabel
+
+multilabel() {
+    cd $tmpdir
+    y="$(readlink -f "$1")"
+    y_hat="$(readlink -f "$2")"
+
+    tjoin -a 1 <(sort -k1b,1 "$y") <(sort -k1b,1 "$y_hat") \
+        | cut -f2-3 \
+        | dt-split -HK
+
+    echo -e "ID\tN\tTP\tP\tR\tAUC\tACC"
+
+    parallel process_multilabel ::: $tmpdir/*
+}
+
+_align() {
+    tjoin -a 1 <(sort -k1b,1 "$1") <(sort -k1b,1 "$2") \
+        | cut -f2-3
+}
+
+binary() {
+    _align "$@" \
+        | tawk '$1 != "" { if ($2 == "") { $2 = 0.5 }; print }' \
+        | dt complete -H \
+        | perf
+}
+
+continuous() {
+    _align "$@" \
+        | dt complete -H \
+        | python3 <(cat <<"EOF"
+import sys
+import pandas as pd
+from sklearn import metrics as m 
+X = pd.read_csv(sys.stdin, sep="\t").astype(float).dropna()
+y = X.iloc[:,0]
+y_hat = X.iloc[:,1]
+print("EVAR", m.explained_variance_score(y,y_hat), sep="\t")
+EOF
+)
+}
+
+######
+# Main
+######
+
+input_type="multilabel"
+
+while getopts bc opt; do
+    case $opt in
+        b) input_type="binary" ;;
+        c) input_type="continuous" ;;
+        h) usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+$input_type "$@"

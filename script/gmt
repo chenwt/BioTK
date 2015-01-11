@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<"EOF" 1>&2
+USAGE: gmt <subcommand> [options]
+
+Functions for manipulating .gmt files (gene sets).
+
+Subcommands:
+    translate : translate GMT to gene IDs for a different 
+        organism using ortholog mappings.
+EOF
+    exit 1
+}
+
+translate_usage() {
+    cat <<"EOF" 1>&2
+USAGE: gmt translate [options] [-o output_taxon_id]
+
+Translate a GMT to a different set of Entrez IDs using ortholog mappings.
+
+Options:
+    -i <int> : NCBI taxon ID for input genes
+    -o <int> : NCBI taxon ID for output genes
+    -h : show this help
+EOF
+    exit 1
+}
+
+translate() {
+    input_taxon_id="9606"
+    local OPTIND
+    while getopts "i:o:h" opt; do
+        case $opt in
+            i) input_taxon_id="$OPTARG" ;;
+            o) output_taxon_id="$OPTARG" ;;
+            h) translate_usage
+        esac
+    done
+    
+    if [ -z "$output_taxon_id" ]; then
+        translate_usage
+    fi
+
+    sed 's/\t/***/' \
+        | unpivot \
+        | tsort -k2b,2 \
+        | tjoin -1 1 -2 2 <(homologene "$input_taxon_id" "$output_taxon_id" | sort -k1b,1) - \
+        | tawk '{print $3,$2}' \
+        | pivot -u \
+        | sed 's/\*\*\*/\t/'
+}
+
+[ $# -eq 0 ] || [ "$1" == "-h" ] && usage
+
+cmd="$1"
+shift
+"$cmd" "$@"

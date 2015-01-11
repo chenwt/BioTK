@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+source $(dirname $0)/BioTK.sh
+
+taxid1="$1"
+taxid2="$2"
+
+[ $# -ne 2 ] && {
+    echo "USAGE: homologene <taxon_id> <taxon_id>"
+    echo "Returns a two-column map of homologous Entrez Gene IDs"
+} 1>&2
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf $tmpdir' EXIT
+
+cache_download \
+    "ftp://ftp.ncbi.nih.gov/pub/HomoloGene/current/homologene.data"\
+    | tee >(tawk -v t="$taxid1" '$2 == t { print $1,$3 }' \
+        | tsort -k1b,1 > $tmpdir/1) \
+    | tawk -v t="$taxid2" '$2 == t { print $1,$3 }' \
+    | tsort -k1b,1 > $tmpdir/2
+
+tjoin $tmpdir/1 $tmpdir/2 \
+    | cut -f2-3 \
+    | tsort -k1b,1

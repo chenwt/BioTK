@@ -3,6 +3,8 @@
 # Formatting and other workflow utilities for doing
 # machine learning (mostly with Vowpal Wabbit)
 
+source $(dirname $0)/BioTK.sh
+
 _make-template() {
     header="$1"
     IFS=""
@@ -75,7 +77,7 @@ mpredict() {
     echo "$header" | tr '\t' '\n' | sed 1d > $columns
 
     echo -ne "\t"
-    pigz -cd $tmpl | cut -f1 | transpose -m
+    $PIGZ_PROGRAM -cd $tmpl | cut -f1 | transpose -m
 
     export IFS=""
     while read -r line; do
@@ -100,7 +102,7 @@ mpredict() {
             zcat $train_set | cut -f2- \
                 | vw -f $model 2> /dev/null
             echo $key
-            pigz -cd $tmpl \
+            $PIGZ_PROGRAM -cd $tmpl \
                 | tawk '{ printf "0 | %s\n",$2 } ' \
                 | vw -i $model -t -r /dev/stdout 2> /dev/null
         } | transpose -m 

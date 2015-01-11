@@ -115,3 +115,9 @@ def download(url, unzip=None, cache=True, open=True):
         return generic_open(path)
     else:
         return path
+
+def read_set(handle):
+    o = set()
+    for line in handle:
+        o.add(line.rstrip("\n"))
+    return o

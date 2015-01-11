@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf $tmpdir' EXIT
+
+outfile=/dev/stdout
+while getopts o: opt; do
+    case $opt in
+        o) outfile="$OPTARG" ;;
+    esac
+done
+
+tsv2csv > ${tmpdir}/file.csv
+libreoffice --headless \
+    --convert-to xls \
+    --outdir "$tmpdir" \
+    ${tmpdir}/file.csv &> /dev/null
+cat ${tmpdir}/file.xls > "$outfile"

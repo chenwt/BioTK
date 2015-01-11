@@ -1,144 +1,205 @@
 #!/usr/bin/env python3
 
+import time
+import os
+import tempfile
+import pickle
 import sys
+import subprocess as sp
+import shutil
+import inspect
 
+import functools
 import click
-import pandas as pd
-import numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import roc_auc_score
+import sklearn.linear_model
+import sklearn.ensemble
+import sklearn.svm
 from sklearn.cross_validation import cross_val_score
-from sklearn.preprocessing import Imputer
+import sklearn.metrics
+import numpy as np
 
-import fmio
-from BioTK import mmat
-from BioTK.learn import Problem
+import BioTK
+import BioTK.learn.cv
 
 @click.group()
 def cli():
     pass
 
-@cli.command()
-@click.argument("Y")
-@click.option("--binary", "-b", is_flag=True)
-def mkproblem(Y, binary=False):
-    assert binary
-    X = fmio.Reader(sys.stdin.buffer).to_frame()
-    with open(Y, "rb") as h:
-        Y = fmio.Reader(h).to_frame()
-    p = Problem(X,Y)
-    p.save(sys.stdout)
+def _get_model_class(ctx, _, model_str):
+    model_module, model_class = model_str.rsplit(".",1)
+    model_class = getattr(sys.modules[model_module],model_class)
+    kwargs = {}
+    try:
+        if "probability" in inspect.getargspec(model_class.__init__)[0]:
+            kwargs["probability"] = True
+    except:
+        pass
+    return model_class(**kwargs)
 
-@cli.command()
-@click.argument("matrix")
-def multilabel(matrix):
-    """
-    Perform multilabel prediction and validation.
+def _read_predictors(ctx, _, handle):
+    with handle:
+        return BioTK.io.read_matrix(handle).to_frame()
 
-    Input:
+def _read_labels(cx, _, handle):
+    with handle:
+        return BioTK.io.read_vector(handle)
 
-        stdin: a two or three-column sparse matrix
-           of training labels, with the following:
-             column 1: sample ID
-             column 2: label name
-             column 3 (optional): the value. 
-               for regression: any real number
-               for binary: 
-                 positive: 1
-                 negative: -1 
-                 unknown/to be predicted: 0
-               for multiclass: (not implemented)
-               
-        matrix: a MMAT format matrix where rows are 
-           samples and columns are predictors (e.g., genes)
+def error(*msgs, return_code=1):
+    print(*msgs, file=sys.stderr)
+    sys.exit(return_code)
 
-    Notes:
-    - regression or binary classification will be detected
-        by the data type in the labels file (on stdin)
-    """
+def ml_command(fn):
+    @functools.wraps(fn)
+    def wrapper(model, X, y, *args, **kwargs):
+        X = X.dropna(axis=1, how="any").dropna(axis=0, how="any")
+        y = y.dropna()
+        X,y = X.align(y, axis=0, join="inner")
+        if len(set(y)) <= 1:
+            error("ERROR: Less than two label values align with data.")
+        if X.shape[0] < 5:
+            error("ERROR: Not enough labeled data.")
+        return fn(model, X, y, *args, **kwargs)
 
-    Y = pd.read_csv(sys.stdin, sep="\t", header=None)
-    assert Y.shape[1] in (2,3)
-    if Y.shape[1] == 2:
-        Y["value"] = 1
+    return cli.command()(
+           click.option("X", "--predictors", "-p", 
+                callback=_read_predictors,
+                type=click.File("r"), default=sys.stdin)(
+           click.option("model", "--model-class", "-m", 
+                callback=_get_model_class,
+                default="sklearn.linear_model.LogisticRegression")(
+           click.argument("y",
+               callback=_read_labels,
+               type=click.File("r"))(wrapper))))
 
-    generate_negative = False
-    if (Y["value"] == 1).all():
-        binary = True
-        generate_negative = True
-    elif Y.dtype == float:
-        binary = False
+@ml_command
+def train(model, X, y):
+    model.fit(X,y)
+    pickle.dump(model, sys.stdout.buffer)
+
+@ml_command
+@click.option("--metric", default="roc_auc")
+@click.option("--folds", "-k", type=int, default=10)
+@click.option("--output-predictions", "-P", is_flag=True)
+@click.option("--round-digits", "-r", type=int, default=3)
+def cv(model, X, y, folds, metric, output_predictions, round_digits):
+    if output_predictions:
+        y_hat = BioTK.learn.cv.predictions(model, X, y, k=folds, n_jobs=0)
+        for id, y, yh in zip(y.index, y, y_hat):
+            if not np.isnan(yh):
+                if round_digits:
+                    yh = round(yh, round_digits)
+                print(id, y, yh, sep="\t")
     else:
-        assert False, "not implemented to provide explicit positive/negative labels"
-    assert binary
+        scores = cross_val_score(model, X, y, cv=folds, scoring=metric)
+        print(round(y.mean(), 3), 
+                len(y), 
+                round(scores.mean(), 3), 
+                sep="\t")
 
-    Y = Y.pivot(*Y.columns).dropna(axis=0, thresh=1)
-    if generate_negative:
-        for j in range(Y.shape[1]):
-            y = Y.iloc[:,j]
-            empty = np.nonzero(np.isnan(y))[0]
-            np.random.shuffle(empty)
-            n = (y == 1).sum()
-            for i in empty[:n]:
-                Y.iloc[i,j] = -1
+###############
+# Vowpal Wabbit
+###############
 
-    Y = Y.to_sparse(fill_value=np.nan)
-    X = mmat.MMAT(matrix)
-    x_ix = set(X.index)
-    assert binary
+@cli.group("vw")
+def vw():
+    pass
 
-    np.random.seed(100)
-    ix = np.random.choice(X.index, size=500, replace=False)
-    mu = X.loc[ix,:].mean(axis=1).dropna()
+def _format_vw_key(k):
+    if isinstance(k,int) or k.isdigit():
+        return "X"+str(k)
+    return k.replace("-","_")
 
-    score_fn = "roc_auc"
+@vw.command("convert")
+@click.argument("labels", type=click.File("r"))
+def vw_convert(labels):
+    labels = BioTK.io.read_vector(labels)
+    if len(set(labels)) == 2:
+        hi = labels==labels.max()
+        lo = labels==labels.min()
+        labels[hi] = 1
+        labels[lo] = -1
+        labels = labels.astype(int)
+    rows = BioTK.io.read_matrix(sys.stdin)
+    for row in rows:
+        if row.name in labels:
+            y = labels[row.name]
+            row = row.dropna()
+            rhs = " ".join(("%s:%s" % (_format_vw_key(k),v) 
+                for k,v in zip(row.index, row)))
+            print(y, "|d", rhs)
 
-    print("Label", "N", "AUC", "AUC SD", sep="\t", file=sys.stderr)
-    print("", *X.index, sep="\t")
-    for label in Y.columns:
-        sys.stdout.flush()
-        sys.stderr.flush()
-        y = Y[label]
-        if binary:
-            y = y.ix[y.isin((-1,1))]
-        else:
-            # regression, todo
-            pass
-        ix = list(set(y.index) & x_ix)
+def _vw_cross_validate(tmpdir, k):
+    with tmpdir:
+        assert k > 1
+        y = []
 
-        x_tr = X.loc[ix,mu.index].to_frame()
-        y = y.to_dense()[ix]
-        for r in x_tr.index:
-            ix = x_tr.loc[r,:].isnull()
-            x_tr.loc[r,ix] = mu[ix]
+        splits = {} 
+        paths = {}
+        for i in range(k):
+            paths[i] = "%s/%s.vw" % (tmpdir.name, i)
+            splits[i] = open(paths[i], "w")
+        for i,line in enumerate(sys.stdin):
+            h = splits[i % k]
+            y.append(float(line.split(" ", 1)[0]))
+            h.write(line)
+        for h in splits.values():
+            h.close()
 
-        n = len(y)
-        k = min(y.value_counts().min(), 10)
-        if n < 10 or len(set(y)) == 1 or k <= 3:
-            continue
+        y_hat = np.zeros(len(y))
 
-        vc = y.value_counts()
-        weights = None
-        if generate_negative:
-            weights = {1:1/vc[1],-1:1/(X.shape[1]-vc[1])}
-        y = np.array(y)
+        processes = []
+        for i in range(k):
+            data_path = "%s/%s.data" % (tmpdir.name, i)
+            with open(data_path, "w") as train:
+                for fold,path in paths.items():
+                    if not fold == i:
+                        with open(path) as input:
+                            for line in input:
+                                train.write(line)
 
-        model = RandomForestClassifier(class_weight=weights)
-        scores = cross_val_score(model, x_tr, y, scoring=score_fn,
-                cv=k, njobs=-1)
-        print(label, n, scores.mean(), scores.std(), sep="\t",
-                file=sys.stderr)
-        model.fit(x_tr, y)
-        pos_ix = list(model.classes_).index(1)
-        y_hat = []
-        for i in X.index:
-            x = np.array(X.loc[i,mu.index])
-            ix = np.isnan(x)
-            x[ix] = mu[ix]
-            yh = model.predict_log_proba(x)[:,pos_ix]
-            y_hat.append("%0.3f" % yh)
-        print(label, *y_hat, sep="\t")
+            model_path = "%s/%s.model" % (tmpdir.name, i)
+            p = sp.Popen(["vw", 
+                "-c", "--passes=10",
+                "-d", data_path,
+                "-b", "29",
+                #"--nn", "12",
+                #"--l1=0.001", 
+                #"--invariant",
+                #"--normalized",
+                #"--bfgs",
+                #"--l2=0.001",
+                "--loss_function=logistic",
+                "-f", model_path])
+            processes.append(p)
+
+        while True:
+            if not all([p.poll() is not None for p in processes]):
+                time.sleep(1)
+            else:
+                break
+
+        for i in range(k):
+            yhat_path = "%s/%s.yhat" % (tmpdir.name, i)
+            p = sp.call(["vw", "-t", "-i", model_path, 
+                "-r", yhat_path],
+                stdin=open(paths[i], "r"))
+            with open(yhat_path) as h:
+                for j,line in enumerate(h):
+                    # if using --nn option, prediction is last element
+                    # otherwise, output *should* just be a plain float per line
+                    y_hat[j*(i+1)] = float(line.split()[-1])
+
+        # FIXME: this will only work for binary
+        y_hat = 1 / (1 + np.exp(-y_hat))
+
+        for i in range(len(y_hat)):
+            print(y[i], y_hat[i], sep="\t")
+
+@vw.command("cv")
+@click.option("--folds", "-k", type=int, default=10)
+def vw_cross_validate(folds):
+    tmpdir = tempfile.TemporaryDirectory()
+    _vw_cross_validate(tmpdir, folds)
 
 if __name__ == "__main__":
     cli()

@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF 1>&2
+USAGE: $0 [options] basedir
+
+Correlate expression for each gene with each label and organize the output
+into a hierarchy of basedir/BTOID/GSE.
+
+Options:
+    -l <label_type> : age, gender, or another numeric label (default: "age")
+    -t <taxon_id> : NCBI taxon ID to correlate with (default: "9606" [human])
+    -m <int> : minimum number of labeled samples in a GSE to process it (default: 10)
+        Must be at least 5.
+    -h : show this help
+EOF
+    exit 1
+}
+
+label_type=age
+taxon_id=9606
+min_samples=10
+
+while getopts l:t: opt; do
+    case $opt in
+        l) label_type="$OPTARG" ;;
+        t) taxon_id="$OPTARG" ;;
+        h) usage ;;
+        m) min_samples="$OPTARG" ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [ $# != 1 ]; then
+    usage
+fi
+
+export outdir="$(readlink -f "$1")"
+if [ -d "$outdir" ]; then 
+    if [ "$(ls -A "$outdir")" ]; then
+        echo "ERROR: Output directory $outdir already exists and is not empty!" 1>&2
+        exit 1
+    fi
+else
+    mkdir -p "$outdir"
+fi
+
+export labels="$HOME/data/ncbi/geo/labels/compass/$label_type"
+export series_archive="$HOME/data/ncbi/geo/$taxon_id/series.tpxz"
+export tissue_map="$HOME/data/ncbi/geo/labels/compass/tissue"
+
+if [ $min_samples -lt 5 ]; then
+    echo "ERROR: min_samples (-m) must be at least 5." 1>&2
+    exit 1
+fi
+
+if [ ! -f "$labels" ]; then
+    echo "ERROR: Label type (" $label_type ") invalid or no labels extracted." 1>&2
+    exit 1
+fi
+
+if [ ! -f "$series_archive" ]; then
+    echo "ERROR: Series TPXZ archive not found at path:" $series_archive
+    exit 1
+fi
+
+normalize() {
+    log-transform -m 64
+}
+export -f normalize
+
+process() {
+    accession="$1"
+    tmpdir="$(mktemp -d)"
+    cd "$tmpdir"
+
+    tpxzcat "$series_archive" "$accession" | splitby -m "$tissue_map"
+
+    if [ "$(ls -A "$(pwd)")" ]; then
+        for tissue_id in *; do
+            o="$outdir/data/$tissue_id/$accession"
+            cat "$tissue_id" | transpose \
+                | normalize \
+                | dt corrwith "$labels" > "${tissue_id}.out"
+            n=$(awk 'END { print NR }' < "${tissue_id}.out")
+            echo $accession $tissue_id $n 1>&2
+            if [ "$n" -gt 9 ]; then
+                mkdir -p $(dirname $o)
+                mv "${tissue_id}.out" "$o"
+            fi
+        done
+    fi
+    cd
+    rm -rf "$tmpdir"
+}
+export -f process
+
+accessions=$(mktemp)
+tjoin <(cut -f1 "$labels") <(dataset gsm2gse) \
+    | sort -k2b,2 \
+    | tjoin -1 2 - <(pixz -l "$series_archive") \
+    | cut -f1 \
+    | sort \
+    | uniq -c \
+    | sed 's/^ *//;s/ /\t/' \
+    | tawk -vn="$min_samples" '$1 >= n {print $2,$1}' \
+    | sort -rnk2 \
+    | cut -f1 > $accessions
+
+{
+    echo "Processing per-series correlations ..."
+    echo "* Taxon ID:" $taxon_id
+    echo "* Label:" $label_type
+    echo "* Running" $(wc -l < $accessions) "accessions"
+    echo "* Output directory:" $outdir
+} 1>&2
+
+parallel process < $accessions 2> /dev/null
+rm -f $accessions
+
+cat <<EOF > $outdir/metadata
+export taxon_id=$taxon_id
+export label_type=$label_type
+EOF

@@ -43,9 +43,9 @@ General:
 Normalization and other preprocessing:
  log			Log-transform rows
  qnorm			Quantile normalize a matrix
- standardize	Standardize (scale) the rows of a matrix
  impute			Impute missing values using Hastie's 
                     softImpute method
+ transform      Various transforms for array data
 
 Correlation and similarity:
  correlate	Produce the pairwise correlation matrix of columns
@@ -56,9 +56,6 @@ Aggregation and grouping:
  collapse	Collapse a matrix using a mapping of row IDs
  union		SQL-like union of multiple sets of tabular data
  split		Split a table into files based on a column and mapping
-
-Statistics:
- summary	Print summary statistics for each row
 
 Sampling:
  random	Generate a random vector or matrix

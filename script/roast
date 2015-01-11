@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+from collections import OrderedDict
+
+import pandas as pd
+import numpy as np
+
+from BioTK.r import roast
+from BioTK.io import read_vector
+
+p = argparse.ArgumentParser()
+p.add_argument("--formula", "-f")
+p.add_argument("--contrast", "-c",
+        help="The index in the design matrix of the contrast to test, or the name of the contrast", default="0")
+p.add_argument("design", type=argparse.FileType("r"))
+p.add_argument("selection", type=argparse.FileType("r"))
+args = p.parse_args()
+
+X = pd.read_table(sys.stdin, index_col=0, sep="\t")
+D = pd.read_table(args.design, index_col=0, sep="\t")
+formula = args.formula
+
+sel = read_vector(args.selection)
+try:
+    sel.index = map(int, sel.index)
+except ValueError:
+    pass
+
+contrast = args.contrast
+try:
+    contrast = int(contrast)
+except ValueError:
+    pass
+
+roast(X,D,sel,contrast=contrast,formula=formula)\
+        .to_csv(sys.stdout,
+                sep="\t", float_format="%0.3f")

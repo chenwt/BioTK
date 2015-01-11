@@ -1,13 +1,7 @@
 # Required
-gzip	Compression utility
 parallel	GNU parallel
-lz4	LZ4 compression utility
-pixz	Parallel XZ/LZMA compression utility
-xml	XML Starlet
+gzip	Compression utility
 
 # Optional
-datamash	Data manipulation utility
+pixz	Parallel XZ/LZMA compression utility
 pigz	Parallel GZip compression
-tcbmgr	Tokyo Cabinet
-
-#lockfile	POSIX file locking

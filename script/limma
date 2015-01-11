@@ -1,61 +1,63 @@
-#!/usr/bin/env Rscript
+#!/usr/bin/env python3
 
-# Input matrix is in tab-delimited format, with genes as rows and
-# sample IDs as columns.
-# IMPORTANT: The sample IDs are assumed to be in the form "<group>[0-9]+$"
-# The groups will then be provided as contrasts.
+import argparse
+import sys
 
-suppressMessages({
-    library(getopt)
-    library(limma)
-})
+import pandas as pd
+import numpy as np
 
-spec = matrix(c(
-    "contrast", "c", 1, "character", "Formula of the contrast",
-    "matrix", "m", 2, "character", 
-        "Path to the expression matrix (default stdin)",
-    "adjust", "a", 2, "character", "MH adjustment method",
-    "normalize", "n", 0, "logical", "Normalize the matrix",
-    "rtpcr", "r", 0, "logical", 
-        "Convert input RT-PCR data using 2 ^ -X",
-    "help", "h", 0, "logical", "Show usage information"
-), byrow=T, ncol=5)
-opts = getopt(spec)
+from BioTK.r import limma, edger, ExpressionType
 
-if ( !is.null(opts$help) ) {
-    cat(getopt(spec, usage=TRUE));
-    q(status=1);
+p = argparse.ArgumentParser()
+p.add_argument("--formula", "-f")
+p.add_argument("--standardize", "-s", action="store_true")
+p.add_argument("--output-file", "-o",
+        default="/dev/stdout")
+p.add_argument("--coefficient", "-c",
+        help="Output results (and p-values) for a single coefficient")
+p.add_argument("--weighted", "-w",
+        action="store_true",
+        help="Use array quality weights for lmFit")
+p.add_argument("--method", "-m",
+        help="The method to use: limma for arrays, edgeR for RNA-seq",
+        choices=["limma", "edger"],
+        default="limma")
+p.add_argument("--limit", "-l", action="append")
+p.add_argument("design", type=argparse.FileType("r"))
+args = p.parse_args()
+
+X = pd.read_table(sys.stdin, index_col=0, sep="\t")
+D = pd.read_table(args.design, index_col=0, sep="\t")
+def align(X,D):
+    X,D = X.align(D.T, axis=1)
+    D = D.T
+    return X,D
+X,D = align(X,D)
+
+formula = args.formula
+
+coef = [args.coefficient] if args.coefficient else None
+
+if args.limit is not None:
+    for limit in args.limit:
+        key,value = limit.split("=")
+        assert key in D.columns
+        ix = D[key] == int(value)
+        D = D.ix[ix,:]
+        X = X.ix[:,ix]
+        X,D = align(X,D)
+
+kwargs = {
+    "formula": formula, 
+    "coefficients": coef
 }
 
-if (is.null(opts$adjust)) { opts$adjust = "BH" }
-if (is.null(opts$matrix)) { opts$matrix = "/dev/stdin" }
+if args.method == "limma":
+    o = limma(X,D, weighted=args.weighted, **kwargs)
+elif args.method == "edger":
+    o = edger(X,D, **kwargs)
 
-suppressWarnings({
-    matrix.path = opts$matrix
-    contrast = opts$contrast
-
-    X = as.matrix(read.table(matrix.path))
-
-    if (!is.null(opts$rtpcr)) {
-        X = 2 ^ -X
-    }
-
-    if (!is.null(opts$normalize)) {
-        X = normalizeBetweenArrays(X)
-    }
-
-    groups = as.factor(substr(colnames(X), 1, 
-                              regexpr("[0-9]+$", colnames(X))-1))
-    design = model.matrix(~0+groups)
-    colnames(design) = levels(groups)
-    ct = makeContrasts(contrast=contrast, levels=design)
-
-    fit = lmFit(X,design)
-    fit = contrasts.fit(fit, ct)
-    fit = eBayes(fit)
-
-    o = topTable(fit, number=nrow(X), adjust=opts$adjust)
-    o = o[complete.cases(o),]
-    cat("\t")
-    write.table(round(o,3), "/dev/stdout", sep="\t", quote=F)
-})
+o.to_csv(args.output_file, 
+        sep="\t", 
+        na_rep="nan",
+        float_format="%0.3f")

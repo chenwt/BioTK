@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""
+For each row of a matrix, output the ranks of each item in the row.
+"""
+
+import argparse
+import sys
+
+import numpy as np
+
+import BioTK
+
+p = argparse.ArgumentParser()
+p.add_argument("--scale", "-s", action="store_true",
+        help="Scale ranks to a decimal between 0 and 1 (divide by the number of non-NaN values).")
+args = p.parse_args()
+
+if args.scale:
+    def fn(x):
+        ix = x.isnull()
+        o = x.argsort() / (~x.isnull()).sum()
+        o[ix] = np.nan
+        return o
+else:
+    fn = np.argsort
+
+BioTK.io.read_matrix(sys.stdin).apply(fn).dump()

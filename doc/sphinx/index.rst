@@ -48,6 +48,7 @@ Manual
     :maxdepth: 2
 
     datasets
+    sequencing
 
 Development information
 =======================

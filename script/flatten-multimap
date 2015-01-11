@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+
+import argparse
+import sys
+
+import BioTK
+
+p = argparse.ArgumentParser()
+p.add_argument("--biggest", "-b",
+        action="store_true",
+        help="Flatten to biggest groups instead of smallest")
+args = p.parse_args()
+
+m = BioTK.io.read_multimap(sys.stdin).invert()\
+        .flatten(smallest=not args.biggest)
+for k,v in sorted(m.items()):
+    print(k,v,sep="\t")

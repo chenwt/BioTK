@@ -42,10 +42,12 @@ if __name__ == "__main__":
             action="store_true",
             help="Input is binary FMIO format.")
     p.add_argument("--parallel", "-p", action="store_true")
+    p.add_argument("--verbose", "-v", action="store_true")
+    p.add_argument("--sample-size", "-n", default=100, type=int)
     args = p.parse_args()
 
     threshold = 1
-    sample_size = 100
+    sample_size = args.sample_size
 
     if args.binary:
         import fmio
@@ -78,6 +80,7 @@ if __name__ == "__main__":
         print("", *mu.index, sep="\t")
         for i,(id,x_n) in enumerate(o):
             if i % 1000 == 0:
-                print("qnorm:", i, file=sys.stderr)
+                if args.verbose:
+                    print("qnorm:", i, file=sys.stderr)
             if x_n is not None:
                 print(id, *x_n, sep="\t")

@@ -122,3 +122,14 @@ cdef class GenomicRegion(GenomicInterval):
             return richcmp_helper(cmp(self.start, o.start), op)
         else:
             return richcmp_helper(cmp(self.end, o.end), op)
+
+    @staticmethod
+    def parse(str locus, str strand=".", double score=0):
+        """
+        Parse a locus in the format chrom:start-end (e.g., "chr1:1-10000").
+        """
+        name, start_end = locus.split(":")
+        start, end = start_end.split("-")
+        contig = Contig(name)
+        return GenomicRegion(contig, int(start), int(end), 
+                strand=strand, score=score)

@@ -9,5 +9,10 @@ while getopts r:c: opt; do
         c) nc=$OPTARG ;;
     esac
 done
+shift $((OPTIND - 1))
 
-head -$nr | cut -f1-$nc
+if [ $# -gt 0 ]; then
+    cat $1
+else
+    cat
+fi | head -$nr | cut -f1-$nc

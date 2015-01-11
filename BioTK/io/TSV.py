@@ -97,6 +97,8 @@ def read_factor(handle, delimiter="\t"):
 
 def read_vector(handle, delimiter="\t"):
     data = {}
+    if isinstance(handle, str):
+        handle = open(handle, "r")
     with handle:
         for line in handle:
             try:

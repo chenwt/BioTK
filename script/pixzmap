@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF 1>&2
+Run a command on each member of a PIXZ archive, and return a new archive on stdout.
+
+USAGE: $0 <archive> <command>
+EOF
+    exit 1
+}
+
+compress_level=1
+while getopts ho:l: opt; do
+    case $opt in
+        h) usage ;;
+        o) outfile="$(readlink -f "$OPTARG")" ;;
+        l) compress_level="$OPTARG"
+    esac
+done
+
+shift $((OPTIND - 1))
+archive="$(readlink -f "$1")"
+export cmd="$2"
+
+run_cmd() {
+    $cmd
+}
+export -f run_cmd
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "${tmpdir}"' EXIT
+
+pixz -l "$archive" \
+    | parallel "pixz -x {} < '${archive}' | tar -xO | run_cmd > $tmpdir/{}"
+
+cd "$tmpdir"
+tar -Oc * | pixz -${compress_level} \
+    | if [ ! -z "$outfile" ]; then
+    cat > "$outfile" 
+else
+    cat
+fi

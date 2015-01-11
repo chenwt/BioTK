@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""
+Set enrichment analysis.
+"""
+
+# FIXME: handle case where input doesn't have numeric values associated (?)
+
+import argparse
+import sys
+
+import numpy as np
+from scipy.stats import spearmanr, fisher_exact
+from sklearn.metrics import roc_auc_score
+
+p = argparse.ArgumentParser()
+p.add_argument("--positive-percent", "-c",
+        help="Top X percent of values will be tested as 'positive' in binary metrics",
+        type=float, default=0.05)
+p.add_argument("--category-names", "-n",
+        help="A two-column file mapping category IDs to names. If this is provided, the names will be outputted along with the IDs.",
+        type=argparse.FileType("r"))
+p.add_argument("--absolute-value", "-a", action="store_true",
+        help="Perform enrichment for the set of inputs with the highest absolute value")
+p.add_argument("categories", type=argparse.FileType("r"))
+args = p.parse_args()
+
+#p.add_argument("--invert-y", "-i",
+#        help="Multiply the 'y' variable by -1 before testing",
+#        action="store_true")
+
+assert 0 <= args.positive_percent <= 1
+
+import BioTK
+from BioTK import *
+
+def binarize(x, percent=0.1):
+    assert isinstance(x, pd.Series)
+    if len(set(x)) == 2:
+        ix_max = x == x.max()
+        ix_min = x == x.min()
+    else:
+        assert percent > 0 and percent < 1
+        cutoff = x.quantile(1 - percent)
+        ix_max = x >= cutoff
+        ix_min = x < cutoff
+    x[ix_max] = 1
+    x[ix_min] = 0
+    return x.astype(bool)
+
+P = pd.read_csv(args.categories, sep="\t", header=None)
+assert len(P.columns) in (2,3)
+if len(P.columns) == 2:
+    P["Value"] = 1
+P.columns = ["Element", "Category", "Value"]
+
+v = pd.read_csv(sys.stdin, sep="\t", header=None, index_col=0).iloc[:,0]
+
+background = list(sorted(set(v.index) & set(P["Element"])))
+v = v[background]
+## TODO: make optional
+v = binarize(v)
+P = P.ix[P["Element"].isin(background),:]
+is_binary = len(set(v)) == 2
+
+category_names = {}
+if args.category_names is not None:
+    with args.category_names as h:
+        for line in h:
+            id, name = line.rstrip("\n").split("\t")[:2]
+            category_names[id] = name
+
+def binary_metrics(y,v):
+    y_hat = v
+    v = binarize(v)
+
+    # AUC
+    AUC = roc_auc_score(y, v)
+
+    y = binarize(y)
+
+    # Fisher exact
+    ct_a = (y & v).sum()
+    ct_b = (y & ~v).sum()
+    ct_c = (~y & v).sum()
+    ct = [[ct_a,ct_b],[ct_c,len(y)-sum([ct_a,ct_b,ct_c])]]
+    OR, p = fisher_exact(ct, alternative="greater")
+    OR = np.log10(OR)
+
+    return pd.Series([AUC, OR,p], 
+            index=["AUC", "LOR", "FET p"])
+
+def slpv(r,p):
+    return np.log10(p) * np.sign(r)
+
+def metrics(y):
+    y = y.drop("Category", axis=1).drop_duplicates()
+    counts = y["Element"].value_counts()
+    ix = counts[counts == 1].index
+    y = y.loc[y["Element"].isin(ix),:]
+    new_y = y["Value"]
+    new_y.index = y["Element"]
+    y = new_y
+
+    v_,y = v.align(y, join="outer", fill_value=0)
+    N = int(y[y != 0].sum())
+    #r = slpv(*spearmanr(v_,p))
+    r = spearmanr(v_,y)[0]
+
+    o = [N, r] 
+    columns = ["N", "Spearman"]
+    o = pd.Series(o, index=columns)
+    if is_binary:
+        if args.absolute_value:
+            v_ = v.abs()
+        o = o.append(binary_metrics(y,v_))
+    return o
+
+def prn(*xs):
+    xs = [round(x,3) if isinstance(x,float) else x for x in xs]
+    print(*xs, sep="\t")
+
+for i,(k,subset) in enumerate(P.groupby("Category")):
+    o = metrics(subset)
+    if i == 0:
+        header = [""]
+        if category_names:
+            header.append("Name")
+        header.extend(o.index)
+        prn(*header)
+    row = [k]
+    if category_names:
+        row.append(category_names.get(k,"-"))
+    row.append(int(o.iloc[0]))
+    row.extend(o.iloc[1:])
+    prn(*row)
+
+sys.exit(0)
+
+#o["N"] = o["N"].astype(int)
+#o.to_csv(sys.stdout, sep="\t", float_format="%0.3f")
+
+# Two-column input format.
+# 1) category (numeric, if 0/1 or -1/1 will be interpreted as binary), else continuous
+#   (ultimately, implement categorical as well)
+# 2) the variable to be searched for enrichment (expression, fold change, etc.)
+
+# TODO: alternately take two inputs, ID/variable, and another file containing the category members,
+# or category member, value pairs.
+
+try:
+    x,y = zip(*[map(float, line.strip().split("\t")) \
+            for line in sys.stdin])
+except ValueError:
+    error("No data!")
+
+x = np.array(x)
+y = np.array(y)
+
+if args.invert_y:
+    y = y * -1
+
+rm = np.isnan(x) | np.isnan(y)
+x,y = x[~rm], y[~rm]
+
+ix = np.argsort(y)[::-1]
+x = x[ix]
+y = y[ix]
+
+error_if(len(set(x)) <= 1,
+    "All categories are the same!")
+
+binary = len(set(x)) == 2
+assert binary # for now
+
+if binary:
+    x = x.astype(np.int64)
+    ix_max = x==x.max()
+    ix_min = x==x.min()
+    x[ix_max] = 1
+    x[ix_min] = 0
+    x = x.astype(bool)
+
+# Spearman
+spearman_r,spearman_p = spearmanr(x,y)
+prt("N", len(x))
+prt("Rank Correlation", spearman_r)
+prt("Rank Correlation p", spearman_p)
+
+# Fisher (assumes binary)
+assert binary
+top = np.empty(len(x), dtype=bool)
+top_n = np.ceil(args.positive_percent * len(x))
+top[:] = False
+top[:top_n] = True
+
+f_a = (x & top).sum()
+f_b = (~x & top).sum()
+f_c = (x & ~top).sum()
+fisher_ct = [[f_a,f_b],[f_c,len(x)-(f_a+f_b+f_c)]]
+odds_ratio, fisher_p = fisher_exact(fisher_ct, 
+        alternative="greater")
+prt("Fisher's Exact p-value", fisher_p)
+prt("Odds Ratio", odds_ratio)

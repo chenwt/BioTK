@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+# Usage: skip [-n n] cmd ... < input
+
+# Echo the first n lines (default: 1) before
+# passing stdin to the command specified by <cmd>
+
+n=1
+while getopts n: opt; do
+    case $opt in
+        n) n=$OPTARG ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+for i in $(seq $n); do
+    IFS="" read -r line
+    echo "$line"
+done
+"$@"

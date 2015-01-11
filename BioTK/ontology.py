@@ -13,7 +13,7 @@ Term = collections.namedtuple("Term", [
 class Ontology(object):
     """
     Attribute specifications (DataFrame objects):
-        terms: Term ID, Name, Namespace
+        terms: Term ID, Name, Depth, Namespace
         synonyms: Term ID, Synonym
         relations: Agent, Target, Relation
     """

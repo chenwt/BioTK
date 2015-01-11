@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+bam="$1"
+
+parse() {
+    tawk '{ s="" } and($2,0x10) { s="+" } and($2,0x20) { s="-" } { if (s != "") { print $3,$4,$4+length($10),s } }'
+}
+export -f parse
+
+samtools view -f 0x2 $bam | parallel --pipe parse

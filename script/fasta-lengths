@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+
+import sys
+
+key = None
+n = 0
+for line in sys.stdin:
+    if line.startswith(">"):
+        if key:
+            print(key, n, sep="\t")
+        key = line[1:].strip().split()[0]
+        n = 0
+    else:
+        n += len(line.strip())

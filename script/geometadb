@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+# TODO: check the date and redownload every 3-6 months
+
+path=$HOME/.local/share/GEOmetadb.sqlite
+url=http://gbnci.abcc.ncifcrf.gov/geo/GEOmetadb.sqlite.gz
+
+if [ ! -f $path ]; then
+    mkdir -p $(dirname "$path")
+    curl "$url" | gzip -cd > "$path"
+fi
+
+cmd="$1"
+
+if [[ $cmd == q* ]]; then
+    shift
+    sqlite3 -csv "$path" "$@" | csv2tsv
+elif [[ $cmd == path ]]; then
+    echo "$path" 
+fi

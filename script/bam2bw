@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+genome=
+while getopts g: opt; do
+    case $opt in
+        g) genome="$g"
+    esac
+done
+
+if [ -z "$genome" ]; then
+fi
+
+bedtools genomecov -g $genome
+sort -k1,1 -k2,2n

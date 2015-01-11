@@ -123,8 +123,8 @@ entry_points = {"console_scripts":
                     "mmat = BioTK.mmat:cli"
                 ]}
 
-requirements = [str(item.req) for item in
-        parse_requirements("requirements.txt")]
+with open("requirements.txt") as h:
+    requirements = [line.rstrip("\n") for line in h if not (line.startswith("#") or not line.strip())]
 
 #########################
 # Set include directories

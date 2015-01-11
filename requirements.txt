@@ -3,6 +3,7 @@ numpy
 scipy
 cython
 matplotlib
+matplotlib-venn
 pytz
 numexpr
 pandas
@@ -17,7 +18,6 @@ networkx
 nltk
 
 # Data management
-psycopg2
 redis
 
 # Utilities
@@ -38,6 +38,3 @@ sphinx
 
 # Experimental
 dataset
-
-# Lab
-fmio

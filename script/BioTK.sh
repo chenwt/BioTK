@@ -27,8 +27,17 @@ export BTK_PREFIX="$HOME/.local/BioTK/prefix/"
 mkdir -p "$BTK_DATA" "$BTK_CACHE" "$BTK_PREFIX/bin"
 
 export PATH="$BTK_PREFIX/bin":"$PATH"
-#export TMPDIR="$BTK_CACHE/tmp/"
-#mkdir -p $TMPDIR
+
+ifdef() {
+    if [ $(which $1 2> /dev/null) ]; then
+        echo "$2"
+    else
+        echo "$3"
+    fi
+}
+
+export FAST_COMPRESS_PROGRAM=$(ifdef lz4 lz4 "gzip -1")
+export PIGZ_PROGRAM=$(ifdef pigz pigz gzip)
 
 #######################
 # External dependencies
@@ -50,14 +59,7 @@ btk_log() {
 # Utility functions
 ###################
 
-tawk() {
-    # awk, but with tabs as input/output delimiters
-
-    awk -v FS='	' -v OFS='	' "$@"
-}
-export -f tawk
-
-lzpaste() {
+zpaste() {
     # Like GNU 'paste', except for LZ4-compressed files.
 
     fifos=()
@@ -68,7 +70,7 @@ lzpaste() {
             fifo=$(mktemp -p $tmpdir)
             rm $fifo
             mkfifo $fifo
-            lz4 -dq $file > $fifo &
+            $FAST_COMPRESS_PROGRAM -dq $file > $fifo &
             fifos+=($fifo)
         done
 
@@ -77,7 +79,7 @@ lzpaste() {
 
     rm -rf $tmpdir
 }
-export -f lzpaste
+export -f zpaste
 
 mkdir_cd() {
     mkdir -p "$1"
@@ -93,13 +95,9 @@ _cache_download() {
     mkdir -p "$cache"
     url="$1"
     name="$(echo "$url" | base64)"
-    path="$cache/$name"
-    if [ ! -f $path ]; then
-        if which aria2c &> /dev/null; then
-            aria2c -d "$cache" -o "$name" "$url"
-        else
-            curl -s -o "$path" "$url"
-        fi
+    path="$(echo "$cache/$name" | tr -d '\n')"
+    if [ ! -f "$path" ]; then
+        curl -s -o "$path" "$url"
     fi &> /dev/null
     echo "$path"
 }

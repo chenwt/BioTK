@@ -1,5 +1,4 @@
 from .hyperparameter import *
-from .cv import *
 
 import numpy as np
 from pandas import DataFrame, SparseSeries, Series

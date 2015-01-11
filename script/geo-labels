@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+
+labels=(age gender tissue disease)
+fields=(title description characteristics_ch1)
+
+records() {
+    cat <<EOF |
+SELECT gsm||"-1",replace($1,"\t"," ") FROM gsm;
+EOF
+    geometadb q
+}
+
+map-fields() {
+    fn="$1"
+    label="$2"
+    echo -e "Sample ID\t$label\tField"
+    for field in ${fields[@]}; do
+        records "$field" | "$fn" | tawk -v f="$field" '
+            { print $0,f }
+        '
+    done
+}
+
+_gender() {
+    #'[gender|sex]: ?\bmale\b' \
+    #'[gender|sex]: ?\bfemale\b' \
+
+    male=$(mktemp)
+    female=$(mktemp)
+    tee >(grep -iP '\bmale\b|[gender|sex] ?: ?m' | cut -f1 | sort -u > $male) \
+        | grep -iP '\bfemale\b|[gender|sex] ?: ?f' | cut -f1 | sort -u > $female
+    {
+        comm -2 -3 $male $female | tawk '{print $1,1}'
+        comm -1 -3 $male $female | tawk '{print $1,0}'
+    } | sort -k1b,1
+}
+
+gender() { map-fields _gender "Gender" | select-unanimous; }
+
+match-ontology() {
+    o="$1"
+    tm match -o -i <({
+        ontology terms $o | cut -f1-2
+        ontology synonyms $o
+    } | tawk 'length($2) > 4' | sort -u) \
+      | tr ' ' '\t' | dt unpivot | tawk '$2 != ""' | sort -u
+}
+
+expand-ontology-closure() {
+    echo -e "Sample ID\tTerm\tDepth"
+    sed 1d | sort -k2b,2 \
+        | tjoin -o 1.1 2.2 2.3 1.3 -1 2 -2 1 - <(ontology ancestors $1 | sort -k1b,1) \
+        | skip tsort -k1b,1 -rnk3 \
+        | dt uniq -c 1
+}
+
+_tissue() { match-ontology bto; }
+tissue() { map-fields _tissue "Tissue" ; }
+_disease() { match-ontology "doid"; }
+disease() { map-fields _disease "Disease" ; }
+
+_age() {
+    pcregrep \
+        --om-separator=$'\t' -o1 -o3 -i \
+        "^(GSM[0-9]+).+?age ?(\(.+?\))*: ?([0-9]+(\.[0-9]+)*)"
+}
+age() { records characteristics_ch1 | _age | select-unanimous; }
+
+#control() {
+#    records characteristics_ch1 | grep -i control | cut -f1
+#}
+
+################
+# Postprocessing
+################
+
+# Take only rows which have one unique value per sample
+select-unanimous() {
+    tmp=$(mktemp) 
+    dt sort -k1b,1 > $tmp
+    tjoin --header $tmp <(
+        echo "Sample ID"
+        uniq -c $tmp \
+            | awk '$1 == 1 { print $2 }' \
+            | sort -k1b,1
+    ) | cut -f1-2
+}
+
+######
+# Main
+######
+
+usage() {
+    echo "USAGE: TODO" 1>&2
+}
+
+species="Homo sapiens"
+
+main() {
+    local OPTIND
+
+    while getopts s:d: opt; do
+        case $opt in
+            s) species="$OPTARG" ;;
+            d) db="$OPTARG" ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    if [ ! -f $db ]; then
+        curl $url | gzip -cd > $db
+    fi
+
+    if [ $# -eq 1 ]; then
+        "$1"
+    else
+        usage
+    fi
+}
+
+main "$@" | select-unanimous

@@ -39,16 +39,18 @@ print("", *columns, sep="\t")
 
 def handle_file(h):
     m = {}
-    for i,c in enumerate(next(h).strip("\n").split("\t")[1:]):
-        j = columns_ix[c]
-        m[i] = j
+    f_cols = next(h).rstrip("\n").split("\t")[1:]
+    for i,c in enumerate(f_cols):
+        m[i] = columns_ix[c] 
 
+    xs = np.empty(len(columns))
     for line in h:
         key, *data = line.strip("\n").split("\t")
-        xs = np.empty(len(columns))
         xs[:] = np.nan
+        assert len(data) == len(f_cols), "%s %s" % (len(f_cols), len(data))
         for i,x in enumerate(data):
-            xs[m[i]] = as_float(x)
+            ix = m[i]
+            xs[ix] = as_float(x)
         print(key, *xs, sep="\t")
 
 

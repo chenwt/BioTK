@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+
+import sys
+
+import BioTK
+import BioTK.r
+
+X = BioTK.io.read_matrix(sys.stdin).to_frame()
+BioTK.r.quantile_normalize(X).to_csv(sys.stdout, 
+        na_rep="nan",
+        sep="\t")

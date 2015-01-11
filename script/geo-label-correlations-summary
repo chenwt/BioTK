@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+export outdir="$(readlink -f "$1")"
+
+if [ ! -f $outdir/metadata ]; then
+    cat <<EOF 1>&2
+ERROR: The specified directory is not a valid analysis directory
+    created by geo-label-correlations!
+EOF
+    exit 1
+fi
+source $outdir/metadata
+
+if [ -f $outdir/summary ]; then
+    echo "ERROR: the summary/ directory already exists!" 1>&2
+    exit 1
+fi
+
+ppt_column_slpv() {
+    tawk '$3 > 0 { print $1,$4 } $3 < 0 { print $1,-1*$4 }'
+}
+export -f ppt_column_slpv
+
+ppt_column_r() {
+    cut -f1,4
+}
+export -f ppt_column_r
+
+postprocess_tissue_summary_column() {
+    column_fn="$2"
+    tmpdir="$(mktemp -d)"
+    for file in $1/*; do
+        series_id="$(basename $file)"
+        (
+            echo -e "\t$series_id"
+            sed 1d $file \
+                | ppt_column_${column_fn}
+        ) | transpose > $tmpdir/$series_id
+    done
+    dt union $tmpdir/* | transpose
+    rm -fr "$tmpdir"
+}
+export -f postprocess_tissue_summary_column
+
+postprocess_tissue() {
+    tissue_dir="$outdir/data/$1"
+    tissue_id="$(basename $tissue_dir)"
+    mkdir -p $outdir/summary/{slpv,r}
+    postprocess_tissue_summary_column "$tissue_dir" "slpv" \
+        > $outdir/summary/slpv/$tissue_id
+    postprocess_tissue_summary_column "$tissue_dir" "r" \
+        > $outdir/summary/r/$tissue_id
+}
+export -f postprocess_tissue
+
+echo "Processing per-tissue summaries ..." 1>&2
+ls "$outdir/data/" | parallel postprocess_tissue 
+
+echo -e "\nProcessing total summaries ..." 1>&2
+
+postprocess_tissue_summary() {
+    tissue_id=$(basename $1)
+    {
+        echo -e "\t$tissue_id"
+        summarize < $1 | ncut -I Median | sed 1d
+    } | transpose > $totaldir/$tissue_id
+}
+export -f postprocess_tissue_summary
+
+export totaldir=$(mktemp -d)
+for summary_type in slpv r; do
+    parallel postprocess_tissue_summary ::: $outdir/summary/$summary_type/*
+    dt union $totaldir/* \
+        | transpose \
+        | dt sort -k1b,1 \
+        | tee $outdir/summary/${summary_type}.matrix \
+        | summarize \
+        | tjoin --header <(gene-info -t $taxon_id | dt sort -k1b,1) - \
+        | dt sort -rnk9 \
+        > $outdir/summary/${summary_type}.summary
+    rm -f $totaldir/*
+done
+
+#paste <(summarize < "$summary" | ncut -I N Mean Median) <(cut -f2- "$summary") \
+#    | tjoin --header <(gene-info -t $taxon_id | dt sort -k1b,1) - \
+#    > "$outdir/summary/all"
+rm -fr "$totaldir"

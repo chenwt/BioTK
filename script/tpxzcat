@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+[ $# != 2 ] && {
+    echo "USAGE: $0 archive.tpxz item" 1>&2
+    exit 1
+}
+
+pixz -x $2 < $1 | tar -xO

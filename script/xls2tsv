@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf $tmpdir' EXIT
+
+infile=/dev/stdin
+extension=xls
+while getopts i: opt; do
+    case $opt in
+        i) infile="$OPTARG" ;;
+    esac
+done
+
+if [[ "$infile" == *.xlsx ]]; then
+    extension=xlsx
+fi
+
+cat "$infile" > "$tmpdir/input.$extension"
+
+libreoffice --headless \
+    --convert-to csv \
+    "$tmpdir/input.$extension" \
+    --outdir "$tmpdir" \
+    &> /dev/null
+
+csv2tsv < $tmpdir/*.csv

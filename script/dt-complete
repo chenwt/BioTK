@@ -1,0 +1,40 @@
+#!/usr/bin/bash
+
+# Output rows that have no missing values
+
+usage() {
+    cat <<EOF 1>&2
+$0 [options] < input
+
+options:
+    -H : input has no header line
+    -h : show this usage message
+EOF
+    exit 1
+}
+
+header=y
+while getopts Hh opt; do
+    case $opt in
+        h) usage ;;
+        H) header="" ;;
+    esac
+done
+
+if [ ! -z "$header" ]; then
+    IFS="" read -r header
+    echo "$header"
+fi
+
+awk -f <(cat <<"EOF"
+BEGIN { FS=OFS="\t" }
+{
+    for (i=1;i<=NF;i++) {
+        if ($i == "" || $i == "nan") {
+            next
+        } 
+    }
+    print
+}
+EOF
+)

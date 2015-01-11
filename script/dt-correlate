@@ -5,6 +5,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+import scipy.stats
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
@@ -13,12 +14,12 @@ if __name__ == "__main__":
     p.add_argument("--all", "-a", action="store_true",
             help="Print entire correlation matrix")
     p.add_argument("--significant-digits", "-d", type=int, default=3)
-    # --method: pearson/spearman/kendall
+    p.add_argument("--method", "-m", choices=["pearson", "spearman"],
+            default="pearson")
     args = p.parse_args()
     float_format = "%0." + str(args.significant_digits) + "f"
-
+    fn = getattr(scipy.stats, args.method + "r")
     X = pd.read_table(sys.stdin, index_col=0, sep="\t")
-    X = (X - X.mean() / X.std())
 
     index = X.index
     columns = X.columns
@@ -38,11 +39,9 @@ if __name__ == "__main__":
             ix = mask[:,j] & mask[:,jj]
             if ix.sum() < 2:
                 continue
-            cor[jj] = np.dot(X[ix,j],X[ix,jj]) / (ix.sum() - 1)
-        # FIXME: this is a hack meaning the correlation values will not be exactly right
-        # really the standardization should be done with each individual mask 
-        # but that would be much slower and probably not much more accurate
-        cor = np.maximum(np.minimum(1, cor), -1)
+            r,p = fn(X[ix,j], X[ix,jj])
+            cor[jj] = r
+
         if args.all:
             print(c, *[float_format % x for x in cor], sep="\t")
         else:

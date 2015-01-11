@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+
+import pandas as pd
+
+p = argparse.ArgumentParser()
+p.add_argument("--trim", "-t", type=int,
+        help="Trim and ellipsize fields longer than approximately this value, breaking on words")
+args = p.parse_args()
+
+def trim_fields(x):
+    if not isinstance(x, str):
+        return x
+    if len(x) <= args.trim:
+        return x
+    x = x[:x.find("(")-1]
+    if len(x) <= args.trim:
+        return x
+    tokens = x.split(" ")
+    while sum(map(len,tokens)) + len(tokens) - 1 > args.trim - 3:
+        tokens.pop()
+    return " ".join(tokens) + " ..."
+
+X = pd.read_csv(sys.stdin, sep="\t")
+if args.trim:
+    X = X.applymap(trim_fields)
+
+X.to_latex(sys.stdout, index=False)
+print("Reminders:\n\t-requires \\usepackage{booktabs}\n\t- Use \\input{file} with no extension", 
+        file=sys.stderr)

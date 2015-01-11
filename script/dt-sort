@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source $(dirname $0)/BioTK.sh
+
 buffer_size=20%
 while getopts :S: opt; do
     case $opt in
@@ -8,6 +10,6 @@ while getopts :S: opt; do
 done
 
 LC_COLLATE=C dt wrap \
-    sort -t$'\t' --compress-program=lz4 --parallel=8 \
+    sort -t$'\t' --compress-program="$FAST_COMPRESS_PROGRAM" --parallel=8 \
     -S $buffer_size \
     "$@"

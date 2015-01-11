@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+
+import xlrd
+
+import BioTK
+
+p = argparse.ArgumentParser()
+p.add_argument("excel_file")
+g = p.add_mutually_exclusive_group()
+g.add_argument("--sheet-name", "-n")
+g.add_argument("--sheet-index", "-i", type=int, default=1)
+args = p.parse_args()
+
+X = BioTK.io.read_taqman(args.excel_file, 
+        sheet_name=args.sheet_name,
+        sheet_index=args.sheet_index-1)
+#X = X.fillna(X.max())
+X = (2 ** -X)
+X.to_csv(sys.stdout, sep="\t", na_rep="nan")

@@ -9,6 +9,7 @@ import tempfile
 import pandas as pd
 
 from BioTK.io import BEDFile
+from BioTK.genome import GenomicRegion
 
 class BigWigFile(object):
     def __init__(self, path):
@@ -58,6 +59,8 @@ class BigWigCollection(object):
         self.files = [BigWigFile(path) for path in paths]
 
     def mean(self, regions):
+        if isinstance(regions, GenomicRegion):
+            return self.mean([regions]).iloc[:,0]
         keys, series = [], []
         for f in self.files:
             key = os.path.splitext(os.path.basename(f.path))[0]

@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+
+"""
+CLI tools for meta-analysis.
+"""
+
+import argparse
+import os
+import sys
+
+import pandas as pd
+import numpy as np
+
+from BioTK.statistics.meta_analysis import z_test
+
+p = argparse.ArgumentParser()
+p.add_argument("files", nargs="+")
+args = p.parse_args()
+
+index = set()
+for path in args.files:
+    with open(path) as h:
+        next(h)
+        for line in h:
+            index.add(int(line.split("\t")[0]))
+index = list(sorted(index))
+
+P = pd.DataFrame(index=index)
+N = pd.DataFrame(index=index)
+R = pd.DataFrame(index=index)
+
+for path in args.files:
+    name = os.path.basename(path)
+    X = pd.read_csv(path, sep="\t", index_col=0)
+    P[name] = 10 ** (- X["-log10(P-Value)"])
+    R[name] = X["Correlation"]
+    N[name] = X["N"]
+
+M = {}
+for i in range(P.shape[0]):
+    key = P.index[i]
+    p = P.iloc[i,:].dropna()
+    p = p[p != 0]
+    n = N.iloc[i,:][p.index]
+    r = R.iloc[i,:][p.index]
+    sign = r.apply(np.sign)
+    ix = sign != 0
+    p,r,n,sign = p[ix],r[ix],n[ix],sign[ix]
+    consensus_sign = np.sign((n * r).mean())
+    p[sign != consensus_sign] = (1-p)
+    M[key] = consensus_sign * (- np.log10(z_test(p,w=n)))
+
+P = P.apply(lambda x: - np.log10(x)) * R.apply(np.sign)
+P["Combined"] = pd.Series(M)
+P.to_csv(sys.stdout, sep="\t", float_format="%0.3f", na_rep="nan")

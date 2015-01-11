@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+bam="$1"
+gff="$2"
+
+sed 's/\;/\t/g;s/=/ /g' \
+    | tawk '{ for (i=1; i<=NF; i++) { split($i,a," "); \
+        if (a[1] == "ID") { id=a[2] }; if (a[1] == "Parent") { parent=a[2] }; \
+    }; if (id != "" && parent != "") print id, parent }'
+exit 0
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf $tmpdir' EXIT
+
+head -100 $gff | gff2bed --do-not-sort \
+    | tee >(cut -f10 \
+        | sed 's/\;/\t/g;s/=/ /g' \
+        | tawk '{ for (i=1; i<=NF; i++) { split($i,a," "); \
+                    if (a[1] == "ID") { id=a[2] }; if (a[1] == "Parent") { parent=a[2] }; \
+                }; if (id != "" && parent != "") print id, parent }'> $tmpdir/links) \
+    | cut -f1-6 \
+    | tee >(grep exon | bedtools sort > $tmpdir/exons.bed) \
+    | grep -v exon \
+    | tee >(grep ENST | bedtools sort > $tmpdir/transcripts.bed) \
+    | grep ENSG | bedtools sort > $tmpdir/genes.bed
+
+#cat $tmpdir/exons.bed
+#exit 0
+
+| bedtools intersect -s -wb -a - -b $tmpdir/exons.bed | head
