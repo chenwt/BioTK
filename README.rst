@@ -2,9 +2,9 @@
 BioTK
 =====
 
-Documentation: http://wrenlab.org/code/BioTK/
+Documentation: http://BioTK.rtfd.org/
 
-Issues or Pull Requests? Please use the Bitbucket mechanisms.
+Issues or Pull Requests? Please use the Github mechanisms.
 
 License
 =======
