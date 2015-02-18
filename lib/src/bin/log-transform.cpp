@@ -32,11 +32,7 @@ int main(int argc, char* argv[]) {
     while (BioTK::Series* s = reader.next()) {
         bool apply = (!(conditional && s->mean() > max_mean));
         cout << s->key;
-        arma::vec data = s->data;
-        if (s->min()) {
-            data += s->min() + 1;
-        }
-        for (double v : data) {
+        for (double v : s->data) {
             if (apply) {
                 v = log(v) * multiplier;
             }
