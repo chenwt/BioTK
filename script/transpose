@@ -88,7 +88,7 @@ done
         wd=$(mktemp -d)
         trap 'rm -rf $wd' SIGHUP SIGINT SIGTERM ERR
 
-        parallel --pipe -k -l $lines 'lz4 > '$wd'/{#}'
+        parallel --pipe -k -l $lines 'lz4 > '$wd'/{#}' 2> /dev/null
         curdir="$(pwd)"
         cd $wd
         ls * \
