@@ -42,8 +42,8 @@ fi | while read accession; do
     else
         group=${accession:0:-3}nnn
     fi
-    o="$outdir"/${accession}.miniml.tar
-    if [ -f "$o" ]; then
+    o="$outdir"/${accession}.tar
+    if [ -f "$outdir/${accession}.tpxz" ]; then
         continue
     fi
 

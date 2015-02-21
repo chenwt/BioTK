@@ -69,17 +69,19 @@ process() {
         | sed 's/-tbl//' \
         | sed 's/.txt$//')
     echo -ne "$gsm\t"
-    extract $path \
-        | cut -f1,4 \
-        | tawk '$2 !~ /[^0-9.\-Ee]/' \
-        | sort -k1b,1 \
-        | join -o 1.2 -t '	' -a 2 - $probes \
-        | awk 'NF == 0 { print "nan" } NF == 1 { print $1 }' \
-        | tr '\n' '\t' \
-        | sed 's/\t$//'
-    echo
+    {
+        extract $path \
+            | tawk 'NR == 1 { if (NF != 4) { exit 1 } } { print $1,$4}' \
+            | tawk '$2 !~ /[^0-9.\-Ee]/' \
+            | sort -k1b,1 \
+            | join -o 1.2 -t '	' -a 2 - $probes \
+            | awk 'NF == 0 { print "nan" } NF == 1 { print $1 }' \
+            | tr '\n' '\t' \
+            | sed 's/\t$//' 
+        echo
+    }
 }
 export -f process
 
 # Extract data, halt immediately if any subprocesses fail
-list | parallel --halt 2 --no-notice process
+list | parallel --no-notice process
