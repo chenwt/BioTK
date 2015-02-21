@@ -11,6 +11,8 @@ Extract an expression matrix from a GEO MiniML archive.
 USAGE: $0 <options> archive-path
 
 options:
+  -t <string> : "series" or "sample" (default "sample")
+  -o <path> : output directory (for "-t series") or file (for "-t sample")
   -v : verbose output
   -h : show this help
 EOF
@@ -20,13 +22,21 @@ EOF
 export probes=$(mktemp -p $BTK_CACHE)
 trap 'rm -rf $probes' EXIT
 
+out_path=/dev/stdout
+record_type=sample
 verbose=
-while getopts ncvh opt; do
+while getopts t:o:vh opt; do
     case $opt in
+        t) record_type="$OPTARG" ;;
+        o) out_path="$OPTARG" ;;
         v) verbose=y ;;
         h) usage ;;
     esac
 done
+
+if [ "$record_type" == "series" ] && [ "$out_path" == "/dev/stdout" ]; then
+    out_path="."
+fi
 
 shift $((OPTIND - 1))
 [[ $# != 1 ]] && usage
@@ -46,32 +56,33 @@ accession=$(pixz -l ${archive} \
 echo "* Processing $accession" 1>&2
 
 extract() {
-    pixz -x "$@" -i ${archive} | tar -Oxf -
+    pixz -x "$1" -i "${archive}" | tar -Oxf -
 }
 export -f extract
 
-list() {
+list_samples() {
     pixz -l ${archive} | grep '^GSM' | grep -P '.txt$'
+    comm -23 \
+        <(pixz -l "${archive}" \
+            | egrep '^GSM' \
+            | cut -d'-' -f1 \
+            | sort -u) \
+        <(pixz -l "${archive}" \
+            | egrep '^GSM' \
+            | egrep '\-2' \
+            | cut -d'-' -f1 \
+            | sort -u) \
+        | awk '{print $1"-tbl-1.txt"}'
+  
 }
 
-# Extract probes
-echo -ne '\t'
-extract $(list | head -1) | cut -f1 \
-    | sort -k1b,1 -u \
-    | tee $probes \
-    | perl -pe 'chomp if eof' \
-    | tr '\n' '\t'
-echo
-
-process() {
+process_sample() {
     path="$1"
-    gsm=$(echo $path \
-        | sed 's/-tbl//' \
-        | sed 's/.txt$//')
+    gsm=$(echo "$path" | sed 's/-tbl//;s/.txt$//')
     echo -ne "$gsm\t"
     {
-        extract $path \
-            | tawk 'NR == 1 { if (NF != 4) { exit 1 } } { print $1,$4}' \
+            #| tawk 'NR == 1 { if (NF != 4) { exit 1 } } { print $1,$4}' \
+        extract "$path" \
             | tawk '$2 !~ /[^0-9.\-Ee]/' \
             | sort -k1b,1 \
             | join -o 1.2 -t '	' -a 2 - $probes \
@@ -81,7 +92,38 @@ process() {
         echo
     }
 }
-export -f process
+export -f process_sample
 
-# Extract data, halt immediately if any subprocesses fail
-list | parallel --no-notice process
+if [ "$record_type" == "sample" ]; then
+    {
+        # Extract probes
+        echo -ne '\t'
+        extract $(list_samples | head -1) | cut -f1 \
+            | sort -k1b,1 -u \
+            | tee $probes \
+            | perl -pe 'chomp if eof' \
+            | tr '\n' '\t'
+        echo
+
+        list_samples | parallel --no-notice process_sample
+    } > "$out_path"
+elif [ "$record_type" == "series" ]; then
+    accessions=$(mktemp -d)
+    trap 'rm -f $accesions' EXIT
+
+    comm -23 \
+        <(pixz -l "${archive}" \
+            | egrep '^GSE' \
+            | cut -d'-' -f1 \
+            | sort -u) \
+        <(pixz -l "${archive}" \
+            | egrep '^GSE' \
+            | egrep '\-2' \
+            | cut -d'-' -f1 \
+            | sort -u) \
+    | while read accession; do
+        path="${accession}-tbl-1.txt"
+        pixz -i "$archive" -x "$path" \
+            | tar -xO > "$out_path/${accession}"
+    done
+fi

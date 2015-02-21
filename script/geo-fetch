@@ -59,7 +59,7 @@ fi | while read accession; do
     done
     rm $wd/*.tgz
     echo "* Archiving $accession ..." 1>&2
-    ( cd $wd ; tar -cf - * > "$o")
+    ( cd $wd ; ls | tar cf "$o" -T - )
     pixz -1 "$o"
     echo "* Cleaning up temporary files ..." 1>&2
     rm -rf $wd
