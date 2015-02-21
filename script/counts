@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# Name and count of each unique item on stdin
+# similar to R "table"
+
+sort | uniq -c | sort -rnk1 | awk 'BEGIN { OFS="\t" } { print $2,$1 }'

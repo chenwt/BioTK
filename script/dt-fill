@@ -10,19 +10,33 @@ import numpy as np
 from BioTK.io import read_matrix
 
 p = argparse.ArgumentParser()
+p.add_argument("--no-header", "-H", action="store_true")
 g = p.add_mutually_exclusive_group(required=True)
 g.add_argument("--value", "-v", type=float)
-g.add_argument("--function", "-f", choices=["mean"])
+g.add_argument("--function", "-f", choices=["mean", "rnorm"])
 args = p.parse_args()
 
-def fn_mean(x):
+def fix(x):
     xx = x.replace([np.inf, -np.inf], np.nan)
-    return x.replace(np.inf, xx.max()).replace(-np.inf, xx.min()).fillna(xx.mean())
+    return x.replace(np.inf, xx.max()).replace(-np.inf, xx.min())
+
+def fn_mean(x):
+    x = fix(x)
+    return x.fillna(x.mean())
+
+def fn_rnorm(x):
+    try:
+        x = fix(x)
+        mu, std = x.dropna().mean(), x.dropna().std()
+        ix = np.isnan(x)
+        x[ix] = np.random.normal(mu, std, size=ix.sum())
+        return x
+    except:
+        return None
 
 if args.value is not None:
     fn = lambda x: x.fillna(args.value)
 elif args.function is not None:
-    if args.function == "mean":
-        fn = fn_mean
+    fn = globals()["fn_" + args.function]
 
-read_matrix(sys.stdin).apply(fn).dump()
+read_matrix(sys.stdin, header=not args.no_header).apply(fn).dump()

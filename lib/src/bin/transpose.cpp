@@ -70,8 +70,10 @@ string file_path(FILE* file) {
     return file_path(fileno(file));
 }
 
-pair<size_t, vector<string>* >*
-get_chunk(size_t chunk_size, size_t& chunk_index) {
+typedef pair<size_t, vector<string>* >* chunk_t;
+
+chunk_t
+get_chunk(size_t chunk_size, size_t& chunk_index, vector<chunk_t> active_chunks) {
     vector<string>* chunk = new vector<string>(chunk_size);
     int i = 0;
     while ((i < chunk_size) && getline(cin, (*chunk)[i])) {
@@ -95,9 +97,9 @@ int main() {
     size_t chunk_size = 100;
     size_t chunk_index = -1;
     vector<FILE*> files;
-    pair<size_t, vector<string>* >* p;
+    chunk_t p;
 
-    #pragma omp parallel shared(files, chunk_index) firstprivate (p)
+    #pragma omp parallel shared(files, chunk_index) private (p)
     {
         #pragma omp master
         while (p = get_chunk(chunk_size, chunk_index))

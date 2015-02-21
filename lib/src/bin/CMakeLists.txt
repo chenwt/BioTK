@@ -1,6 +1,6 @@
 set(TARGETS 
     # Generic utility
-    ncut csv2tsv transpose transpose-block
+    ncut csv2tsv transpose-block
     splitby coluniq vmerge
     pivot unpivot
 
@@ -15,6 +15,8 @@ set(TARGETS
 
     # Needs fixing
     # corrwith
+    # Uses more memory and slower than parallel/awk version
+    # transpose    
 )
 
 foreach( bin ${TARGETS} )

@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+
+import sys
+
+import pandas as pd
+import patsy
+
+import BioTK
+
+X = pd.read_table(sys.stdin, sep="\t", index_col=0)
+formula = sys.argv[1]
+patsy.dmatrix(formula, data=X, return_type="dataframe")\
+        .to_csv(sys.stdout, sep="\t")

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+# Options to add/document:
+# -l for supervised DR
+# - some option for filling missing values or maybe it should be autodetected
+#   and then an option for what method to use
+# - a way to pass additional arguments to kernel_pca
+
+usage() {
+    cat <<"EOF" 1>&2
+USAGE: $0 [options] < input.tsv
+
+Reduce dimensionality of an input TSV matrix.
+
+Options:
+    -d <int> : number of dimensions (default 20). The input matrix 
+        must have more than this number of input columns.
+    -k <str> : Type of kernel to use for kernel PCA. See the available
+        choices with "man kernel_pca". If not provided, defaults 
+        to normal (linear) PCA. 
+    -h : show this help
+EOF
+    exit 1
+}
+
+ndim=20
+kernel="linear"
+while getopts d:k:l:h opt; do
+    case "$opt" in
+        k) kernel="$OPTARG" ;;
+        d) ndim="$OPTARG" ;;
+        l) labels="$OPTARG" ;;
+        h) usage ;;
+    esac
+done
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf $tmpdir' EXIT
+
+if [ ! -z "$labels" ]; then
+    echo "supervised dr not implemented" 1>&2
+    exit 1
+    cmd="nca"
+else
+    cmd="kernel_pca -c -k $kernel -d $ndim"
+fi
+
+if [ ! -z "$labels" ]; then
+    tjoin --header - $labels
+else
+    cat
+fi  | sed 1d \
+    | tee >(cut -f1 > $tmpdir/index) \
+    | cut -f2- \
+    | tr '	' ',' > $tmpdir/input.csv
+
+$cmd -i $tmpdir/input.csv -o $tmpdir/output.csv || exit 1
+
+echo -ne "\t"
+seq $ndim \
+    | sed 's/^/C/' | tr '\n' '\t' | sed 's/\t$//'
+echo
+
+paste $tmpdir/index <(sed 's/,/\t/g' $tmpdir/output.csv)

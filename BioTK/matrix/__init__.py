@@ -25,7 +25,9 @@ class MatrixIteratorBase(object):
     def apply(self, fn, **kwargs):
         def generator():
             for row in self:
-                yield fn(row, **kwargs)
+                rs = fn(row, **kwargs)
+                if rs is not None:
+                    yield rs
         return MatrixIterator(generator(), header=self.header)
 
     def to_frame(self):

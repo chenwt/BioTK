@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
         }
     } else {
         usage();
-    } 
+    }
 
     getline(cin, header);
     vector<string> columns = BioTK::split(header);
