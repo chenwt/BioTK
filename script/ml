@@ -14,6 +14,7 @@ import click
 import sklearn.linear_model
 import sklearn.ensemble
 import sklearn.svm
+import sklearn.naive_bayes
 from sklearn.cross_validation import cross_val_score
 import sklearn.metrics
 import numpy as np
@@ -28,7 +29,7 @@ def cli():
 def _get_model_class(ctx, _, model_str):
     model_module, model_class = model_str.rsplit(".",1)
     model_class = getattr(sys.modules[model_module],model_class)
-    kwargs = {}
+    kwargs = {"C":1e-3}
     try:
         if "probability" in inspect.getargspec(model_class.__init__)[0]:
             kwargs["probability"] = True

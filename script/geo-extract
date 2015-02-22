@@ -106,7 +106,8 @@ if [ "$record_type" == "sample" ]; then
         echo
 
         list_samples | parallel --no-notice process_sample
-    } > "$out_path"
+    }   | skip coluniq -k1 \
+        | dt sort -k1b,1 > "$out_path"
 elif [ "$record_type" == "series" ]; then
     accessions=$(mktemp -d)
     trap 'rm -f $accesions' EXIT
@@ -115,12 +116,12 @@ elif [ "$record_type" == "series" ]; then
         <(pixz -l "${archive}" \
             | egrep '^GSE' \
             | cut -d'-' -f1 \
-            | sort -u) \
+            | tsort -k1b,1 -u) \
         <(pixz -l "${archive}" \
             | egrep '^GSE' \
             | egrep '\-2' \
             | cut -d'-' -f1 \
-            | sort -u) \
+            | tsort -k1b,1 -u) \
     | while read accession; do
         path="${accession}-tbl-1.txt"
         pixz -i "$archive" -x "$path" \

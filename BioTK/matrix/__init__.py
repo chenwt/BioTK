@@ -14,9 +14,12 @@ class MatrixIteratorBase(object):
     def dump(self, handle=sys.stdout, delimiter="\t", precision=3):
         rows = iter(self)
         if self.header:
-            row = next(rows)
-            print("", *row.index, sep=delimiter, file=handle)
-            rows = itertools.chain([row], rows)
+            if self.columns is not None:
+                print("", *self.columns, sep=delimiter, file=handle)
+            else:
+                row = next(rows)
+                print("", *row.index, sep=delimiter, file=handle)
+                rows = itertools.chain([row], rows)
         fmt = "{0:0." + str(precision) + "f}"
         for row in rows:
             data = list(map(fmt.format, row))
