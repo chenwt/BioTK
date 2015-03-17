@@ -48,7 +48,6 @@ Normalization and other preprocessing:
  transform      Various transforms for array data
 
 Correlation and similarity:
- correlate	Produce the pairwise correlation matrix of columns
  corrwith	Correlate each row in a matrix with a vector
  dot		Take the dot product of matrices or vectors
 
@@ -59,7 +58,6 @@ Aggregation and grouping:
 
 Sampling:
  random	Generate a random vector or matrix
- sample	Sample rows of a matrix with a given probability
 
 Serialization:
  pickle	Serialize a tab-delimited matrix

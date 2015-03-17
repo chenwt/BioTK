@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# Dimensionality reduction wrapper around the tapkee library
+
+method=ra
+dims=100
+while getopts m:d: opt; do
+    case $opt in
+        m) method="$OPTARG" ;;
+        d) dims="$OPTARG" ;;
+    esac
+done
+
+index=$(mktemp)
+output=$(mktemp)
+trap 'rm -f $index $output' EXIT
+
+sed 1d \
+    | tee >(cut -f1 > $index) \
+    | cut -f2- \
+    | tr '	' ',' \
+    | tapkee -i /dev/stdin -o /dev/stdout -m $method -td $dims \
+    | tr ',' '	' > $output
+
+echo -ne "\t"
+seq $dims \
+    | sed 's/^/C/' | tr '\n' '\t' | sed 's/\t$//'
+echo
+paste $index $output

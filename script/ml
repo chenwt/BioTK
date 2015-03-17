@@ -8,6 +8,7 @@ import sys
 import subprocess as sp
 import shutil
 import inspect
+from collections import Counter, defaultdict
 
 import functools
 import click
@@ -15,9 +16,15 @@ import sklearn.linear_model
 import sklearn.ensemble
 import sklearn.svm
 import sklearn.naive_bayes
+import sklearn.dummy
+import sklearn.neighbors
 from sklearn.cross_validation import cross_val_score
 import sklearn.metrics
+from sklearn.cross_validation import StratifiedKFold
+from sklearn.multiclass import OneVsRestClassifier, OutputCodeClassifier
+from sklearn.preprocessing import PolynomialFeatures, scale
 import numpy as np
+import pandas as pd
 
 import BioTK
 import BioTK.learn.cv
@@ -26,10 +33,43 @@ import BioTK.learn.cv
 def cli():
     pass
 
-def _get_model_class(ctx, _, model_str):
+MODEL_DEFAULTS = {
+        "sklearn.linear_model.ElasticNet": 
+            {"tol": 1e-3},
+
+        "sklearn.linear_model.LogisticRegression":
+            {"C": 1e-2, "class_weight": "auto"},
+
+        "sklearn.svm.NuSVR": 
+            {"C": 1e-3, "nu": 0.5, "kernel": "linear", "tol": 1e-3, "max_iter": 1000},
+
+        "sklearn.svm.SVC": 
+            {"C": 0.5, "kernel": "linear"},
+
+        "sklearn.linear_model.Lasso":
+            {"alpha": 1, "max_iter": 10000, "positive": True},
+
+        "sklearn.ensemble.GradientBoostingRegressor":
+            {
+                "loss": "ls", 
+                "max_depth": 5,
+                "subsample": 0.6, 
+                "learning_rate": 0.1, 
+                "max_features": "log2", 
+                "n_estimators": 500
+            },
+
+        "sklearn.ensemble.RandomForestClassifier":
+            {"criterion": "entropy"},
+
+        "sklearn.linear_model.SGDClassifier":
+            {"loss": "log"}
+}
+
+def _get_model(ctx, _, model_str):
+    kwargs = MODEL_DEFAULTS.get(model_str, {})
     model_module, model_class = model_str.rsplit(".",1)
     model_class = getattr(sys.modules[model_module],model_class)
-    kwargs = {"C":1e-3}
     try:
         if "probability" in inspect.getargspec(model_class.__init__)[0]:
             kwargs["probability"] = True
@@ -66,16 +106,52 @@ def ml_command(fn):
                 callback=_read_predictors,
                 type=click.File("r"), default=sys.stdin)(
            click.option("model", "--model-class", "-m", 
-                callback=_get_model_class,
+                callback=_get_model,
                 default="sklearn.linear_model.LogisticRegression")(
            click.argument("y",
                callback=_read_labels,
                type=click.File("r"))(wrapper))))
 
+@cli.command()
+@click.option("--model-class", "-m", 
+        default="sklearn.linear_model.LogisticRegression")
+@click.argument("y", type=click.File("r"))
+def predict(model_class, y):
+    """
+    Train a model on labeled data and output predictions for unlabeled
+    data and gold standard labels for labeled data.
+    """
+    y = BioTK.io.read_vector(y)
+    X = BioTK.io.read_matrix(sys.stdin).to_frame()
+    ix = list(sorted(set(y.index) & set(X.index)))
+    X_train = X.loc[ix,:]
+    X_test = X.ix[~X.index.isin(ix),:]
+    y = y[ix]
+    model = _get_model(None,None,model_class)
+    model.fit(X_train, y)
+    y_hat = y.copy()
+    def log(x):
+        if x == 0:
+            return np.finfo(np.float64).min
+        else:
+            return np.log(x)
+
+    y_hat = y.apply(log).append(pd.Series(model.predict_log_proba(X_test)[:,list(model.classes_).index(1)],
+        index=X_test.index))
+    o = pd.DataFrame.from_dict({"y_hat": y_hat})
+    o["y"] = np.nan
+    o["y"][y.index] = y
+    o.loc[:,["y","y_hat"]].to_csv(sys.stdout, sep="\t", na_rep="nan", header=False)
+
 @ml_command
 def train(model, X, y):
     model.fit(X,y)
     pickle.dump(model, sys.stdout.buffer)
+
+
+def median_absolute_error(model, X, y):
+    y_hat = model.predict(X)
+    return np.median(np.abs(y - y_hat))
 
 @ml_command
 @click.option("--metric", default="roc_auc")
@@ -83,6 +159,8 @@ def train(model, X, y):
 @click.option("--output-predictions", "-P", is_flag=True)
 @click.option("--round-digits", "-r", type=int, default=3)
 def cv(model, X, y, folds, metric, output_predictions, round_digits):
+    #X = PolynomialFeatures().fit_transform(X)
+    #X = scale(X, axis=1)
     if output_predictions:
         y_hat = BioTK.learn.cv.predictions(model, X, y, k=folds, n_jobs=0)
         for id, y, yh in zip(y.index, y, y_hat):
@@ -91,11 +169,87 @@ def cv(model, X, y, folds, metric, output_predictions, round_digits):
                     yh = round(yh, round_digits)
                 print(id, y, yh, sep="\t")
     else:
-        scores = cross_val_score(model, X, y, cv=folds, scoring=metric)
-        print(round(y.mean(), 3), 
-                len(y), 
-                round(scores.mean(), 3), 
-                sep="\t")
+        #metric = median_absolute_error
+        scores = cross_val_score(model, X, y, cv=folds, scoring=metric, n_jobs=-1)
+        print("N", len(y), sep="\t")
+        print("Mean y", round(y.mean(), 3), sep="\t")
+        print(metric, round(scores.mean(), 3), sep="\t")
+
+@cli.command()
+@click.option("--model-class", "-m", 
+        default="sklearn.linear_model.LogisticRegression")
+@click.argument("y", type=click.File("r"))
+def multiclass(y, model_class):
+    X = BioTK.io.read_matrix(sys.stdin).to_frame()
+    model = OutputCodeClassifier(_get_model(None, None, model_class))
+    labels = {}
+    with y:
+        for line in y:
+            key, value = line.rstrip("\n").split("\t")
+            if key in X.index:
+                labels[key] = value
+    keys, values = zip(*labels.items())
+    counts = Counter(values)
+    keys, values = zip(*[(k,v) for k,v in zip(keys,values) if counts[v] > 5])
+    values_map = dict((v,i) for i,v in enumerate(set(values)))
+    values_rmap = dict(map(reversed, values_map.items()))
+    y = pd.Series([values_map[v] for v in values], index=keys)
+
+    if True:
+        X = X.loc[keys,:]
+        k = 5
+        y_hat = pd.Series(np.zeros(X.shape[0]), index=X.index)
+        y_hat_score = pd.Series(np.zeros(X.shape[0]), index=X.index)
+        kf = StratifiedKFold(y, k, shuffle=True)
+        for tr, te in kf:
+            model.fit(X.iloc[tr,:], y.iloc[tr])
+            y_hat.iloc[te] = model.predict(X.iloc[te,:])
+            #y_hat_score.iloc[te] = model.predict_log_proba(X.iloc[te,:]).max(axis=1)
+        y_hat[:] = [values_rmap[x] for x in y_hat]
+        #y_hat.to_csv(sys.stdout, sep="\t", float_format="%0.3f")
+        pd.DataFrame.from_dict({"y":pd.Series([values_rmap[x] for x in y], index=y.index),\
+                "y_hat": y_hat}).ix[:,["y","y_hat"]]\
+                .to_csv(sys.stdout, sep="\t", header=False)
+    else:
+        X_train = X.loc[keys,:]
+        X_test = X.loc[~X.index.isin(keys),:]
+        model.fit(X_train,y)
+        y_hat = model.predict(X_test)
+        y = y.append(pd.Series(y_hat, index=X_test.index))
+        y[:] = [values_rmap.get(x) for x in y]
+        y.to_csv(sys.stdout, sep="\t", float_format="%0.3f")
+
+@cli.command()
+@click.option("--model-class", "-m", 
+        default="sklearn.linear_model.LogisticRegression")
+@click.option("--predict-all", "-a",
+        is_flag=True, help="Predict labels for training set as well as test set.")
+@click.argument("y", type=click.File("r"))
+def multilabel(y, model_class, predict_all=False):
+    assert not predict_all, "not implemented"
+    X = BioTK.io.read_matrix(sys.stdin).to_frame()
+    model = _get_model(None, None, model_class)
+    labels = pd.read_table(y, sep="\t", header=None)
+    labels = labels.ix[labels.iloc[:,0].isin(X.index),:]
+    labels["value"] = 1
+    Y = labels.pivot(index=labels.columns[0], columns=labels.columns[1],
+            values=labels.columns[2]).fillna(0)
+    X_train = X.loc[Y.index,:]
+    X_test = X.ix[~X.index.isin(Y.index),:]
+    Y_hat = pd.DataFrame(np.zeros((X.shape[0], Y.shape[1])),
+            index=X.index, columns=Y.columns)
+    Y_hat = Y_hat.ix[:,Y_hat.sum() > 5]
+
+    for c in Y.columns:
+        y = Y[c]
+        model.fit(X_train, y)
+        y_hat = model.predict_log_proba(X_test)[:,list(model.classes_).index(1)]
+        Y_hat.loc[X_test.index,c] = y_hat
+        y[y==1] = 0
+        y[y==0] = y_hat[np.isfinite(y_hat)].min()
+        Y_hat.loc[y.index,c] = y
+
+    Y_hat.to_csv(sys.stdout, sep="\t", float_format="%0.3f")
 
 ###############
 # Vowpal Wabbit

@@ -14,7 +14,7 @@ class Node {
 public:
 	Node() {};
 	Node(char c) {content = c; terminal = false;}
-	int id;
+	string id;
 	int depth();
 	char content;		
 	bool terminal;
@@ -26,7 +26,7 @@ public:
 };
 
 struct Match {
-	int id;
+	string id;
 	int start;
 	int end;
 	int length() const {return end - start;}
@@ -51,7 +51,7 @@ public:
 
 	vector<Match> search(string s);
 	void add(string s);
-	void add(int id, string s);
+	void add(string id, string s);
 	void build();
 private:
     bool case_sensitive,

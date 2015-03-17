@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     bool conditional = false;
     double mean, max_mean;
     double multiplier = 1;
-    while ((getopt(argc, argv, "m:b:")) != -1) {
+    while ((c = getopt(argc, argv, "m:b:")) != -1) {
         switch (c) {
             case 'm':
                 conditional = true;

@@ -7,16 +7,8 @@ using namespace std;
 
 BioTK::matrix
 BioTK::matrix::transpose() {
-    BioTK::matrix t;
-    t.columns = index;
-    t.index = columns;
-    for (int j=0; j<ncol(); j++) {
-        t.data.push_back(vector<double>());
-        for (int i=0; i<nrow(); i++) {
-            t.data[j].push_back(data[i][j]);
-        }
-    }
-    return t;
+    return BioTK::matrix(columns, index,
+            arma::trans(data));
 }
 
 void
@@ -28,7 +20,7 @@ BioTK::matrix::print(ostream& o) {
     for (int i=0; i<nrow(); i++) {
         o << index[i];
         for (int j=0; j<ncol(); j++) {
-            o << "\t" << data[i][j];
+            o << "\t" << data(i,j);
         }
         o << endl;
     }
@@ -36,14 +28,14 @@ BioTK::matrix::print(ostream& o) {
 
 BioTK::matrix 
 BioTK::read_matrix(istream& input) {
-    BioTK::matrix matrix;
     string line, key;
-    vector<string> index, fields;
+    vector<vector<double> > X;
+    vector<string> index, columns, fields;
 
     getline(cin, line);
     fields = split(line);
     for (int i=1; i<fields.size(); i++) {
-        matrix.columns.push_back(fields[i]);
+        columns.push_back(fields[i]);
     }
 
     while (getline(cin, line)) {
@@ -54,9 +46,24 @@ BioTK::read_matrix(istream& input) {
             data.push_back(atof(fields[i].c_str())); 
         }
         assert(data.size() == matrix.columns.size());
-        matrix.data.push_back(data);
+        X.push_back(data);
     }
 
-    matrix.index = index;
-    return matrix;
+    size_t nr = index.size();
+    size_t nc = columns.size();
+    arma::mat data(nr, nc);
+    for (int i=0; i<nr; i++)
+        for (int j=0; j<nc; j++)
+            data(i,j) = X[i][j];
+    return BioTK::matrix(index, columns, data);
+}
+
+BioTK::matrix
+BioTK::matrix::standardize() {
+    arma::mat data_std(nrow(), ncol()); 
+    for (int j=0; j<ncol(); j++) {
+        arma::vec v = data.col(j);
+        data_std.col(j) = (v - arma::mean(v)) / arma::stddev(v);
+    }
+    return BioTK::matrix(index, columns, data_std);
 }

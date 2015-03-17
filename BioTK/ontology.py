@@ -38,13 +38,24 @@ class Ontology(object):
     def relations(self):
         return self._relations.copy()
 
-    def to_graph(self, relations=["is_a"]):
+    @property
+    def depths(self):
+        g = self.to_graph()
+        depths = nx.single_source_shortest_path_length(g.reverse(), g.root)
+        o = {}
+        for t in g.nodes():
+            depth = depths.get(t)
+            if depth is not None:
+                o[t] = depth
+        return pd.Series(o)
+
+    def to_graph(self, relations=None):
         """
         Convert this Ontology into a NetworkX graph for efficient traversal.
 
         Parameters
         ----------
-        relations : list of str, optional
+        relations : list of str or None, optional
             The relation types to use as edges in the graph. (default: is_a)
 
         Returns
@@ -54,7 +65,10 @@ class Ontology(object):
             the `is_a` relation, this means from children to parents.
         """
         g = nx.DiGraph()
-        R = self.relations.ix[self.relations["Relation"].isin(relations),:]
+        R = self.relations
+        if relations is not None:
+            R = R.ix[R["Relation"].isin(relations),:]
+
         for id,name,ns in self.terms.to_records():
             g.add_node(id, name=name, namespace=ns)
         for id,synonym in self.synonyms.to_records():
@@ -63,6 +77,15 @@ class Ontology(object):
             g.node[id]["synonyms"].append(synonym)
         for _,agent,target,relation in R.to_records():
             g.add_edge(agent, target, type=relation)
+
+        g.root = sorted([n for n in g.nodes() if len(nx.descendants(g,n)) == 0],
+                key=lambda n: -len(nx.ancestors(g,n)))[0]
+        depths = nx.single_source_shortest_path_length(g.reverse(), g.root)
+        o = {}
+        for t in g.nodes():
+            depth = depths.get(t)
+            if depth is not None:
+                g.node[t]["depth"] = depth
         return g
 
     @property

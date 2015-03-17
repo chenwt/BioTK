@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+CHUNK_SIZE = 100
+
+if __name__ == '__main__':
+    import argparse
+    import sys
+    import gzip
+    import subprocess
+
+    import pandas as pd
+    import numpy as np
+    import pyIPCA
+
+    import BioTK
+
+    p = argparse.ArgumentParser()
+    p.add_argument("--components", "-d", type=int, default=100)
+    p.add_argument("matrix")
+    args = p.parse_args()
+    pca = pyIPCA.CCIPCA(n_components=args.components, amnesic=1.0)
+
+    process = subprocess.Popen(["pigz", "-cd", args.matrix], 
+            universal_newlines=True,
+            stdout=subprocess.PIPE)
+    h = process.stdout
+
+    X = BioTK.io.read_matrix(h)
+    nc = len(X.columns)
+    assert args.components < nc
+    for i,chunk in enumerate(BioTK.util.chunks(X, CHUNK_SIZE)):
+        chunk = np.array(chunk)
+        print("Processing row:", (i+1)*CHUNK_SIZE, file=sys.stderr)
+        pca.fit(chunk, copy=False)
+
+    with gzip.open(args.matrix, "rt") as h:
+        X = BioTK.io.read_matrix(h)
+        print("", *["C"+str(i+1) for i in range(args.components)], sep="\t")
+        for row in X:
+            print(row.name, 
+                    *pca.transform(row).flatten(), 
+                    sep="\t")
+
+    """
+    for i,row in enumerate(X):
+        if i and (i % 10 == 0):
+            print("* Processing row:", i, file=sys.stderr)
+        index.append(row.name)
+        pca.update(np.matrix(row).T)
+
+    U = pd.DataFrame(pca.components, 
+        index=index, columns=["S"+str(i) for i in range(1,args.components+1)])
+    U.to_csv(sys.stdout, sep="\t")
+    """

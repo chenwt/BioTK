@@ -30,7 +30,7 @@ args = p.parse_args()
 
 if args.transform == "log":
     k = 1 / np.log(args.logarithm_base)
-    fn = lambda x: x.apply(np.log) * k
+    fn = lambda x: (x + 1 - x.min()).apply(np.log) * k
 elif args.transform == "pcr":
     fn = lambda x: 2 ** (- x)
 elif args.transform == "logpcr":

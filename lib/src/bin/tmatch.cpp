@@ -64,7 +64,8 @@ void populate_trie(Trie& t, const string path, const set<string>& stopwords) {
 	string line;
 	while (getline(file, line)) {
         vector<string> fields = BioTK::split(line);
-        int id = atoi(fields[0].c_str());
+        string id = fields[0];
+        //int id = atoi(fields[0].c_str());
         if (fields[1].size() < MIN_SYNONYM_LENGTH) {
             continue;
         }
@@ -124,11 +125,11 @@ int main(int argc, char* argv[]) {
         }
         vector<Match> matches = remove_overlaps(raw_matches);
 
-        set<int> hits;
+        set<string> hits;
         for (Match m : matches) {
             hits.insert(m.id);
         }
-        for (int hit : hits) {
+        for (const string& hit : hits) {
             cout << key << "\t" << hit << endl;
         }
     }

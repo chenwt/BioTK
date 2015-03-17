@@ -3,17 +3,25 @@ set(TARGETS
     ncut csv2tsv transpose-block
     splitby coluniq vmerge
     pivot unpivot
+    tsv2bin
+    sample
 
     # Text
-    tmatch iridescent-build
+    tmatch 
+    iridescent
 
     # Statistics / math
-    pcor summarize standardize log-transform
+    summarize standardize log-transform ccipca
+    knn
 
     # Sequencing
     bamcov
 
+    # J
+    jmx
+
     # Needs fixing
+    # pcor 
     # corrwith
     # Uses more memory and slower than parallel/awk version
     # transpose    

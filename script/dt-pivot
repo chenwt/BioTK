@@ -22,7 +22,7 @@ full-pivot() {
         echo -ne "\t"
         tr '\n' '\t' < $columns
         echo
-        parallel -P150% fn ::: *
+        parallel -P150% full-pivot-process ::: *
     } | sed 's/\t$//'
 }
 

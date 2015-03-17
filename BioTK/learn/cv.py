@@ -6,19 +6,20 @@ import multiprocessing as mp
 
 import numpy as np
 import pandas as pd
-from sklearn.cross_validation import StratifiedKFold
+from sklearn.cross_validation import StratifiedKFold, KFold
 
 def _cross_validate(args):
     model, tr, te, X, y = args
     model.fit(X.iloc[tr,:], y.iloc[tr])
     try:
+        y_hat = model.predict_log_proba(X.iloc[te,:])
         ix = list(model.classes_).index(1)
-        y_hat = model.predict_log_proba(X.iloc[te,:])[:,ix]
+        y_hat = y_hat[:,ix]
     except AttributeError:
         y_hat = model.predict(X.iloc[te,:])
     return te, y_hat
 
-def predictions(model, X, y, k=5, n_jobs=-1):
+def predictions(model, X, y, k=5, type="binary", n_jobs=-1):
     """
     Run K-fold cross-validation in parallel on a supervised
     learning classifier, **returning the predicted log-probabilities**.
@@ -45,15 +46,17 @@ def predictions(model, X, y, k=5, n_jobs=-1):
     assert isinstance(k, int)
     assert isinstance(X, pd.DataFrame)
     assert isinstance(y, pd.Series)
+    assert type in ("binary", "multilabel")
     
-    counts = y.value_counts()
-    counts.sort()
-    k = min(counts.iloc[0], k)
-    assert k > 1
+    #counts = y.value_counts()
+    #counts.sort()
+    #k = min(counts.iloc[0], k)
+    #assert k > 1
 
     # Supposedly, on Linux, X and y won't be duplicated
     # http://stackoverflow.com/questions/10721915/shared-memory-objects-in-python-multiprocessing
-    kf = StratifiedKFold(y, k, shuffle=True)
+    #kf = StratifiedKFold(y, k, shuffle=True)
+    kf = KFold(len(y), n_folds=k, shuffle=True)
     jobs = [(model, tr, te, X, y) for (tr,te) in kf]
     y_hat = np.zeros(y.shape)
     if n_jobs != 0:

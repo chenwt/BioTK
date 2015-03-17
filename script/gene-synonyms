@@ -13,5 +13,6 @@ cache_download ftp://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_info.gz \
     | gzip -cd \
     | tawk -v t="$taxon_id" '$1 == t { print $2,$11; print $2,$12; split($5,ss,"|"); for (i in ss) { print $2,ss[i] } }' \
     | tawk '$2 != "-"' \
+    | tr '(' '\t' | cut -f1-2 \
     | sort -u \
     | sort -k1b,1

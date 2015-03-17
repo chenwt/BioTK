@@ -39,7 +39,7 @@ Node::find_or_fail(char c) {
 	}
 }
 
-void Trie::add(int id, string s) {
+void Trie::add(string id, string s) {
 	shared_ptr<Node> current = root;
 	if (!case_sensitive)
 		transform(s.begin(), s.end(), s.begin(), ::tolower);

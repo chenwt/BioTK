@@ -6,6 +6,7 @@ import tempfile
 import base64
 import urllib
 import shutil
+import subprocess
 
 from urllib.parse import urlparse
 from collections import OrderedDict
