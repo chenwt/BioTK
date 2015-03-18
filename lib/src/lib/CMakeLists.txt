@@ -1,4 +1,5 @@
 add_library(biotk SHARED 
+    algorithm/cover_tree.cpp
     text/AhoCorasick.cpp
     util.cpp
     io.cpp

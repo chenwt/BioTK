@@ -23,3 +23,4 @@ include_directories(SYSTEM "/usr/include")
 
 add_subdirectory(src/lib)
 add_subdirectory(src/bin)
+add_subdirectory(src/test)
