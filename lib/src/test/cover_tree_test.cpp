@@ -3,24 +3,28 @@
 #include <BioTK.hpp>
 
 using namespace std;
-
-double correlation_distance(const arma::vec& v1, const arma::vec& v2) {
-    arma::vec c = arma::cor(v1,v2);
-    double r2 = c[0];
-    return BioTK::correlation_to_metric(r2);
-}
+using namespace BioTK;
 
 int main() {
-    BioTK::CoverTree tree(correlation_distance, 100);
+    CoverTree tree(correlation_distance, 1);
+
     arma::vec v1("1 2 3 4 5");
     arma::vec v2("5 4 3 2 1");
     arma::vec v3("1 2 1 2 1");
-    tree.insert(0, v1);
-    tree.insert(1, v2);
-    //tree.insert(2, v3);
-    /*
-    for (size_t id : tree.k_nearest(v1, 2)) {
-        cout << id << endl;
+    arma::vec v4("5 4 3 1 2");
+    tree.add(1, v1);
+    tree.add(2, v2);
+    tree.add(3, v3);
+    tree.add(4, v4);
+
+    vector<size_t> nearest = tree.k_nearest(1, 4);
+    size_t expected[4] = {1,3,4,2};
+
+    for (int i=0; i<nearest.size(); i++) {
+        if (nearest[i] != expected[i]) {
+            cerr << "FAIL" << endl;
+            exit(1);
+        }
     }
-    */
+    cerr << "OK" << endl;
 }

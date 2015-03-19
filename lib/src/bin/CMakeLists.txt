@@ -1,6 +1,6 @@
 set(TARGETS 
     # Generic utility
-    ncut csv2tsv transpose-block
+    ncut csv2tsv
     splitby coluniq vmerge
     pivot unpivot
     tsv2bin
@@ -12,7 +12,8 @@ set(TARGETS
 
     # Statistics / math
     summarize standardize log-transform ccipca
-    knn
+    knn knn2
+    rand
 
     # Sequencing
     bamcov

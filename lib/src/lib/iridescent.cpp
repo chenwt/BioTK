@@ -32,8 +32,11 @@
 #include <map>
 #include <cassert>
 #include <fstream>
+#include <unistd.h>
 
-#include <BioTK.hpp>
+#include <BioTK/util.hpp>
+#include <BioTK/text/AhoCorasick.hpp>
+#include <BioTK/iridescent.hpp>
 
 using namespace std;
 

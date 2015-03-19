@@ -21,6 +21,11 @@ set(CMAKE_BUILD_TYPE Release)
 link_directories(/lib /lib64 /usr/lib /usr/lib64)
 include_directories(SYSTEM "/usr/include")
 
+set(BioTK_VERSION_MAJOR 0)
+set(BioTK_VERSION_MINOR 1)
+set(BioTK_VERSION_PATCH 0)
+set(BioTK_VERSION_STRING ${BioTK_VERSION_MAJOR}.${BioTK_VERSION_MINOR}.${BioTK_VERSION_PATCH})
+
 add_subdirectory(src/lib)
 add_subdirectory(src/bin)
 add_subdirectory(src/test)

@@ -6,6 +6,7 @@
 #include <set>
 #include <cfloat>
 #include <algorithm>
+#include <unordered_map>
 
 #include <armadillo>
 
@@ -13,6 +14,8 @@ namespace BioTK {
 namespace cover_tree {
 
 typedef double (*distance_metric_t)(const arma::vec&, const arma::vec&);
+typedef int64_t level_t;
+typedef size_t id_t;
 
 size_t vector_hash(const arma::vec& v);
 
@@ -30,14 +33,16 @@ class Node {
 public:
     size_t hash;
     std::vector<Point> points;
-    std::map<size_t, std::vector<Node*> > children;
+    std::unordered_map<level_t, std::vector<Node*> > children;
+    Node* parent = NULL;
+    level_t level;
 
-    Node(const Point& point) {
+    Node(const Point& point, level_t level) : level(level) {
         points.push_back(point);
         hash = vector_hash(point.data);
     };
 
-    std::vector<Node*> get_children(size_t level) {
+    std::vector<Node*> get_children(level_t level) {
         if (children.find(level) == children.end())
             return std::vector<Node*>();
         return children[level];
@@ -68,28 +73,29 @@ class Tree {
 
     double max_distance;
     distance_metric_t metric_fn;
-    static const double base = 2.0;
-    size_t min_level, max_level;
-    size_t node_count = 0;
+    const double base;
+    level_t min_level, max_level;
     Node* root = NULL;
-
+    std::map<id_t, Node*> id_index;
 
     bool insert(const Point& point);
-    bool insert(const Point&, std::vector<distance_t>&, size_t);
+    bool insert(const Point&, std::vector<distance_t>&, level_t);
     std::vector<Node*> k_nearest_nodes(const arma::vec&, size_t);
 
 public:
-    Tree(distance_metric_t metric, double max_distance) : 
-            metric_fn(metric), max_distance(max_distance) {
-        max_level = ceilf(log(max_distance) / log(base));
+    Tree(distance_metric_t metric, double max_distance, double base=2.0) : 
+            metric_fn(metric), max_distance(max_distance), base(base) {
+        max_level = ceil(log(max_distance) / log(base));
         min_level = max_level - 1;
     };
 
     ~Tree();
 
-    void insert(size_t id, const arma::vec& data);
+    size_t size();
+    void add(size_t id, const arma::vec& data);
 
-    std::vector<size_t> k_nearest(const arma::vec&, size_t k);
+    std::vector<id_t> k_nearest(const arma::vec&, size_t);
+    std::vector<id_t> k_nearest(id_t, size_t);
 };
 
 };

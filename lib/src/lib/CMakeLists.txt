@@ -9,4 +9,6 @@ add_library(biotk SHARED
     seq/bbi.cpp
     seq/sam.cpp
 )
+
+set_target_properties(biotk PROPERTIES VERSION ${BioTK_VERSION_STRING})
 target_link_libraries(biotk armadillo z hts cfish lucy)
