@@ -45,7 +45,7 @@ BioTK::read_matrix(istream& input) {
         for (int i=1; i<fields.size(); i++) {
             data.push_back(atof(fields[i].c_str())); 
         }
-        assert(data.size() == matrix.columns.size());
+        assert(data.size() == columns.size());
         X.push_back(data);
     }
 

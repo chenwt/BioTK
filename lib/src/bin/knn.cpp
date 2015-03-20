@@ -25,8 +25,9 @@ get_order_fast(BioTK::matrix& Xs, int j) {
     size_t nc = Xs.ncol();
     arma::vec r2(nc);
     arma::vec x = Xs.data.col(j);
-    for (int jj=0; jj<nc; jj++) 
+    for (int jj=0; jj<nc; jj++)  { 
         r2[jj] = arma::dot(x, Xs.data.col(jj)) / (nc - 1);
+    }
     return arma::sort_index(r2, "descend");
 }
 

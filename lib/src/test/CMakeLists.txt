@@ -1,5 +1,6 @@
 set(TARGETS 
     cover_tree_test
+    cuda_dot_test
 )
 
 foreach( bin ${TARGETS} )

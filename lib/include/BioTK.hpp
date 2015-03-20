@@ -7,3 +7,5 @@
 
 #include "BioTK/text/AhoCorasick.hpp"
 #include "BioTK/iridescent.hpp"
+
+#include "BioTK/cuda.hpp"
