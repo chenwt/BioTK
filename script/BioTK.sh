@@ -90,21 +90,8 @@ mkdir_cd() {
 # Caching
 #########
 
-_cache_download() {
-    cache="$BTK_CACHE"/download
-    mkdir -p "$cache"
-    url="$1"
-    name="$(echo "$url" | base64)"
-    path="$(echo "$cache/$name" | tr -d '\n')"
-    if [ ! -f "$path" ]; then
-        curl -s -o "$path" "$url"
-    fi &> /dev/null
-    echo "$path"
-}
-
 cache_download() {
-    path="$(_cache_download "$1")"
-    cat "$path"
+    dlcache "$@"
 }
 export -f cache_download
 

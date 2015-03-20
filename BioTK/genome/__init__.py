@@ -1,2 +1,2 @@
-from .index import *
 from .types import *
+from .index import *

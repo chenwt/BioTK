@@ -1,3 +1,5 @@
+# cython: language = c++
+
 from cpython cimport bool
 
 from BioTK.genome.types cimport Interval, GenomicRegion

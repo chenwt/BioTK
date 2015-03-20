@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+source $(dirname $0)/BioTK.sh
+
+while getopts p opt; do
+    case $opt in
+        p) output_path=y ;;
+    esac
+done
+
+cache="$BTK_CACHE"/download
+mkdir -p "$cache"
+url="$1"
+name="$(echo "$url" | tr '[:upper:]' '[:lower:]' | base64)"
+path="$(echo "$cache/$name" | tr -d '\n')"
+if [ ! -f "$path" ]; then
+    curl -s -o "$path" "$url"
+fi &> /dev/null
+
+if [ -z "$output_path" ]; then
+    cat "$path"
+else
+    echo "$path"
+fi
