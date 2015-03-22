@@ -26,9 +26,9 @@ int main(int argc, char* argv[]) {
         values.push_back(atof(fields[1].c_str()));
     }
 
-    BioTK::Index o_ix;
-    o_ix.initialize(names);
-    BioTK::Series o(argv[1], &o_ix, arma::vec(values));
+    auto o_ix = make_shared<BioTK::Index>();
+    o_ix->initialize(names);
+    BioTK::Series o(argv[1], o_ix, arma::vec(values));
 
     BioTK::SeriesReader rdr;
     while (BioTK::Series* s = rdr.next()) {

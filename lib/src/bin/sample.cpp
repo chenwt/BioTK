@@ -51,7 +51,8 @@ int main(int argc, char* argv[]) {
                 cout << line << endl;
             }
         } else {
-            if (rand() < probability) {
+            double r = ((1.0 * rand()) / RAND_MAX);
+            if (r < probability) {
                 cout << line << endl;
             }
         }

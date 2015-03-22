@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF 1>&2
+$0 - Data from Entrez Gene
+
+Subcommands:
+    desc - Display basic information about a gene
+}

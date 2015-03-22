@@ -81,7 +81,7 @@ process() {
             o="$outdir/data/$tissue_id/$accession"
             cat "$tissue_id" | transpose \
                 | normalize \
-                | dt corrwith "$labels" > "${tissue_id}.out"
+                | corrwith "$labels" > "${tissue_id}.out"
             n=$(awk 'END { print NR }' < "${tissue_id}.out")
             echo $accession $tissue_id $n 1>&2
             if [ "$n" -gt 9 ]; then
@@ -115,7 +115,7 @@ tjoin <(cut -f1 "$labels") <(dataset gsm2gse) \
     echo "* Output directory:" $outdir
 } 1>&2
 
-parallel process < $accessions 2> /dev/null
+parallel process < $accessions
 rm -f $accessions
 
 cat <<EOF > $outdir/metadata

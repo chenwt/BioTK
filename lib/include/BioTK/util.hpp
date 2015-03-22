@@ -1,16 +1,13 @@
 #pragma once
 
-#include <vector>
-#include <string>
-#include <set>
-#include <iterator>
-#include <algorithm>
+#include "BioTK/common.hpp"
 
-#include "util/mmap.hpp"
+#include "BioTK/util/base64.hpp"
+#include "BioTK/util/fs.hpp"
+#include "BioTK/util/net.hpp"
+#include "BioTK/util/mmap.hpp"
 
 namespace BioTK {
-
-typedef std::string path_t;
 
 /* String */
 std::vector<std::string> 
@@ -18,14 +15,8 @@ std::vector<std::string>
 
 std::string lowercase(std::string);
 std::string uppercase(std::string);
-
-/* Filesystem */
-
-int mkdir_p(std::string);
-std::string expanduser(std::string);
-bool path_exists(std::string);
-void copy_file(std::string, std::string);
-std::vector<path_t> listdir(path_t);
+bool startswith(const std::string&, const std::string&);
+bool endswith(const std::string&, const std::string&);
 
 /* Set operations */
 

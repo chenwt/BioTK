@@ -7,6 +7,7 @@
 #include <cfloat>
 #include <algorithm>
 #include <unordered_map>
+#include <map>
 
 #include <armadillo>
 

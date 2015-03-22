@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+usage() {
+    cat <<EOF 1>&2
+USAGE: $0 <mapping> < matrix
+
+Collapses rows of a matrix by mapping and max mean.
+Assumes matrix is sorted with "tsort --header -k1b,1".
+EOF
+    exit 1
+}
+
+[ $# != 1 ] && usage
+
+mapping="$1"
+matrix=$(mktemp)
+summary=$(mktemp)
+trap 'rm -f $matrix $summary' EXIT
+
+tee >(pigz > $matrix) | summarize > $summary
+ncut -I Mean < $summary \
+    | tjoin --header <(echo -e "\t" && tsort -k1b,1 $mapping) - \
+    | tjoin --header - <(zcat $matrix) \
+    | skip tsort -rnk3 \
+    | coluniq -k2 \
+    | cut -f2,4- \
+    | skip tsort -k1b,1

@@ -5,6 +5,7 @@ set(TARGETS
     pivot unpivot
     tsv2bin
     sample
+    cacheurl
 
     # Text
     tmatch 
@@ -23,9 +24,12 @@ set(TARGETS
 
     # Needs fixing
     # pcor 
-    # corrwith
+    corrwith
     # Uses more memory and slower than parallel/awk version
     # transpose    
+
+    # Data
+    gene
 )
 
 foreach( bin ${TARGETS} )

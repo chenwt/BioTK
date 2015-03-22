@@ -1,0 +1,10 @@
+cmake
+cuda
+
+armadillo
+db
+curl
+htslib
+apache-clownfish
+apache-lucy
+openssl

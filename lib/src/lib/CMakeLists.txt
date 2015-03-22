@@ -1,17 +1,34 @@
 add_library(biotk SHARED 
-    cuda.cpp 
     algorithm/cover_tree.cpp
-    text/AhoCorasick.cpp
-    util.cpp
+    cache.cpp
+    cuda.cpp 
+    data.cpp
     io.cpp
-    matrix.cpp
     iridescent.cpp
-    util/mmap.cpp
+    matrix.cpp
     seq/bbi.cpp
     seq/sam.cpp
+    text/AhoCorasick.cpp
+    util.cpp
+    util/base64.cpp
+    util/fs.cpp
+    util/mmap.cpp
+    util/net.cpp
 )
 
 set_target_properties(biotk PROPERTIES VERSION 
     ${BioTK_VERSION_STRING})
+
 target_link_libraries(biotk 
-    biotk_cuda armadillo z hts cfish lucy)
+    biotk_ext
+    biotk_cuda 
+    z
+
+    armadillo
+    db_stl
+    curl
+    glog
+    hts
+    cfish lucy 
+    ssl
+)
