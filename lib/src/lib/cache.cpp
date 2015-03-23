@@ -4,10 +4,8 @@
 #include "BioTK/ext/gzstream.hpp"
 
 using namespace std;
-using namespace BioTK;
 
 namespace BioTK {
-namespace cache {
 
 string
 DownloadCache::fetch_path(url_t url) {
@@ -25,6 +23,4 @@ DownloadCache::fetch(ifstream& handle, url_t url) {
     handle.open(path);
 }
  
-}; // ns cache
-
 }; // ns BioTK
