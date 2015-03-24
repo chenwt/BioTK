@@ -16,6 +16,24 @@ split(const string &text, char sep) {
     return tokens;
 }
 
+string
+join(const vector<string>& v, const string& sep) {
+    if (!v.empty())
+    {
+        std::stringstream ss;
+        auto it = v.cbegin();
+        while (true)
+        {
+            ss << *it++;
+            if (it != v.cend())
+                ss << sep;
+            else
+                return ss.str();
+        }       
+    }
+    return "";
+}
+
 string lowercase(string s) {
     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
     return s;

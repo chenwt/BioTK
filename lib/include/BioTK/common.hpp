@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <cstddef>
+#include <memory>
 
 #include <armadillo>
 #include <glog/logging.h>

@@ -5,6 +5,7 @@
 #include "BioTK/util/base64.hpp"
 #include "BioTK/util/fs.hpp"
 #include "BioTK/util/net.hpp"
+#include "BioTK/util/serialize.hpp"
 #include "BioTK/util/mmap.hpp"
 
 namespace BioTK {
@@ -12,6 +13,9 @@ namespace BioTK {
 /* String */
 std::vector<std::string> 
     split(const std::string &text, char sep='\t');
+std::string
+    join(const std::vector<std::string>&, 
+            const std::string& sep="\t");
 
 std::string lowercase(std::string);
 std::string uppercase(std::string);

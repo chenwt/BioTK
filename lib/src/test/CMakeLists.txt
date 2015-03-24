@@ -1,9 +1,9 @@
 set(TARGETS 
-    db
     cover_tree_test
     cuda_dot_test
     cache_test
     base64
+    serialize
 )
 
 foreach( bin ${TARGETS} )

@@ -1,35 +1,33 @@
-#include <BioTK.hpp>
-
 #include "db_cxx.h"
 #include "dbstl_map.h"
 
+#include <BioTK.hpp>
+
 using namespace std;
-using namespace BioTK::data::NCBI;
+using BioTK::data::NCBI::Gene;
 using namespace BioTK;
 
-string dir("/home/gilesc/tmp2/");
-string name("foo.db");
+int main(int argc, char* argv[]) {
+    int c;
+    size_t taxon_id;
 
-void create() {
-    KVStore<size_t, Gene> store(dir, name);
-    
-    LOG(INFO) << "db open";
+    while ((c = getopt(argc, argv, "t:")) != -1) {
+        switch (c) {
+            case 't':
+                taxon_id = atoi(optarg);
+                break;
+        }
+    }
 
-    Gene g = {123, 456, "abc", "def"};
-    store.put(123, g);
-    LOG(INFO) << "put";
-
-    Gene g2 = store.get(123);
-    LOG(INFO) << g2.symbol;
-}
-
-void check() {
-    KVStore<size_t, Gene> store(dir, name);
-    Gene g2 = store.get(123);
-    LOG(INFO) << g2.symbol;
-}
-
-int main() {
-    create();
-    check();
+    string line;
+    while (getline(cin, line)) {
+        size_t gene_id = atoi(line.c_str());
+        shared_ptr<Gene> g = entrez_gene(gene_id);
+        if (g) {
+            cout << g->id
+                << "\t" << g->symbol 
+                << "\t" << g->name 
+                << endl;
+        }
+    }
 }

@@ -6,6 +6,7 @@ set(TARGETS
     tsv2bin
     sample
     cacheurl
+    njoin
 
     # Text
     tmatch 

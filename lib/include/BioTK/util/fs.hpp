@@ -4,7 +4,7 @@
 
 namespace BioTK {
 
-int mkdir_p(path_t);
+bool mkdir_p(path_t);
 std::string expanduser(path_t);
 bool path_exists(path_t);
 void copy_file(path_t, path_t);

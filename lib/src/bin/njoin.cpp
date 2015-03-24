@@ -11,44 +11,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <BioTK.hpp>
+
 using namespace std;
+using namespace BioTK;
 
 typedef unordered_map<string, string> index_t;
-
-vector<string> 
-split(const string &text, char sep='\t') {
-    std::vector<std::string> tokens;
-    int start = 0, end = 0;
-    while ((end = text.find(sep, start)) != std::string::npos) {
-        tokens.push_back(text.substr(start, end - start));
-        start = end + 1;
-    }
-    tokens.push_back(text.substr(start));
-    return tokens;
-}
-
-string
-join(const vector<string>& v, const string& sep="\t") {
-    if (!v.empty())
-    {
-        std::stringstream ss;
-        auto it = v.cbegin();
-        while (true)
-        {
-            ss << *it++;
-            if (it != v.cend())
-                ss << sep;
-            else
-                return ss.str();
-        }       
-    }
-    return "";
-}
 
 index_t
 index_lines(istream& input, size_t i) {
     index_t ix;
     string line;
+    getline(input, line);
     while (getline(input, line)) {
         vector<string> fields = split(line);
         string key = fields[i];
@@ -67,6 +41,7 @@ void usage(int rc = 1) {
 int main(int argc, char* argv[]) {
     /* 
      * Wishlist:
+     *  - default to index has no header and input has header (right default?)
      *  - can (eventually) do more than 2 joins at a time (?)
      */
     int c;
@@ -115,8 +90,17 @@ int main(int argc, char* argv[]) {
     }
 
     index_t ix = index_lines(s_ix, k_ix);
+    size_t ix_nc = split(ix.begin()->second).size();
+    if (ix.begin()->second.empty())
+        ix_nc = 0;
 
     string line;
+    // header
+    for (size_t i=0; i<ix_nc; i++)
+        cout << "\t";
+    getline(s_in, line);
+    cout << line << endl;
+
     while (getline(s_in, line)) {
         vector<string> fields = split(line);
         string key = fields[k_in];
@@ -125,14 +109,23 @@ int main(int argc, char* argv[]) {
 
         fields.erase(fields.begin()+k_in);
         string o_in = join(fields);
-        string& o_ix = ix[key];
 
         cout << key << "\t";
         if (!switch_output_order) {
-            cout << o_ix << o_in;
-        } else {
-            cout << o_in << o_ix;
+            if (ix_nc > 0) {
+                string& o_ix = ix[key];
+                cout << o_ix << "\t";
+            }
+            cout << o_in;
+        } 
+        /*
+        else {
+            cout << o_in;
+            if (!o_in.empty())
+                cout << "\t";
+            cout << o_ix;
         }
+        */
         cout << endl;
     }
 }

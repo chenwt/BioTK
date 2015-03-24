@@ -1,16 +1,35 @@
 #!/usr/bin/Rscript --vanilla
 
 library(gplots)
+library(RColorBrewer)
 
+palette <- colorRampPalette(c("green", "black", "red"))(n = 1000)
 X = as.matrix(read.table(file("stdin"), header=T, sep="\t", row.names=1))
 #X = t(scale(t(scale(X))))
 
-distance = function(x) { 
-    as.dist((1 - cor(t(x), method="spearman")) / 2)
+cor.distfn = function(method) {
+    function(x) {
+        as.dist(sqrt((1 - cor(t(x), method=method)) / 2))
+    }
 }
+
+spearman = cor.distfn("spearman")
+pearson = cor.distfn("pearson")
+
 path = commandArgs(trailingOnly=T)[1]
 png(path, width=3000, height=3000, pointsize=12*4.5)
-heatmap.2(X, scale="row", distfun=distance)
+
+dims = function(x) {
+    c(nrow(x), ncol(x))
+}
+
+mahal.dist = function(x) {
+    Sx <- cov(x)
+    as.dist(mahalanobis(x, colMeans(x), Sx))
+}
+
+distfun = spearman
+heatmap.2(log(X), scale="row", distfun=distfun, col=palette)
 dev.off()
 
 # vim: set ft=r :

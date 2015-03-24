@@ -25,10 +25,10 @@ target_link_libraries(biotk
     z
 
     armadillo
-    db_stl
     curl
     glog
     hts
+    leveldb
     cfish lucy 
     ssl
 )

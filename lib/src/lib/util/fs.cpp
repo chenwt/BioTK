@@ -12,11 +12,13 @@ using namespace std;
 
 namespace BioTK {
 
-int 
+bool 
 mkdir_p(path_t path) {
     char cmd[1000];
     sprintf(cmd, "/usr/bin/mkdir -p %s", path.c_str());
-    return system(cmd);
+    bool create = !path_exists(path);
+    system(cmd);
+    return create;
 }
 
 path_t
