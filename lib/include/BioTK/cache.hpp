@@ -4,22 +4,26 @@
 
 #include "BioTK/common.hpp"
 #include "BioTK/util.hpp"
+#include "BioTK/config.hpp"
 
 namespace BioTK {
-namespace cache {
-
-const path_t DEFAULT_DIR = 
-    "~/.cache/BioTK/";
-};
 
 class DownloadCache {
     path_t dir;
 
 public:
-    DownloadCache(path_t dir=BioTK::cache::DEFAULT_DIR+"download/") 
+    DownloadCache(path_t dir) 
             : dir(expanduser(dir)) {
         mkdir_p(expanduser(dir));
     };
+
+    DownloadCache() {
+        std::string CONFIG_ROOT = config("CACHE_ROOT");
+        path_t path = CONFIG_ROOT + "/download";
+        this->dir = path;
+        mkdir_p(dir);
+    }
+
 
     void fetch(std::ifstream&, url_t);
     std::string fetch_path(url_t);
@@ -27,6 +31,7 @@ public:
 
 template <typename KeyT, typename ValueT>
 class KVStore {
+    std::string path;
     leveldb::DB* db;
     leveldb::Options opt;
     leveldb::WriteOptions wopt;
@@ -34,9 +39,41 @@ class KVStore {
     leveldb::Status status;
 
 public:
+    class iterator {
+        leveldb::Iterator* iter;
+
+    public:
+        iterator(leveldb::Iterator* iter) : iter(iter) {
+            iter->SeekToFirst();
+        };
+        ~iterator() { delete iter; }
+        
+        bool eof() {
+            return !iter->Valid();
+        }
+
+        void operator++() {
+            iter->Next();
+        }
+
+        KeyT key() {
+            KeyT k;
+            deserialize(iter->key().ToString(), k);
+            return k;
+        }
+
+        ValueT value() {
+            ValueT v;
+            deserialize(iter->value().ToString(), v);
+            return v;
+        }
+    };
+
+    KVStore(const KVStore& other) : KVStore(other.path) {};
+
     KVStore(path_t _path) {
         opt.create_if_missing = true;
-        std::string path = expanduser(_path);
+        path = expanduser(_path);
         leveldb::DB::Open(opt, path, &db);
     }
 
@@ -53,6 +90,11 @@ public:
         }
         delete it;
         return is_empty;
+    }
+
+    iterator
+    iter() {
+        return iterator(db->NewIterator(ropt));
     }
 
     void 
@@ -77,5 +119,12 @@ public:
         return o;
     }
 };
+
+template <typename KeyT, typename ValueT>
+KVStore<KeyT, ValueT>kvstore(std::string name) {
+    std::string CONFIG_ROOT = config("CONFIG_ROOT");
+    path_t path = CONFIG_ROOT + "/kv/" + name;
+    return KVStore<KeyT,ValueT>(path);
+}
 
 };

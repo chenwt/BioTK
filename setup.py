@@ -148,15 +148,6 @@ pxd = [
 ]
 
 extensions = [
-    Extension("BioTK.genome.types",
-        sources=pxd + ["BioTK/genome/types.pyx"],
-        language="c++"),
-    Extension("BioTK.genome.index",
-        sources=pxd + ["BioTK/genome/index.pyx"],
-        language="c++"),
-    Extension("BioTK.io._BBI",
-        sources=pxd + ["BioTK/io/_BBI.pyx"],
-        language="c++"),
     Extension("BioTK.text.types",
         sources=["BioTK/text/types.pyx"],
         language="c++"),
@@ -189,8 +180,11 @@ def pkgconfig(*packages, **kw):
 
 git_dir = os.path.join(os.path.dirname(__file__), ".git")
 if os.path.exists(git_dir):
-    VERSION = subprocess.check_output(["git", "describe", "--tags"]).strip()\
-            .decode("utf-8")
+    try:
+        VERSION = subprocess.check_output(["git", "describe", "--tags"]).strip()\
+                .decode("utf-8")
+    except subprocess.CalledProcessError:
+        VERSION="git"
     version_py = os.path.join(os.path.dirname(__file__), "BioTK", "version.py")
     try:
         with open(version_py, "w") as handle:

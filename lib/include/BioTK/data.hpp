@@ -13,10 +13,15 @@ struct Gene {
 
 std::shared_ptr<Gene> gene(size_t id);
 
+/*
+struct GeneSet {
+    std::string name, description;
+    std::vector<gene_id_t> genes;
+} __attribute__((packed));
+*/
+
 };
 };
-
-
 
 inline
 std::shared_ptr<BioTK::data::NCBI::Gene>

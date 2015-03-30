@@ -3,6 +3,7 @@
 #include "BioTK/cuda.hpp"
 #include "BioTK/data.hpp"
 #include "BioTK/io.hpp"
+#include "BioTK/seq.hpp"
 #include "BioTK/iridescent.hpp"
 #include "BioTK/log.hpp"
 #include "BioTK/matrix.hpp"
@@ -11,3 +12,4 @@
 #include "BioTK/text/AhoCorasick.hpp"
 #include "BioTK/util.hpp"
 #include "BioTK/ext/gzstream.hpp"
+#include "BioTK/config.hpp"

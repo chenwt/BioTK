@@ -4,6 +4,7 @@ set(TARGETS
     cache_test
     base64
     serialize
+    twobit
 )
 
 foreach( bin ${TARGETS} )

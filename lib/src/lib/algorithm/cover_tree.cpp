@@ -1,6 +1,6 @@
 #include <cassert>
 
-#include <BioTK.hpp>
+#include "BioTK/algorithm/cover_tree.hpp"
 
 using namespace std;
 

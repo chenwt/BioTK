@@ -1,6 +1,7 @@
 add_library(biotk SHARED 
     algorithm/cover_tree.cpp
     cache.cpp
+    config.cpp
     cuda.cpp 
     data.cpp
     io.cpp
@@ -8,6 +9,7 @@ add_library(biotk SHARED
     matrix.cpp
     seq/bbi.cpp
     seq/sam.cpp
+    seq/twobit.cpp
     text/AhoCorasick.cpp
     util.cpp
     util/base64.cpp
@@ -25,6 +27,7 @@ target_link_libraries(biotk
     z
 
     armadillo
+    config++
     curl
     glog
     hts

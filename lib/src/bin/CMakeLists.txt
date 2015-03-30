@@ -16,6 +16,7 @@ set(TARGETS
     summarize standardize log-transform ccipca
     knn knn2
     rand
+    scale
 
     # Sequencing
     bamcov

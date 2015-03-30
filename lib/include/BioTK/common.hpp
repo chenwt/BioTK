@@ -8,6 +8,9 @@
 #include <vector>
 #include <cstddef>
 #include <memory>
+#include <exception>
+#include <stdexcept>
+#include <map>
 
 #include <armadillo>
 #include <glog/logging.h>
