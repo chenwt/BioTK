@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+import sys
+
+import BioTK
+
+BioTK.io.read_matrix(sys.stdin).apply(lambda x: x+1).dump()
