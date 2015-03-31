@@ -15,7 +15,6 @@ from .config import *
 
 import BioTK.data as data
 import BioTK.expression as expression
-import BioTK.genome as genome
 import BioTK.io as io
 import BioTK.learn as learn
 import BioTK.matrix as matrix

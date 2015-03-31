@@ -28,7 +28,7 @@ mahal.dist = function(x) {
     as.dist(mahalanobis(x, colMeans(x), Sx))
 }
 
-distfun = spearman
+distfun = pearson
 heatmap.2(log(X), scale="row", distfun=distfun, col=palette)
 dev.off()
 

@@ -274,9 +274,10 @@ def edger(X, D, formula=None, coefficients=None, weighted=None):
     # weighted: ignored
     assert formula is not None
 
+    return_model = False
     if coefficients is not None:
         assert len(coefficients) == 1
-        coef = list(D.columns).find(coefficients[0])
+        coef = list(D.columns).index(coefficients[0])
     else:
         return_model = True
 
@@ -310,5 +311,10 @@ def edger(X, D, formula=None, coefficients=None, weighted=None):
         o.columns = D.columns
         return o
     comparison = pkg.glmLRT(fit, coef=2)
-    table = r["as.data.frame"](pkg.topTags(comparison, n=X.shape[0]))
-    return pd.DataFrame.from_r(table)
+    table = r["as.data.frame"](pkg.topTags(comparison, 
+        n=X.shape[0]))
+    o = pd.DataFrame.from_r(table)
+    o = replace_index_names(o,
+            ["logCPM"], ["CPM"])
+    o["CPM"] = 2 ** o["CPM"]
+    return o
