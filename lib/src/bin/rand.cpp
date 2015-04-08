@@ -27,7 +27,7 @@ void rmatrix(RNG& rng, size_t nr, size_t nc) {
 
     for (size_t i=0; i<nr; i++) {
         cout << "R" << (i+1);
-        for (size_t j=1; j<nc; j++) {
+        for (size_t j=0; j<nc; j++) {
             cout << "\t" << rng();
         }
         cout << endl;

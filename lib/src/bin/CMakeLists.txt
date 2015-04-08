@@ -32,6 +32,9 @@ set(TARGETS
 
     # Data
     gene
+
+    # Expression
+    dega
 )
 
 foreach( bin ${TARGETS} )

@@ -32,13 +32,13 @@ BioTK::read_matrix(istream& input) {
     vector<vector<double> > X;
     vector<string> index, columns, fields;
 
-    getline(cin, line);
+    getline(input, line);
     fields = split(line);
     for (int i=1; i<fields.size(); i++) {
         columns.push_back(fields[i]);
     }
 
-    while (getline(cin, line)) {
+    while (getline(input, line)) {
         vector<double> data;
         fields = split(line);
         index.push_back(fields[0]);

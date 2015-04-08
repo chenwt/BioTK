@@ -66,5 +66,16 @@ union_size(std::set<T>& x, std::set<T>& y) {
     return x.size() + y.size() - 2 * isect;
 }
 
+/* Algorithms */
+
+template <typename T>
+int
+index_of(const std::vector<T>& container, const T& query) {
+    auto it = std::find(container.begin(), container.end(), query);
+    if (it == container.end())
+        return -1;
+    else
+        return it - container.begin();
 }
 
+}

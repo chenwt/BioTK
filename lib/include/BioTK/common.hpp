@@ -21,5 +21,6 @@ typedef std::string path_t;
 typedef std::string url_t;
 
 typedef size_t gene_id_t;
+typedef size_t taxon_t;
 
 };

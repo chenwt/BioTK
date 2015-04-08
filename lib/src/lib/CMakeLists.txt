@@ -4,6 +4,7 @@ add_library(biotk SHARED
     config.cpp
     cuda.cpp 
     data.cpp
+    expression.cpp
     io.cpp
     iridescent.cpp
     matrix.cpp
