@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+
+import sys
+
+import pandas as pd
+
+import BioTK.plot
+
+p = BioTK.plot.argparse_template()
+p.add_argument("--multi", "-m", action="store_true")
+p.add_argument("--regression-line", "-r", action="store_true")
+args = p.parse_args()
+
+data = pd.read_csv(sys.stdin, 
+        sep="\t", 
+        index_col=0, 
+        header=False)
+
+BioTK.plot.scatter.cli(args, data)

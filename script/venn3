@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# FIXME: Make it take an arbitrary number of sets
+
+import argparse
+import itertools
+from collections import defaultdict
+import functools
+import sys
+import os.path
+
+import pylab as plt
+from matplotlib_venn import venn3
+import matplotlib as mpl
+
+mpl.rcParams['text.usetex']=True
+mpl.rcParams['text.latex.unicode']=True
+
+class DEResult(object):
+    def __init__(self, data, taxon_id=None, key=None):
+        self.data = data
+        self.key = key
+        self.taxon_id = taxon_id
+
+    @staticmethod
+    def load(self, path, **kwargs):
+        import pandas as pd
+        key = os.path.splitext(os.path.basename(path))[0]
+        o = DEResult(pd.read_csv(path, index_col=0, sep="\t"), key=key)
+        return o
+
+    def significant(self, abs_lfc_cutoff=0, fdr_cutoff=0.1):
+        pass
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--outfile", "-o", required=True)
+parser.add_argument("--title", "-t")
+args = parser.parse_args()
+
+# venn3: 
+_schema = [[c.isupper() for c in p] for p in "Abc, aBc, ABc, abC, AbC, aBC, ABC".split(", ")]
+up_arrow = "↑"
+
+elements = []
+keys = []
+for line in sys.stdin:
+    fields = line.rstrip("\n").split()
+    keys.append(fields[0])
+    elements.append(set(fields[1:]))
+
+assert len(elements) == 3
+
+s1,s2,s3 = elements
+uelements = functools.reduce(lambda x,y: x | y, elements)
+text = defaultdict(set)
+
+plt.figure(dpi=300)
+p = venn3([1]*7, set_labels=keys)
+
+# Blank text for unoccupied patches
+for pattern in list(itertools.product(range(2), range(2), range(2))):
+    if pattern == (0,0,0):
+        continue
+    k = "".join(map(str, pattern))
+    p.get_label_by_id(k).set_text("")
+
+# Set text for occupied patches
+for e in uelements:
+    pattern = list(map(lambda s: e in s, elements))
+    i = _schema.index(pattern)
+    k = "".join(list(map(lambda x: str(int(x)), pattern)))
+    text[k].add(e)
+for k,es in text.items():
+    label = p.get_label_by_id(k)
+    label.set_text("\n".join(es))
+    label.set_fontsize(10)
+
+if args.title:
+    plt.title(args.title)
+
+plt.savefig(args.outfile)

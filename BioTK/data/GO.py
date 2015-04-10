@@ -10,7 +10,7 @@ import networkx as nx
 import pandas as pd
 
 from BioTK.io import download
-from BioTK.ontology import Ontology, parse
+from BioTK.ontology import Ontology, parse, fetch
 
 __all__ = ["GeneOntology"]
 
@@ -29,7 +29,8 @@ def _get_annotation(taxon_id):
 class GeneOntology(Ontology):
     def __init__(self):
         o = fetch("GO")
-        super(Ontology, self).__init__(o.terms, o.synonyms, o.relations)
+        super(GeneOntology, self)\
+                .__init__(o.terms, o.synonyms, o.relations)
 
     def annotation(self, taxon_id, recursive=False):
         A = _get_annotation(taxon_id)
@@ -61,4 +62,5 @@ class GeneOntology(Ontology):
             "^(?:(?:positive|negative) )?regulation of ", "")
         ts["Directionality"] = coef
         return ts.reset_index().drop_duplicates().pivot(
-                "Term ID", "Concept", "Directionality").astype(np.float32)
+                "Term ID", "Concept", "Directionality")\
+                        .astype(np.float32)

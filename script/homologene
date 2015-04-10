@@ -13,7 +13,7 @@ taxid2="$2"
 tmpdir=$(mktemp -d)
 trap 'rm -rf $tmpdir' EXIT
 
-cache_download \
+cacheurl \
     "ftp://ftp.ncbi.nih.gov/pub/HomoloGene/current/homologene.data"\
     | tee >(tawk -v t="$taxid1" '$2 == t { print $1,$3 }' \
         | tsort -k1b,1 > $tmpdir/1) \

@@ -2,11 +2,14 @@
 numpy
 scipy
 cython
-matplotlib
-matplotlib-venn
 pytz
 numexpr
 pandas
+
+# Plotting
+seaborn
+matplotlib
+matplotlib-venn
 
 # Statistics
 patsy
@@ -35,6 +38,3 @@ shyaml
 # Documentation
 docutils
 sphinx
-
-# Experimental
-dataset

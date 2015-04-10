@@ -317,4 +317,5 @@ def edger(X, D, formula=None, coefficients=None, weighted=None):
     o = replace_index_names(o,
             ["logCPM"], ["CPM"])
     o["CPM"] = 2 ** o["CPM"]
+    o["SLPV"] = o["PValue"].apply(np.log10) * np.sign(o["logFC"])
     return o

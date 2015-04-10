@@ -29,7 +29,14 @@ mahal.dist = function(x) {
 }
 
 distfun = pearson
-heatmap.2(log(X), scale="row", distfun=distfun, col=palette)
+heatmap.2(X, 
+          dendrogram="column",
+          #scale="row", 
+          labRow=F,
+          key=F,
+          distfun=distfun, 
+          col=palette, 
+          margins=c(10,10))
 dev.off()
 
 # vim: set ft=r :

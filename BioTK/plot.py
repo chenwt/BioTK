@@ -1,8 +1,11 @@
 import argparse
 import functools
 
+import seaborn
 import numpy as np
+from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 
 DEFAULT_COLOR = "blue"
 
@@ -58,6 +61,40 @@ def figure_builder(fn):
 
     wrap.cli = cli
     return wrap
+
+@figure_builder
+def scatter(data, color=DEFAULT_COLOR, regression_line=False, 
+        multi=False):
+    if multi:
+        assert data.shape[1] == 3
+        category = data.iloc[:,2]
+        palette = seaborn.color_palette()
+        assert len(set(category)) <= len(palette)
+        cmap = dict(zip(set(category), palette))
+        color = [cmap[c] for c in category]
+        print(category.unique())
+        patches = [Patch(color=cmap[k],label=k) 
+                for k in category.unique()]
+    x = data.iloc[:,0]
+    y = data.iloc[:,1]
+
+    if regression_line:
+        m, b = np.polyfit(x, y, 1)
+        r, p = pearsonr(x,y)
+        plt.plot(x, m*x+b, "-", color="black", alpha=1)
+        print("r =", r)
+        xr = max(x) - min(x)
+        yr = max(y) - min(y)
+        xloc = min(x) + xr * 0.9
+        yloc = xloc * m + b + yr * 0.05
+        plt.text(xloc, yloc, "r = %0.3f" % r, color="black")
+
+    p = plt.scatter(x,y,color=color)
+
+    if multi:
+        plt.legend(handles=patches)
+
+    return p
 
 @figure_builder
 def histogram(data, bins=10, color=DEFAULT_COLOR):

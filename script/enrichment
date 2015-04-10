@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
 Set enrichment analysis.
+
+Inputs:
+    - stdin: a two-column vector:
+        column 1 - element ID
+        column 2 - numeric score (0-1 for boolean)
+    - categories: for each line, first column is category ID, 
+        and remaining columns are elements in that set
 """
 
 # FIXME: handle case where input doesn't have numeric values associated (?)
@@ -22,11 +29,10 @@ p.add_argument("--category-names", "-n",
 p.add_argument("--absolute-value", "-a", action="store_true",
         help="Perform enrichment for the set of inputs with the highest absolute value")
 p.add_argument("categories", type=argparse.FileType("r"))
+p.add_argument("--invert-y", "-v",
+        help="Multiply the 'y' variable by -1 before testing",
+        action="store_true")
 args = p.parse_args()
-
-#p.add_argument("--invert-y", "-i",
-#        help="Multiply the 'y' variable by -1 before testing",
-#        action="store_true")
 
 assert 0 <= args.positive_percent <= 1
 
